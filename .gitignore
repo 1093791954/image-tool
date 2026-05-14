@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-electron/
+release/
+tmp-responsive-check/
+*.tsbuildinfo
+.env
+.env.*
+image-tools-data/
