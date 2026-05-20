@@ -225,7 +225,8 @@ textarea:focus,
 .theme-switcher button:focus-visible,
 .shop-link:focus-visible,
 .image-frame:focus-visible,
-.icon-button:focus-visible {
+.icon-button:focus-visible,
+.file-action:focus-within {
   background: var(--surface);
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--focus);
@@ -297,6 +298,14 @@ textarea:focus,
 .theme-switcher button:hover:not(:disabled),
 .icon-button:hover:not(:disabled) {
   background: var(--surface-hover);
+}
+
+.file-action {
+  cursor: pointer;
+}
+
+.file-action input {
+  display: none;
 }
 
 .ghost {

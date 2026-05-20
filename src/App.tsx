@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Download,
   ExternalLink,
-  FolderOpen,
   Image as ImageIcon,
   Images,
   KeyRound,
@@ -15,13 +14,18 @@ import {
   ShoppingBag,
   Sparkles,
   Sun,
+  Upload,
   X,
   Trash2,
 } from 'lucide-react'
 import {
   clearImages,
   deleteImage,
+  exportBackup,
+  getSettings,
+  importBackup,
   listImages,
+  saveSettings,
   saveImages,
 } from './storage'
 import { bridge } from './bridge'
@@ -57,6 +61,18 @@ function downloadDataUrl(src: string, filename: string) {
   link.href = src
   link.download = filename
   link.click()
+}
+
+function downloadJsonFile(data: unknown, filename: string) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: 'application/json',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 function newImageId(index: number) {
@@ -118,7 +134,6 @@ export function App() {
   const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL)
   const [apiKey, setApiKey] = useState('')
   const [persistApiKey, setPersistApiKey] = useState(false)
-  const [galleryDir, setGalleryDir] = useState('')
   const [themeMode, setThemeMode] = useState<ThemeMode>('system')
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
   const [models, setModels] = useState<ModelOption[]>([])
@@ -169,10 +184,9 @@ export function App() {
   )
 
   useEffect(() => {
-    void bridge.getSettings().then((settings) => {
+    void getSettings().then((settings) => {
       setBaseUrl(settings.baseUrl || DEFAULT_BASE_URL)
       setPersistApiKey(Boolean(settings.persistApiKey))
-      setGalleryDir(settings.galleryDir || '')
       setThemeMode(settings.themeMode || 'system')
       if (settings.persistApiKey && settings.apiKey) {
         setApiKey(settings.apiKey)
@@ -228,43 +242,53 @@ export function App() {
   }
 
   async function handleSaveSettings() {
-    await bridge.saveSettings({
+    await saveSettings({
       baseUrl,
       persistApiKey,
       apiKey,
       themeMode,
-      galleryDir,
     })
     setStatus(persistApiKey ? '设置已保存' : '设置已保存，API Key 未落盘')
   }
 
   async function handleThemeChange(nextThemeMode: ThemeMode) {
     setThemeMode(nextThemeMode)
-    await bridge.saveSettings({
+    await saveSettings({
       baseUrl,
       persistApiKey,
       apiKey,
       themeMode: nextThemeMode,
-      galleryDir,
     })
     setStatus('主题已切换')
   }
 
-  async function handleChooseGalleryDir() {
-    if (!bridge.chooseGalleryDir) {
-      setStatus('浏览器模式不支持选择本地图库目录')
-      return
-    }
-
-    const nextGalleryDir = await bridge.chooseGalleryDir()
-    if (!nextGalleryDir) return
-
-    setGalleryDir(nextGalleryDir)
-    setStatus('图库目录已更新')
-  }
-
   async function handleOpenShop() {
     await bridge.openExternal(SHOP_URL)
+  }
+
+  async function handleExportBackup() {
+    const backup = await exportBackup()
+    const date = new Date(backup.exportedAt).toISOString().slice(0, 10)
+    downloadJsonFile(backup, `gpt-image-tools-backup-${date}.json`)
+    setStatus('本地备份已导出')
+  }
+
+  async function handleImportBackup(file: File) {
+    try {
+      const text = await file.text()
+      const importedCount = await importBackup(JSON.parse(text))
+      const settings = await getSettings()
+      setBaseUrl(settings.baseUrl || DEFAULT_BASE_URL)
+      setPersistApiKey(Boolean(settings.persistApiKey))
+      setThemeMode(settings.themeMode || 'system')
+      setApiKey('')
+      await refreshImages()
+      setStatus(`已导入 ${importedCount} 张图片，API Key 未从备份恢复`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setError(message)
+      setStatus('导入备份失败')
+    }
   }
 
   async function addReferenceFiles(files: FileList | File[]) {
@@ -369,7 +393,7 @@ export function App() {
       await saveImages(records)
       await refreshImages()
       setGenerationProgress(100)
-      setStatus(`已生成 ${records.length} 张图片，已保存到本机`)
+      setStatus(`已生成 ${records.length} 张图片，已保存到当前浏览器`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
@@ -399,7 +423,7 @@ export function App() {
           </div>
           <div>
             <h1>GPT Image Tools</h1>
-            <p>本地生图测试工具</p>
+            <p>Web 本地生图工具</p>
           </div>
         </div>
 
@@ -436,7 +460,7 @@ export function App() {
               checked={persistApiKey}
               onChange={(event) => setPersistApiKey(event.target.checked)}
             />
-            <span>将 API Key 保存到本机配置</span>
+            <span>将 API Key 保存到当前浏览器</span>
           </label>
 
           <div className='button-grid'>
@@ -537,7 +561,7 @@ export function App() {
 
         <div className='status-bar'>
           <span>{status}</span>
-          {galleryDir ? <small title={galleryDir}>图库：{galleryDir}</small> : null}
+          <small>设置和图库保存在当前浏览器本地</small>
         </div>
       </aside>
 
@@ -545,7 +569,7 @@ export function App() {
         <header className='topbar'>
           <div>
             <h2>生成工作台</h2>
-            <p>连接模型、生成图片并管理本地图库。</p>
+            <p>连接上游 API、生成图片并管理浏览器本地图库。</p>
           </div>
           <div className='topbar-actions'>
             <div className='theme-switcher' aria-label='主题切换'>
@@ -577,7 +601,7 @@ export function App() {
         <section className='prompt-panel'>
           <div>
             <h2>生成图片</h2>
-            <p>支持文生图和图片引导，结果会保存到本机图库。</p>
+            <p>支持文生图和图片引导，结果只保存到当前浏览器本地图库。</p>
           </div>
 
           <div className='mode-tabs' aria-label='生成模式'>
@@ -610,7 +634,7 @@ export function App() {
             >
               <div>
                 <strong>参考图</strong>
-                <span>最多 4 张，拖入或选择图片后用提示词描述要如何变化。</span>
+                <span>最多 4 张，参考图会发送到你配置的上游 API 用于生成。</span>
               </div>
               <label className='upload-box'>
                 <ImageIcon size={18} />
@@ -693,15 +717,28 @@ export function App() {
         <section className='gallery-header'>
           <div>
             <h2>本地图库</h2>
-            <p>{images.length} 张图片，只保存在当前电脑。</p>
+            <p>{images.length} 张图片，保存在当前浏览器 IndexedDB。</p>
           </div>
+          <button className='secondary' onClick={() => void handleExportBackup()}>
+            <Download size={16} />
+            导出备份
+          </button>
+          <label className='secondary file-action'>
+            <Upload size={16} />
+            导入备份
+            <input
+              type='file'
+              accept='application/json,.json'
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file) void handleImportBackup(file)
+                event.currentTarget.value = ''
+              }}
+            />
+          </label>
           <button className='ghost danger' onClick={handleClearImages} disabled={images.length === 0}>
             <Trash2 size={16} />
             清空图库
-          </button>
-          <button className='secondary' onClick={() => void handleChooseGalleryDir()}>
-            <FolderOpen size={16} />
-            更换目录
           </button>
         </section>
 
@@ -818,7 +855,7 @@ export function App() {
               <span style={{ width: `${generationProgress}%` }} />
             </div>
             <p>
-              当前接口不会返回真实生成百分比，这里按请求类型、数量和质量估算；图片返回后会自动保存到本机图库。
+              当前接口不会返回真实生成百分比，这里按请求类型、数量和质量估算；图片返回后会自动保存到浏览器本地图库。
             </p>
           </div>
         </section>

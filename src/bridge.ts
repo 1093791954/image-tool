@@ -1,12 +1,9 @@
 import type {
-  AppSettings,
+  ImageApiClient,
   ImageGenerationPayload,
   ImageGenerationResult,
-  ImageToolsBridge,
   ModelOption,
 } from './types'
-
-const settingsKey = 'image-tools-settings'
 
 function normalizeBaseUrl(baseUrl: string) {
   const trimmed = baseUrl.trim().replace(/\/+$/, '')
@@ -55,36 +52,31 @@ function blobFromDataUrl(dataUrl: string) {
   return new Blob([bytes], { type })
 }
 
-const webBridge: ImageToolsBridge = {
-  async getSettings() {
-    const raw = localStorage.getItem(settingsKey)
-    if (!raw) {
-      return {
-        baseUrl: 'https://cc.api-corp.top',
-        persistApiKey: false,
-        apiKey: '',
-        themeMode: 'system',
-        galleryDir: '',
-      }
+async function parseImageResult(
+  body: { data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }> }
+) {
+  const images: ImageGenerationResult['images'] = []
+  for (const item of body.data || []) {
+    if (item.b64_json) {
+      images.push({
+        src: `data:image/png;base64,${item.b64_json}`,
+        revisedPrompt: item.revised_prompt,
+      })
+    } else if (item.url) {
+      images.push({
+        src: await urlToDataUrl(item.url),
+        revisedPrompt: item.revised_prompt,
+      })
     }
-    return JSON.parse(raw) as AppSettings
-  },
+  }
 
-  async saveSettings(settings) {
-    const saved = {
-      ...settings,
-      apiKey: settings.persistApiKey ? settings.apiKey || '' : '',
-    }
-    localStorage.setItem(settingsKey, JSON.stringify(saved))
-    return saved
-  },
+  if (images.length === 0) throw new Error('No image returned by upstream')
+  return { images }
+}
 
+export const bridge: ImageApiClient = {
   async openExternal(url) {
     window.open(url, '_blank', 'noopener,noreferrer')
-  },
-
-  async chooseGalleryDir() {
-    return null
   },
 
   async listModels(args) {
@@ -131,23 +123,7 @@ const webBridge: ImageToolsBridge = {
         data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>
       }>(response, 'Image edit failed')
 
-      const images: ImageGenerationResult['images'] = []
-      for (const item of body.data || []) {
-        if (item.b64_json) {
-          images.push({
-            src: `data:image/png;base64,${item.b64_json}`,
-            revisedPrompt: item.revised_prompt,
-          })
-        } else if (item.url) {
-          images.push({
-            src: await urlToDataUrl(item.url),
-            revisedPrompt: item.revised_prompt,
-          })
-        }
-      }
-
-      if (images.length === 0) throw new Error('No image returned by upstream')
-      return { images }
+      return parseImageResult(body)
     }
 
     const response = await fetch(
@@ -169,24 +145,6 @@ const webBridge: ImageToolsBridge = {
       data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>
     }>(response, 'Image generation failed')
 
-    const images: ImageGenerationResult['images'] = []
-    for (const item of body.data || []) {
-      if (item.b64_json) {
-        images.push({
-          src: `data:image/png;base64,${item.b64_json}`,
-          revisedPrompt: item.revised_prompt,
-        })
-      } else if (item.url) {
-        images.push({
-          src: await urlToDataUrl(item.url),
-          revisedPrompt: item.revised_prompt,
-        })
-      }
-    }
-
-    if (images.length === 0) throw new Error('No image returned by upstream')
-    return { images }
+    return parseImageResult(body)
   },
 }
-
-export const bridge = window.imageTools || webBridge

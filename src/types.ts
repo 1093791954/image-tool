@@ -5,7 +5,10 @@ export type AppSettings = {
   persistApiKey: boolean
   apiKey?: string
   themeMode?: ThemeMode
-  galleryDir?: string
+}
+
+export type BackupSettings = Omit<AppSettings, 'apiKey' | 'persistApiKey'> & {
+  persistApiKey: false
 }
 
 export type ModelOption = {
@@ -46,8 +49,6 @@ export type ImageGenerationResult = {
 export type LocalImageRecord = {
   id: string
   src: string
-  filePath?: string
-  filename?: string
   prompt: string
   model: string
   size: string
@@ -58,17 +59,17 @@ export type LocalImageRecord = {
   referenceImageNames?: string[]
 }
 
-export type ImageToolsBridge = {
-  getSettings: () => Promise<AppSettings>
-  saveSettings: (settings: AppSettings) => Promise<AppSettings>
+export type BackupFile = {
+  version: 1
+  exportedAt: number
+  settings: BackupSettings
+  images: LocalImageRecord[]
+}
+
+export type ImageApiClient = {
   listModels: (args: { baseUrl: string; apiKey: string }) => Promise<ModelOption[]>
   generateImages: (
     payload: ImageGenerationPayload
   ) => Promise<ImageGenerationResult>
   openExternal: (url: string) => Promise<void>
-  listImages?: () => Promise<LocalImageRecord[]>
-  saveImages?: (records: LocalImageRecord[]) => Promise<LocalImageRecord[]>
-  deleteImage?: (id: string) => Promise<void>
-  clearImages?: () => Promise<void>
-  chooseGalleryDir?: () => Promise<string | null>
 }
