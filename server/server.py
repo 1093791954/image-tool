@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import http.cookiejar
+import base64
+import ipaddress
 import json
 import os
 import posixpath
+import socket
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -23,10 +26,15 @@ CODEX_GROUP = "codex 满血高速"
 CODEX_MODEL = "gpt-5.5"
 CODEX_TOKEN_NAME = "GPT Image Tools - codex"
 MAX_JSON_BODY = 16 * 1024
+MAX_IMAGE_BODY = 32 * 1024 * 1024
 REQUEST_TIMEOUT = 25
 
 
 class NewApiError(Exception):
+    pass
+
+
+class ImageFetchError(Exception):
     pass
 
 
@@ -50,6 +58,74 @@ def normalize_new_api_base_url(value: str) -> str:
 
 def split_model_limits(value: str | None) -> set[str]:
     return {item.strip() for item in (value or "").split(",") if item.strip()}
+
+
+def is_public_hostname(hostname: str | None) -> bool:
+    if not hostname:
+        return False
+    if hostname.lower() in {"localhost"}:
+        return False
+
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror:
+        return False
+
+    for info in infos:
+        address = info[4][0]
+        try:
+            ip = ipaddress.ip_address(address)
+        except ValueError:
+            return False
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            return False
+    return True
+
+
+def fetch_image_as_data_url(url: str) -> str:
+    parsed = urllib.parse.urlparse((url or "").strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ImageFetchError("图片 URL 格式不正确")
+    if parsed.username or parsed.password:
+        raise ImageFetchError("图片 URL 不允许包含账号密码")
+    if not is_public_hostname(parsed.hostname):
+        raise ImageFetchError("图片 URL 不是可公开访问地址")
+
+    request = urllib.request.Request(
+        urllib.parse.urlunparse(parsed),
+        headers={
+            "Accept": "image/*,*/*;q=0.8",
+            "User-Agent": "GPT-Image-Tools/1.0",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
+            content_type = response.headers.get("Content-Type", "image/png").split(";")[0].strip()
+            if not content_type.startswith("image/"):
+                raise ImageFetchError("返回内容不是图片")
+
+            chunks: list[bytes] = []
+            total = 0
+            while True:
+                chunk = response.read(1024 * 256)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_IMAGE_BODY:
+                    raise ImageFetchError("图片过大，无法保存到浏览器")
+                chunks.append(chunk)
+    except urllib.error.URLError as exc:
+        raise ImageFetchError(f"无法下载生成图片：{exc.reason}") from exc
+
+    encoded = base64.b64encode(b"".join(chunks)).decode("ascii")
+    return f"data:{content_type};base64,{encoded}"
 
 
 class NewApiSession:
@@ -230,6 +306,10 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed_path = urllib.parse.urlparse(self.path)
+        if parsed_path.path == "/api/image-url-to-data-url":
+            self.handle_image_url_to_data_url()
+            return
+
         if parsed_path.path != "/api/newapi/login-key":
             json_response(self, HTTPStatus.NOT_FOUND, {"success": False, "message": "Not found"})
             return
@@ -261,6 +341,36 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 self,
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 {"success": False, "message": "登录中转站失败，请稍后重试"},
+            )
+
+    def handle_image_url_to_data_url(self) -> None:
+        try:
+            body_length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            body_length = 0
+        if body_length <= 0 or body_length > MAX_JSON_BODY:
+            json_response(
+                self,
+                HTTPStatus.BAD_REQUEST,
+                {"success": False, "message": "请求体为空或过大"},
+            )
+            return
+
+        try:
+            payload = json.loads(self.rfile.read(body_length).decode("utf-8"))
+            data_url = fetch_image_as_data_url(str(payload.get("url") or ""))
+            json_response(
+                self,
+                HTTPStatus.OK,
+                {"success": True, "message": "", "dataUrl": data_url},
+            )
+        except ImageFetchError as exc:
+            json_response(self, HTTPStatus.OK, {"success": False, "message": str(exc)})
+        except Exception:
+            json_response(
+                self,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"success": False, "message": "下载生成图片失败，请稍后重试"},
             )
 
     def translate_path(self, path: str) -> str:

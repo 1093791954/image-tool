@@ -49,9 +49,26 @@ function assertApiSuccess<T>(
 }
 
 async function urlToDataUrl(url: string) {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`Failed to download image: ${response.status}`)
-  const blob = await response.blob()
+  let blob: Blob
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`Failed to download image: ${response.status}`)
+    blob = await response.blob()
+  } catch {
+    const response = await fetch('/api/image-url-to-data-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    })
+    const body = await parseJsonResponse<{ success?: boolean; message?: string; dataUrl?: string }>(
+      response,
+      'Image URL proxy failed'
+    )
+    if (!body.success || !body.dataUrl) {
+      throw new Error(body.message || '图片已生成，但浏览器无法下载返回的图片 URL')
+    }
+    return body.dataUrl
+  }
 
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()

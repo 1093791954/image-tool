@@ -456,7 +456,7 @@ export function App() {
   const [size, setSize] = useState('1024x1024')
   const [quality, setQuality] = useState('auto')
   const [count, setCount] = useState(1)
-  const [responseFormat, setResponseFormat] = useState<'url' | 'b64_json'>('url')
+  const [responseFormat, setResponseFormat] = useState<'url' | 'b64_json'>('b64_json')
   const [inputFidelity, setInputFidelity] = useState<'low' | 'high'>('high')
   const [canvases, setCanvases] = useState<WorkflowCanvas[]>(loadWorkflowCanvases)
   const [activeCanvasId, setActiveCanvasId] = useState(loadActiveCanvasId)
