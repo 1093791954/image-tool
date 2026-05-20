@@ -1022,7 +1022,11 @@ export function App() {
           ...edge.data,
           label:
             edge.data?.label ||
-            (edge.source.startsWith('asset') ? '参考图 -> 图片生成' : '提示词 -> 图片生成'),
+            (edge.source.startsWith('asset')
+              ? '参考图 -> 图片生成'
+              : edge.source.startsWith('generate')
+                ? '生成图 -> 参考图'
+                : '提示词 -> 图片生成'),
           onDelete: deleteWorkflowEdge,
         },
         animated:
@@ -1048,6 +1052,13 @@ export function App() {
         return connection.sourceHandle === 'prompt' && connection.targetHandle === 'prompt'
       }
 
+      if (source.type === 'generate') {
+        return (
+          connection.sourceHandle === 'generated-image' &&
+          connection.targetHandle === 'image'
+        )
+      }
+
       return false
     },
     [nodes]
@@ -1062,7 +1073,11 @@ export function App() {
 
       const sourceType = connection.source?.split('-')[0]
       const label =
-        sourceType === 'asset' ? '参考图 -> 图片生成' : '提示词 -> 图片生成'
+        sourceType === 'asset'
+          ? '参考图 -> 图片生成'
+          : sourceType === 'generate'
+            ? '生成图 -> 参考图'
+            : '提示词 -> 图片生成'
       const className =
         sourceType === 'asset'
           ? 'edge-blue'

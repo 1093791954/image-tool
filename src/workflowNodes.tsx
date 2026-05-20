@@ -305,6 +305,10 @@ export function GenerateNode({ id, data }: NodeProps<GenerateFlowNode>) {
           </>
         )}
       </div>
+      <div className='node-port-row node-port-row-source node-port-row-output'>
+        <span>生成图片输出</span>
+        <Handle type='source' position={Position.Right} id='generated-image' />
+      </div>
       <div className='node-param-grid nodrag'>
         <label>
           <span>模型</span>
