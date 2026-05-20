@@ -350,7 +350,22 @@ select:disabled {
   display: grid;
   justify-items: start;
   gap: 8px;
-  margin: 0 0 10px 4px;
+  margin: 0;
+}
+
+.node-port-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  min-height: 56px;
+  margin: 0 4px 10px;
+}
+
+.node-port-grid .node-port-row-source {
+  align-self: start;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .react-flow__edge-path {

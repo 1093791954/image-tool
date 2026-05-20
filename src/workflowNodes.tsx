@@ -276,14 +276,20 @@ export function GenerateNode({ id, data }: NodeProps<GenerateFlowNode>) {
       subtitle='Generation'
       onDelete={data.onDeleteNode}
     >
-      <div className='node-input-stack'>
-        <div className='node-port-row node-port-row-target'>
-          <Handle type='target' position={Position.Left} id='image' />
-          <span>参考图输入</span>
+      <div className='node-port-grid'>
+        <div className='node-input-stack'>
+          <div className='node-port-row node-port-row-target'>
+            <Handle type='target' position={Position.Left} id='image' />
+            <span>参考图输入</span>
+          </div>
+          <div className='node-port-row node-port-row-target'>
+            <Handle type='target' position={Position.Left} id='prompt' />
+            <span>提示词输入</span>
+          </div>
         </div>
-        <div className='node-port-row node-port-row-target'>
-          <Handle type='target' position={Position.Left} id='prompt' />
-          <span>提示词输入</span>
+        <div className='node-port-row node-port-row-source node-port-row-output'>
+          <span>生成图片输出</span>
+          <Handle type='source' position={Position.Right} id='generated-image' />
         </div>
       </div>
       <div className='generation-preview'>
@@ -304,10 +310,6 @@ export function GenerateNode({ id, data }: NodeProps<GenerateFlowNode>) {
             <span>NO IMAGE</span>
           </>
         )}
-      </div>
-      <div className='node-port-row node-port-row-source node-port-row-output'>
-        <span>生成图片输出</span>
-        <Handle type='source' position={Position.Right} id='generated-image' />
       </div>
       <div className='node-param-grid nodrag'>
         <label>
