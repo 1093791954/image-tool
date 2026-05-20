@@ -4,10 +4,11 @@ export type AppSettings = {
   baseUrl: string
   persistApiKey: boolean
   apiKey?: string
+  codexApiKey?: string
   themeMode?: ThemeMode
 }
 
-export type BackupSettings = Omit<AppSettings, 'apiKey' | 'persistApiKey'> & {
+export type BackupSettings = Omit<AppSettings, 'apiKey' | 'codexApiKey' | 'persistApiKey'> & {
   persistApiKey: false
 }
 
@@ -55,10 +56,23 @@ export type ManagedNewApiLoginPayload = {
 export type ManagedNewApiLoginResult = {
   baseUrl: string
   apiKey: string
+  codexApiKey: string
   group: string
   model: string
   tokenName: string
   created: boolean
+  codexGroup: string
+  codexModel: string
+  codexTokenName: string
+  codexCreated: boolean
+}
+
+export type PromptOptimizationPayload = {
+  baseUrl: string
+  apiKey: string
+  model: string
+  prompt: string
+  mode: 'text' | 'image'
 }
 
 export type LocalImageRecord = {
@@ -86,6 +100,7 @@ export type ImageApiClient = {
   loginNewApi: (
     payload: ManagedNewApiLoginPayload
   ) => Promise<ManagedNewApiLoginResult>
+  optimizePrompt: (payload: PromptOptimizationPayload) => Promise<string>
   generateImages: (
     payload: ImageGenerationPayload
   ) => Promise<ImageGenerationResult>

@@ -19,6 +19,7 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  WandSparkles,
   X,
 } from 'lucide-react'
 import type { LocalImageRecord, ReferenceImage } from './types'
@@ -41,6 +42,9 @@ export type PromptNodeData = {
   prompt: string
   setPrompt: Dispatch<SetStateAction<string>>
   generationMode: GenerationMode
+  isOptimizingPrompt: boolean
+  canOptimizePrompt: boolean
+  onOptimizePrompt: () => void
 } & BaseNodeData
 
 export type GenerateNodeData = {
@@ -96,6 +100,7 @@ function NodeShell({
   accent,
   title,
   subtitle,
+  titleAction,
   onDelete,
   children,
 }: {
@@ -103,6 +108,7 @@ function NodeShell({
   accent: 'blue' | 'violet' | 'pink' | 'green'
   title: string
   subtitle: string
+  titleAction?: ReactNode
   onDelete: (id: string) => void
   children: ReactNode
 }) {
@@ -111,6 +117,7 @@ function NodeShell({
       <div className='node-title'>
         <span>{title}</span>
         <div>
+          {titleAction}
           <small>{subtitle}</small>
           <button
             type='button'
@@ -221,6 +228,25 @@ export function PromptNode({ id, data }: NodeProps<PromptFlowNode>) {
       accent='violet'
       title='文字描述'
       subtitle='Prompt'
+      titleAction={
+        <button
+          type='button'
+          className='node-title-action nodrag'
+          onClick={(event) => {
+            event.stopPropagation()
+            data.onOptimizePrompt()
+          }}
+          disabled={data.isOptimizingPrompt || !data.prompt.trim()}
+          aria-label='优化提示词'
+          title='优化提示词'
+        >
+          {data.isOptimizingPrompt ? (
+            <Loader2 className='spin' size={14} />
+          ) : (
+            <WandSparkles size={14} />
+          )}
+        </button>
+      }
       onDelete={data.onDeleteNode}
     >
       <div className='node-port-row node-port-row-source'>

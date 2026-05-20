@@ -605,6 +605,30 @@ select:disabled {
   border-radius: 6px;
 }
 
+.node-title-action {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  color: var(--violet);
+  background: rgb(166 132 255 / 12%);
+  border: 1px solid rgb(166 132 255 / 34%);
+  border-radius: 6px;
+}
+
+.node-title-action:hover:not(:disabled) {
+  color: var(--text);
+  background: rgb(166 132 255 / 22%);
+  border-color: rgb(166 132 255 / 58%);
+}
+
+.node-title-action:disabled {
+  color: var(--text-muted);
+  background: rgb(255 255 255 / 4%);
+  border-color: var(--border);
+  opacity: 0.72;
+}
+
 .node-delete:hover {
   color: var(--danger);
   background: var(--danger-bg);

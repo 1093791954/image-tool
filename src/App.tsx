@@ -327,6 +327,7 @@ function progressStage(progress: number, mode: 'text' | 'image') {
 export function App() {
   const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL)
   const [apiKey, setApiKey] = useState('')
+  const [codexApiKey, setCodexApiKey] = useState('')
   const [persistApiKey, setPersistApiKey] = useState(false)
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false)
   const [loginUsername, setLoginUsername] = useState('')
@@ -345,6 +346,7 @@ export function App() {
   const [activeCanvasId, setActiveCanvasId] = useState(loadActiveCanvasId)
   const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isOptimizingPrompt, setIsOptimizingPrompt] = useState(false)
   const [generationStartedAt, setGenerationStartedAt] = useState<number | null>(null)
   const [generationProgress, setGenerationProgress] = useState(0)
   const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState(0)
@@ -470,6 +472,7 @@ export function App() {
       setPersistApiKey(Boolean(settings.persistApiKey))
       setThemeMode(settings.themeMode || 'system')
       if (settings.persistApiKey && settings.apiKey) setApiKey(settings.apiKey)
+      if (settings.persistApiKey && settings.codexApiKey) setCodexApiKey(settings.codexApiKey)
     })
     void refreshImages()
   }, [])
@@ -562,7 +565,7 @@ export function App() {
   }
 
   async function handleSaveSettings() {
-    await saveSettings({ baseUrl, persistApiKey, apiKey, themeMode })
+    await saveSettings({ baseUrl, persistApiKey, apiKey, codexApiKey, themeMode })
     setStatus(persistApiKey ? '设置已保存' : '设置已保存，API Key 未落盘')
   }
 
@@ -572,6 +575,7 @@ export function App() {
       baseUrl,
       persistApiKey,
       apiKey,
+      codexApiKey,
       themeMode: nextThemeMode,
     })
     setStatus('主题已切换')
@@ -601,6 +605,7 @@ export function App() {
       setPersistApiKey(Boolean(settings.persistApiKey))
       setThemeMode(settings.themeMode || 'system')
       setApiKey('')
+      setCodexApiKey('')
       await refreshImages()
       setStatus(`已导入 ${importedCount} 张图片，API Key 未从备份恢复`)
     } catch (err) {
@@ -676,20 +681,20 @@ export function App() {
 
       setBaseUrl(result.baseUrl)
       setApiKey(result.apiKey)
+      setCodexApiKey(result.codexApiKey)
       setPersistApiKey(true)
       setModel(result.model || DEFAULT_MODEL)
       await saveSettings({
         baseUrl: result.baseUrl,
         persistApiKey: true,
         apiKey: result.apiKey,
+        codexApiKey: result.codexApiKey,
         themeMode,
       })
       setLoginPassword('')
       setIsLoginDialogOpen(false)
       setStatus(
-        result.created
-          ? `已创建并启用 ${result.group} 分组秘钥`
-          : `已启用 ${result.group} 分组已有秘钥`
+        `${result.created ? '已创建' : '已启用'} ${result.group}，${result.codexCreated ? '已创建' : '已启用'} ${result.codexGroup}`
       )
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -697,6 +702,41 @@ export function App() {
       setStatus('中转站登录失败')
     } finally {
       setIsNewApiLoggingIn(false)
+    }
+  }
+
+  async function handleOptimizePrompt() {
+    const currentPrompt = prompt.trim()
+    if (!currentPrompt) {
+      setError('请先输入需要优化的提示词')
+      return
+    }
+    if (!codexApiKey) {
+      setError('请先点击连接配置里的登录，获取 codex 满血高速 分组秘钥')
+      setStatus('缺少提示词优化秘钥')
+      return
+    }
+
+    setError('')
+    setStatus('正在优化提示词...')
+    setIsOptimizingPrompt(true)
+
+    try {
+      const optimizedPrompt = await bridge.optimizePrompt({
+        baseUrl,
+        apiKey: codexApiKey,
+        model: 'gpt-5.5',
+        prompt: currentPrompt,
+        mode: generationMode,
+      })
+      setPrompt(optimizedPrompt)
+      setStatus('提示词已优化')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setError(message)
+      setStatus('提示词优化失败')
+    } finally {
+      setIsOptimizingPrompt(false)
     }
   }
 
@@ -893,6 +933,9 @@ export function App() {
         prompt,
         setPrompt,
         generationMode,
+        isOptimizingPrompt,
+        canOptimizePrompt: Boolean(prompt.trim()) && Boolean(codexApiKey) && !isOptimizingPrompt,
+        onOptimizePrompt: handleOptimizePrompt,
       }
     }
 
@@ -943,6 +986,8 @@ export function App() {
       generationMode,
       referenceImages,
       prompt,
+      codexApiKey,
+      isOptimizingPrompt,
       model,
       sortedModels,
       size,
@@ -1427,7 +1472,7 @@ export function App() {
             <div className='dialog-header'>
               <div>
                 <strong>登录中转站</strong>
-                <span>自动获取 gpt-image-2 生图低价分组秘钥</span>
+                <span>自动获取生图和提示词优化所需的两个分组秘钥</span>
               </div>
               <button
                 type='button'
@@ -1466,7 +1511,7 @@ export function App() {
               />
             </label>
             <p>
-              账号密码只用于本次登录中转站；服务端不保存。成功后仅把 API Key 保存到当前浏览器。
+              账号密码只用于本次登录中转站；服务端不保存。成功后仅把生图和 Codex API Key 保存到当前浏览器。
             </p>
             <div className='dialog-actions'>
               <button

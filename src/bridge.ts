@@ -4,6 +4,7 @@ import type {
   ImageGenerationResult,
   ManagedNewApiLoginResult,
   ModelOption,
+  PromptOptimizationPayload,
 } from './types'
 
 function normalizeBaseUrl(baseUrl: string) {
@@ -88,6 +89,30 @@ async function parseImageResult(
   return { images }
 }
 
+async function parsePromptOptimizationResult(body: {
+  choices?: Array<{ message?: { content?: string }; text?: string }>
+}) {
+  const content = body.choices?.[0]?.message?.content || body.choices?.[0]?.text || ''
+  const optimizedPrompt = content.trim()
+  if (!optimizedPrompt) throw new Error('模型没有返回优化后的提示词')
+  return optimizedPrompt
+}
+
+function promptOptimizationMessages(payload: PromptOptimizationPayload) {
+  const modeLabel = payload.mode === 'image' ? '图像参考生成' : '文生图'
+  return [
+    {
+      role: 'system',
+      content:
+        '你是专业的 AI 图像提示词编辑器。只输出优化后的提示词本身，不要解释，不要加标题，不要使用 Markdown。',
+    },
+    {
+      role: 'user',
+      content: `任务类型：${modeLabel}\n请把下面的中文图像生成提示词优化得更具体、更适合商业海报和高质量图像生成。保留用户原意，补足主体、构图、材质、光线、风格、画质要求。不要改变为英文。\n\n原提示词：${payload.prompt}`,
+    },
+  ]
+}
+
 export const bridge: ImageApiClient = {
   async openExternal(url) {
     window.open(url, '_blank', 'noopener,noreferrer')
@@ -117,6 +142,22 @@ export const bridge: ImageApiClient = {
       'Failed to fetch models'
     )
     return (body.data || []).filter((model) => model.id)
+  },
+
+  async optimizePrompt(payload) {
+    const response = await fetch(`${normalizeBaseUrl(payload.baseUrl)}/v1/chat/completions`, {
+      method: 'POST',
+      headers: headers(payload.apiKey),
+      body: JSON.stringify({
+        model: payload.model,
+        messages: promptOptimizationMessages(payload),
+        temperature: 0.6,
+      }),
+    })
+    const body = await parseJsonResponse<{
+      choices?: Array<{ message?: { content?: string }; text?: string }>
+    }>(response, 'Prompt optimization failed')
+    return parsePromptOptimizationResult(body)
   },
 
   async generateImages(payload: ImageGenerationPayload) {

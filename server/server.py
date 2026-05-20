@@ -16,9 +16,12 @@ from typing import Any
 
 DEFAULT_BASE_URL = "https://cc.api-corp.top"
 ALLOWED_NEW_API_HOST = "cc.api-corp.top"
-TARGET_GROUP = "gpt-image-2 生图低价"
-TARGET_MODEL = "gpt-image-2"
-TOKEN_NAME = "GPT Image Tools - gpt-image-2"
+IMAGE_GROUP = "gpt-image-2 生图低价"
+IMAGE_MODEL = "gpt-image-2"
+IMAGE_TOKEN_NAME = "GPT Image Tools - gpt-image-2"
+CODEX_GROUP = "codex 满血高速"
+CODEX_MODEL = "gpt-5.5"
+CODEX_TOKEN_NAME = "GPT Image Tools - codex"
 MAX_JSON_BODY = 16 * 1024
 REQUEST_TIMEOUT = 25
 
@@ -126,41 +129,41 @@ class NewApiSession:
             return []
         return [item for item in items if isinstance(item, dict)]
 
-    def find_target_token(self) -> dict[str, Any] | None:
+    def find_target_token(self, group: str, model: str) -> dict[str, Any] | None:
         for token in self.list_tokens():
-            if token.get("group") != TARGET_GROUP:
+            if token.get("group") != group:
                 continue
             if token.get("status") not in (None, 1):
                 continue
             if token.get("model_limits_enabled"):
                 models = split_model_limits(token.get("model_limits"))
-                if TARGET_MODEL not in models:
+                if model not in models:
                     continue
             return token
         return None
 
-    def create_target_token(self) -> dict[str, Any]:
+    def create_target_token(self, name: str, group: str, model: str) -> dict[str, Any]:
         response = self.request(
             "POST",
             "/api/token/",
             {
-                "name": TOKEN_NAME,
+                "name": name,
                 "remain_quota": 0,
                 "expired_time": -1,
                 "unlimited_quota": True,
                 "model_limits_enabled": True,
-                "model_limits": TARGET_MODEL,
+                "model_limits": model,
                 "allow_ips": "",
-                "group": TARGET_GROUP,
+                "group": group,
                 "cross_group_retry": False,
             },
         )
         if not response.get("success"):
             raise NewApiError(str(response.get("message") or "创建秘钥失败"))
 
-        token = self.find_target_token()
+        token = self.find_target_token(group, model)
         if token is None:
-            raise NewApiError("秘钥已创建，但重新查询时没有找到目标分组秘钥")
+            raise NewApiError(f"{group} 秘钥已创建，但重新查询时没有找到")
         return token
 
     def get_full_key(self, token_id: int) -> str:
@@ -174,6 +177,25 @@ class NewApiSession:
             raise NewApiError("中转站没有返回可用秘钥")
         return key
 
+    def obtain_token_key(self, name: str, group: str, model: str) -> dict[str, Any]:
+        token = self.find_target_token(group, model)
+        created = False
+        if token is None:
+            token = self.create_target_token(name, group, model)
+            created = True
+
+        token_id = token.get("id")
+        if not isinstance(token_id, int):
+            raise NewApiError(f"{group} 目标秘钥缺少 ID")
+
+        return {
+            "apiKey": self.get_full_key(token_id),
+            "group": group,
+            "model": model,
+            "tokenName": token.get("name") or name,
+            "created": created,
+        }
+
 
 def obtain_managed_key(base_url: str, username: str, password: str) -> dict[str, Any]:
     if not username.strip() or not password:
@@ -183,23 +205,21 @@ def obtain_managed_key(base_url: str, username: str, password: str) -> dict[str,
     session = NewApiSession(normalized_base_url)
     session.login(username.strip(), password)
 
-    token = session.find_target_token()
-    created = False
-    if token is None:
-        token = session.create_target_token()
-        created = True
-
-    token_id = token.get("id")
-    if not isinstance(token_id, int):
-        raise NewApiError("目标秘钥缺少 ID")
+    image_key = session.obtain_token_key(IMAGE_TOKEN_NAME, IMAGE_GROUP, IMAGE_MODEL)
+    codex_key = session.obtain_token_key(CODEX_TOKEN_NAME, CODEX_GROUP, CODEX_MODEL)
 
     return {
         "baseUrl": normalized_base_url,
-        "apiKey": session.get_full_key(token_id),
-        "group": TARGET_GROUP,
-        "model": TARGET_MODEL,
-        "tokenName": token.get("name") or TOKEN_NAME,
-        "created": created,
+        "apiKey": image_key["apiKey"],
+        "group": image_key["group"],
+        "model": image_key["model"],
+        "tokenName": image_key["tokenName"],
+        "created": image_key["created"],
+        "codexApiKey": codex_key["apiKey"],
+        "codexGroup": codex_key["group"],
+        "codexModel": codex_key["model"],
+        "codexTokenName": codex_key["tokenName"],
+        "codexCreated": codex_key["created"],
     }
 
 

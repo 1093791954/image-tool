@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   baseUrl: 'https://cc.api-corp.top',
   persistApiKey: false,
   apiKey: '',
+  codexApiKey: '',
   themeMode: 'dark',
 }
 
@@ -79,6 +80,7 @@ function normalizeSettings(settings: Partial<AppSettings> | undefined): AppSetti
     ...settings,
     persistApiKey: Boolean(settings?.persistApiKey),
     apiKey: settings?.persistApiKey ? settings.apiKey || '' : '',
+    codexApiKey: settings?.persistApiKey ? settings.codexApiKey || '' : '',
     themeMode: settings?.themeMode || 'dark',
   }
 }
