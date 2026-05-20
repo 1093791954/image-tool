@@ -1195,6 +1195,114 @@ select:disabled {
   line-height: 1.6;
 }
 
+.prompt-editor {
+  position: relative;
+  min-height: 244px;
+}
+
+.prompt-highlight-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  min-height: 244px;
+  padding: 14px;
+  overflow: hidden;
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  pointer-events: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.prompt-highlight-layer mark {
+  padding: 1px 3px;
+  border-radius: 5px;
+  color: #061014;
+  background: var(--green);
+  box-shadow: 0 0 18px rgb(57 229 167 / 26%);
+}
+
+.prompt-highlight-layer .prompt-mention-missing {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  box-shadow: none;
+}
+
+.prompt-textarea {
+  position: relative;
+  z-index: 1;
+  min-height: 244px;
+  background: transparent;
+  caret-color: var(--text);
+}
+
+.prompt-textarea.has-value {
+  color: transparent;
+}
+
+.prompt-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.prompt-mention-menu {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 5;
+  display: grid;
+  gap: 4px;
+  max-height: 152px;
+  padding: 6px;
+  overflow-y: auto;
+  background: rgb(15 18 26 / 92%);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: 0 16px 34px rgb(0 0 0 / 36%);
+  backdrop-filter: blur(14px);
+}
+
+.prompt-mention-menu button,
+.prompt-mention-empty {
+  min-height: 30px;
+  padding: 0 9px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.prompt-mention-menu button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.prompt-mention-menu button span {
+  color: var(--green);
+  font-weight: 900;
+}
+
+.prompt-mention-menu button.active,
+.prompt-mention-menu button:hover {
+  background: rgb(57 229 167 / 14%);
+  border-color: rgb(57 229 167 / 36%);
+}
+
+.prompt-mention-empty {
+  display: grid;
+  place-items: center start;
+  color: var(--text-muted);
+}
+
 .prompt-optimization-select {
   display: grid;
   gap: 7px;

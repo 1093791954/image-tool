@@ -1097,6 +1097,7 @@ export function App() {
         onDeleteNode: deleteWorkflowNode,
         prompt,
         setPrompt,
+        referenceImages,
         optimizationPreset: promptOptimizationPreset,
         optimizationPresets: promptOptimizationPresets,
         setOptimizationPreset: setPromptOptimizationPreset,

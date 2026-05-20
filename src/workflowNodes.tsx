@@ -1,4 +1,12 @@
-import type { Dispatch, ReactNode, SetStateAction } from 'react'
+import {
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type KeyboardEvent,
+  type ReactNode,
+  type SetStateAction,
+} from 'react'
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -42,6 +50,7 @@ export type AssetNodeData = {
 export type PromptNodeData = {
   prompt: string
   setPrompt: Dispatch<SetStateAction<string>>
+  referenceImages: ReferenceImage[]
   optimizationPreset: PromptOptimizationPreset
   optimizationPresets: Array<{ value: PromptOptimizationPreset; label: string }>
   setOptimizationPreset: (preset: PromptOptimizationPreset) => void
@@ -98,6 +107,59 @@ type PromptFlowNode = Node<PromptNodeData, 'prompt'>
 type GenerateFlowNode = Node<GenerateNodeData, 'generate'>
 type OutputFlowNode = Node<OutputNodeData, 'output'>
 type BlueprintFlowEdge = Edge<BlueprintEdgeData, 'blueprint'>
+
+type MentionState = {
+  query: string
+  start: number
+  end: number
+} | null
+
+function normalizeMentionTitle(value: string) {
+  return value.trim().replace(/^@+/, '')
+}
+
+function getMentionState(value: string, caret: number): MentionState {
+  const beforeCaret = value.slice(0, caret)
+  const atIndex = beforeCaret.lastIndexOf('@')
+  if (atIndex < 0) return null
+
+  const query = beforeCaret.slice(atIndex + 1)
+  if (/[\s，。,.!！?？;；:：、()[\]{}<>《》"'“”‘’]/.test(query)) return null
+
+  return { query, start: atIndex, end: caret }
+}
+
+function renderPromptWithMentions(prompt: string, knownTitles: Set<string>) {
+  const parts: ReactNode[] = []
+  const pattern = /@([^\s@，。,.!！?？;；:：、()[\]{}<>《》"'“”‘’]+)/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(prompt)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(prompt.slice(lastIndex, match.index))
+    }
+
+    const rawTitle = match[1] || ''
+    const title = normalizeMentionTitle(rawTitle)
+    const isKnown = knownTitles.has(title)
+    parts.push(
+      <mark
+        key={`${match.index}-${match[0]}`}
+        className={isKnown ? 'prompt-mention-known' : 'prompt-mention-missing'}
+      >
+        {match[0]}
+      </mark>
+    )
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < prompt.length) {
+    parts.push(prompt.slice(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : prompt
+}
 
 function NodeShell({
   id,
@@ -224,6 +286,82 @@ export function AssetNode({ id, data }: NodeProps<AssetFlowNode>) {
 }
 
 export function PromptNode({ id, data }: NodeProps<PromptFlowNode>) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const [mentionState, setMentionState] = useState<MentionState>(null)
+  const [activeMentionIndex, setActiveMentionIndex] = useState(0)
+  const referenceTitles = useMemo(
+    () =>
+      data.referenceImages
+        .map((image) => normalizeMentionTitle(image.title || image.name))
+        .filter(Boolean),
+    [data.referenceImages]
+  )
+  const knownReferenceTitles = useMemo(() => new Set(referenceTitles), [referenceTitles])
+  const mentionSuggestions = useMemo(() => {
+    if (!mentionState) return []
+    const query = mentionState.query.toLowerCase()
+    return referenceTitles
+      .filter((title) => title.toLowerCase().includes(query))
+      .slice(0, 8)
+  }, [mentionState, referenceTitles])
+  const highlightedPrompt = useMemo(
+    () => renderPromptWithMentions(data.prompt, knownReferenceTitles),
+    [data.prompt, knownReferenceTitles]
+  )
+
+  function syncMentionState(textarea: HTMLTextAreaElement) {
+    const nextState = getMentionState(textarea.value, textarea.selectionStart)
+    setMentionState(nextState)
+    setActiveMentionIndex(0)
+  }
+
+  function insertMention(title: string) {
+    const textarea = textareaRef.current
+    if (!textarea || !mentionState) return
+
+    const before = data.prompt.slice(0, mentionState.start)
+    const after = data.prompt.slice(mentionState.end)
+    const inserted = `@${title} `
+    const nextPrompt = `${before}${inserted}${after}`
+    const nextCaret = before.length + inserted.length
+
+    data.setPrompt(nextPrompt)
+    setMentionState(null)
+    window.setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(nextCaret, nextCaret)
+    }, 0)
+  }
+
+  function handlePromptKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (!mentionState || mentionSuggestions.length === 0) return
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setActiveMentionIndex((current) => (current + 1) % mentionSuggestions.length)
+      return
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setActiveMentionIndex(
+        (current) => (current - 1 + mentionSuggestions.length) % mentionSuggestions.length
+      )
+      return
+    }
+
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault()
+      insertMention(mentionSuggestions[activeMentionIndex] || mentionSuggestions[0])
+      return
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setMentionState(null)
+    }
+  }
+
   return (
     <NodeShell
       id={id}
@@ -276,16 +414,53 @@ export function PromptNode({ id, data }: NodeProps<PromptFlowNode>) {
           ))}
         </select>
       </label>
-      <textarea
-        className='node-textarea nodrag'
-        value={data.prompt}
-        onChange={(event) => data.setPrompt(event.target.value)}
-        placeholder={
-          data.generationMode === 'image'
-            ? '输入图像生成提示词，例如：使用 @商品图 的包装元素，改成科技海报风格'
-            : '产品海报、科技感、高级材质、清晰主视觉；需要参考图时输入 @参考图标题'
-        }
-      />
+      <div className='prompt-editor nodrag'>
+        <div className='prompt-highlight-layer' aria-hidden='true'>
+          {data.prompt ? highlightedPrompt : null}
+        </div>
+        <textarea
+          ref={textareaRef}
+          className={`node-textarea prompt-textarea ${data.prompt ? 'has-value' : ''}`}
+          value={data.prompt}
+          onChange={(event) => {
+            data.setPrompt(event.target.value)
+            syncMentionState(event.currentTarget)
+          }}
+          onKeyDown={handlePromptKeyDown}
+          onKeyUp={(event) => syncMentionState(event.currentTarget)}
+          onClick={(event) => syncMentionState(event.currentTarget)}
+          onBlur={() => window.setTimeout(() => setMentionState(null), 120)}
+          placeholder={
+            data.generationMode === 'image'
+              ? '输入图像生成提示词，例如：使用 @商品图 的包装元素，改成科技海报风格'
+              : '产品海报、科技感、高级材质、清晰主视觉；需要参考图时输入 @参考图标题'
+          }
+        />
+        {mentionState ? (
+          <div className='prompt-mention-menu'>
+            {mentionSuggestions.length > 0 ? (
+              mentionSuggestions.map((title, index) => (
+                <button
+                  key={title}
+                  type='button'
+                  className={index === activeMentionIndex ? 'active' : ''}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    insertMention(title)
+                  }}
+                >
+                  <span>@</span>
+                  {title}
+                </button>
+              ))
+            ) : referenceTitles.length > 0 ? (
+              <div className='prompt-mention-empty'>没有匹配的参考图</div>
+            ) : (
+              <div className='prompt-mention-empty'>先添加参考图片标题</div>
+            )}
+          </div>
+        ) : null}
+      </div>
     </NodeShell>
   )
 }
