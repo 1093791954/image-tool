@@ -27,7 +27,13 @@ CODEX_MODEL = "gpt-5.5"
 CODEX_TOKEN_NAME = "GPT Image Tools - codex"
 MAX_JSON_BODY = 16 * 1024
 MAX_IMAGE_BODY = 32 * 1024 * 1024
+MAX_PROXY_BODY = 96 * 1024 * 1024
 REQUEST_TIMEOUT = 25
+IMAGE_REQUEST_TIMEOUT = 180
+OPENAI_IMAGE_PROXY_PATHS = {
+    "/api/openai/v1/images/generations": "/v1/images/generations",
+    "/api/openai/v1/images/edits": "/v1/images/edits",
+}
 
 
 class NewApiError(Exception):
@@ -35,6 +41,10 @@ class NewApiError(Exception):
 
 
 class ImageFetchError(Exception):
+    pass
+
+
+class OpenAIProxyError(Exception):
     pass
 
 
@@ -53,6 +63,18 @@ def normalize_new_api_base_url(value: str) -> str:
     parsed = urllib.parse.urlparse(raw)
     if parsed.scheme != "https" or parsed.netloc != ALLOWED_NEW_API_HOST:
         raise NewApiError("当前只允许登录 https://cc.api-corp.top/")
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def normalize_public_base_url(value: str) -> str:
+    raw = (value or "").strip().rstrip("/")
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise OpenAIProxyError("Base URL 必须是 https 地址")
+    if parsed.username or parsed.password:
+        raise OpenAIProxyError("Base URL 不允许包含账号密码")
+    if not is_public_hostname(parsed.hostname):
+        raise OpenAIProxyError("Base URL 不是可公开访问地址")
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
@@ -306,6 +328,10 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed_path = urllib.parse.urlparse(self.path)
+        if parsed_path.path in OPENAI_IMAGE_PROXY_PATHS:
+            self.handle_openai_image_proxy(parsed_path)
+            return
+
         if parsed_path.path == "/api/image-url-to-data-url":
             self.handle_image_url_to_data_url()
             return
@@ -371,6 +397,69 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 self,
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 {"success": False, "message": "下载生成图片失败，请稍后重试"},
+            )
+
+    def handle_openai_image_proxy(self, parsed_path: urllib.parse.ParseResult) -> None:
+        try:
+            query = urllib.parse.parse_qs(parsed_path.query)
+            base_url = normalize_public_base_url((query.get("base_url") or [""])[0])
+            upstream_path = OPENAI_IMAGE_PROXY_PATHS[parsed_path.path]
+            auth_header = self.headers.get("Authorization", "")
+            if not auth_header.startswith("Bearer "):
+                raise OpenAIProxyError("缺少 API Key")
+
+            try:
+                body_length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                body_length = 0
+            if body_length <= 0 or body_length > MAX_PROXY_BODY:
+                raise OpenAIProxyError("请求体为空或过大")
+
+            body = self.rfile.read(body_length)
+            headers = {
+                "Accept": "application/json",
+                "Authorization": auth_header,
+                "Content-Type": self.headers.get("Content-Type", "application/json"),
+                "User-Agent": "GPT-Image-Tools/1.0",
+            }
+            request = urllib.request.Request(
+                f"{base_url}{upstream_path}",
+                data=body,
+                method="POST",
+                headers=headers,
+            )
+
+            try:
+                with urllib.request.urlopen(request, timeout=IMAGE_REQUEST_TIMEOUT) as response:
+                    response_body = response.read()
+                    status = response.status
+                    content_type = response.headers.get(
+                        "Content-Type", "application/json; charset=utf-8"
+                    )
+            except urllib.error.HTTPError as exc:
+                response_body = exc.read()
+                status = exc.code
+                content_type = exc.headers.get("Content-Type", "application/json; charset=utf-8")
+            except urllib.error.URLError as exc:
+                raise OpenAIProxyError(f"无法连接中转站：{exc.reason}") from exc
+
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(response_body)))
+            self.end_headers()
+            self.wfile.write(response_body)
+        except OpenAIProxyError as exc:
+            json_response(
+                self,
+                HTTPStatus.BAD_GATEWAY,
+                {"error": {"message": str(exc)}},
+            )
+        except Exception:
+            json_response(
+                self,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"error": {"message": "转发生图请求失败，请稍后重试"}},
             )
 
     def translate_path(self, path: str) -> str:

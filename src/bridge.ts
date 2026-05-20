@@ -25,14 +25,29 @@ function headers(apiKey: string) {
 
 async function parseJsonResponse<T>(response: Response, prefix: string) {
   const text = await response.text()
-  const body = text ? JSON.parse(text) : null
+  let body: any = null
+  if (text) {
+    try {
+      body = JSON.parse(text)
+    } catch {
+      throw new Error(`${prefix}: upstream returned invalid JSON`)
+    }
+  }
 
   if (!response.ok) {
     const message = body?.error?.message || body?.message || response.statusText
     throw new Error(`${prefix}: ${message}`)
   }
 
+  if (!body) {
+    throw new Error(`${prefix}: upstream returned an empty response`)
+  }
+
   return body as T
+}
+
+function openAiImageProxyUrl(path: 'generations' | 'edits', baseUrl: string) {
+  return `/api/openai/v1/images/${path}?base_url=${encodeURIComponent(normalizeBaseUrl(baseUrl))}`
 }
 
 function assertApiSuccess<T>(
@@ -233,7 +248,7 @@ export const bridge: ImageApiClient = {
         form.append('image[]', blobFromDataUrl(image.dataUrl), image.name)
       })
 
-      const response = await fetch(`${normalizeBaseUrl(payload.baseUrl)}/v1/images/edits`, {
+      const response = await fetch(openAiImageProxyUrl('edits', payload.baseUrl), {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${payload.apiKey.trim()}`,
@@ -247,21 +262,18 @@ export const bridge: ImageApiClient = {
       return parseImageResult(body)
     }
 
-    const response = await fetch(
-      `${normalizeBaseUrl(payload.baseUrl)}/v1/images/generations`,
-      {
-        method: 'POST',
-        headers: headers(payload.apiKey),
-        body: JSON.stringify({
-          model: payload.model,
-          prompt: payload.prompt,
-          size: payload.size,
-          quality: payload.quality,
-          n: payload.count,
-          response_format: payload.responseFormat,
-        }),
-      }
-    )
+    const response = await fetch(openAiImageProxyUrl('generations', payload.baseUrl), {
+      method: 'POST',
+      headers: headers(payload.apiKey),
+      body: JSON.stringify({
+        model: payload.model,
+        prompt: payload.prompt,
+        size: payload.size,
+        quality: payload.quality,
+        n: payload.count,
+        response_format: payload.responseFormat,
+      }),
+    })
     const body = await parseJsonResponse<{
       data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>
     }>(response, 'Image generation failed')
