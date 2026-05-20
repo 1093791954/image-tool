@@ -86,7 +86,6 @@ const sizes = ['1024x1024', '1024x1536', '1536x1024', '1024x1792', '1792x1024']
 const qualities = ['auto', 'standard', 'hd', 'low', 'medium', 'high']
 const counts = [1, 2, 3, 4]
 const inputFidelities = ['low', 'high'] as const
-const MAX_REFERENCE_IMAGES = 8
 const themeOptions: Array<{ value: ThemeMode; label: string; icon: typeof Sun }> = [
   { value: 'light', label: '亮色', icon: Sun },
   { value: 'dark', label: '暗色', icon: Moon },
@@ -198,7 +197,11 @@ function createLocalId(prefix: string) {
 
 function getWorkflowNodeReferenceImages(node?: Pick<WorkflowNode, 'data'> | null) {
   const value = node?.data?.referenceImages
-  return Array.isArray(value) ? ensureReferenceTitles(value as ReferenceImage[]) : []
+  return Array.isArray(value) ? ensureReferenceTitles(value as ReferenceImage[]).slice(0, 1) : []
+}
+
+function normalizeAssetNodeReferenceImages(images: ReferenceImage[]) {
+  return ensureReferenceTitles(images).slice(0, 1)
 }
 
 function cloneWorkflowNodes(nodes: WorkflowNode[], legacyReferenceImages: ReferenceImage[] = []) {
@@ -207,7 +210,7 @@ function cloneWorkflowNodes(nodes: WorkflowNode[], legacyReferenceImages: Refere
 
   const clonedNodes = nodes.map((node) => {
     const referenceImages =
-      node.type === 'asset' ? getWorkflowNodeReferenceImages(node) : []
+      node.type === 'asset' ? normalizeAssetNodeReferenceImages(getWorkflowNodeReferenceImages(node)) : []
     if (referenceImages.length > 0) hasStoredAssetReferences = true
 
     return {
@@ -218,13 +221,19 @@ function cloneWorkflowNodes(nodes: WorkflowNode[], legacyReferenceImages: Refere
   })
 
   if (normalizedLegacyReferenceImages.length > 0 && !hasStoredAssetReferences) {
-    const firstAssetIndex = clonedNodes.findIndex((node) => node.type === 'asset')
-    if (firstAssetIndex >= 0) {
-      clonedNodes[firstAssetIndex] = {
-        ...clonedNodes[firstAssetIndex],
-        data: { referenceImages: normalizedLegacyReferenceImages },
+    const assetIndices = clonedNodes
+      .map((node, index) => (node.type === 'asset' ? index : -1))
+      .filter((index) => index >= 0)
+
+    assetIndices.forEach((assetIndex, index) => {
+      const image = normalizedLegacyReferenceImages[index]
+      if (!image) return
+
+      clonedNodes[assetIndex] = {
+        ...clonedNodes[assetIndex],
+        data: { referenceImages: [image] },
       }
-    }
+    })
   }
 
   return clonedNodes
@@ -807,7 +816,7 @@ export function App() {
           if (node.id !== nodeId || node.type !== 'asset') return node
 
           const currentImages = getWorkflowNodeReferenceImages(node)
-          const nextImages = ensureReferenceTitles(resolveUpdater(updater, currentImages))
+          const nextImages = normalizeAssetNodeReferenceImages(resolveUpdater(updater, currentImages))
 
           return {
             ...node,
@@ -1233,24 +1242,22 @@ export function App() {
     const imageFiles = [...files].filter((file) => file.type.startsWith('image/'))
     if (imageFiles.length === 0) return
 
-    const nodeReferenceImages = getWorkflowNodeReferenceImages(
-      nodes.find((node) => node.id === nodeId)
-    )
-    const remainingSlots = Math.max(0, MAX_REFERENCE_IMAGES - nodeReferenceImages.length)
-    const selectedFiles = imageFiles.slice(0, remainingSlots)
-    const nextImages = await Promise.all(
-      selectedFiles.map(async (file, index) => ({
-        id: createLocalId('reference'),
-        name: file.name,
-        title: referenceTitleFromFileName(file.name, nodeReferenceImages.length + index),
-        type: file.type || 'image/png',
-        dataUrl: await fileToDataUrl(file),
-      }))
-    )
+    const selectedFile = imageFiles[0]
+    if (!selectedFile) return
 
-    setAssetNodeReferenceImages(nodeId, (current) => [...current, ...nextImages])
+    const nextImage: ReferenceImage = {
+      id: createLocalId('reference'),
+      name: selectedFile.name,
+      title: referenceTitleFromFileName(selectedFile.name, 0),
+      type: selectedFile.type || 'image/png',
+      dataUrl: await fileToDataUrl(selectedFile),
+    }
+
+    setAssetNodeReferenceImages(nodeId, [nextImage])
     setGenerationMode('image')
-    if (imageFiles.length > remainingSlots) setStatus(`最多添加 ${MAX_REFERENCE_IMAGES} 张参考图`)
+    if (imageFiles.length > 1) {
+      setStatus('每个参考图节点只能放 1 张图片，已保留第一张')
+    }
   }
 
   function removeReferenceImage(nodeId: string, id: string) {

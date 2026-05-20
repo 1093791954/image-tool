@@ -214,6 +214,17 @@ function NodeShell({
 }
 
 export function AssetNode({ id, data }: NodeProps<AssetFlowNode>) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const lastFilePickerOpenAtRef = useRef(0)
+
+  function openReferenceFilePicker() {
+    const now = Date.now()
+    if (now - lastFilePickerOpenAtRef.current < 800) return
+
+    lastFilePickerOpenAtRef.current = now
+    fileInputRef.current?.click()
+  }
+
   return (
     <NodeShell
       id={id}
@@ -275,21 +286,27 @@ export function AssetNode({ id, data }: NodeProps<AssetFlowNode>) {
             ))}
           </div>
         )}
-        <label className='node-file-button'>
+        <button
+          type='button'
+          className='node-file-button nodrag'
+          onClick={openReferenceFilePicker}
+          onDoubleClick={(event) => event.preventDefault()}
+        >
           <Upload size={15} />
           选择图片
-          <input
-            type='file'
-            accept='image/*'
-            multiple
-            onChange={(event) => {
-              if (event.target.files) {
-                data.addReferenceFiles(event.target.files)
-              }
-              event.currentTarget.value = ''
-            }}
-          />
-        </label>
+        </button>
+        <input
+          ref={fileInputRef}
+          type='file'
+          accept='image/*'
+          style={{ display: 'none' }}
+          onChange={(event) => {
+            if (event.target.files) {
+              data.addReferenceFiles(event.target.files)
+            }
+            event.currentTarget.value = ''
+          }}
+        />
       </div>
     </NodeShell>
   )
