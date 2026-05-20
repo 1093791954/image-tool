@@ -4,8 +4,10 @@ import {
   Controls,
   ReactFlow,
   addEdge,
-  useEdgesState,
-  useNodesState,
+  applyEdgeChanges,
+  applyNodeChanges,
+  type EdgeChange,
+  type NodeChange,
   type ReactFlowInstance,
   type IsValidConnection,
   type Connection,
@@ -13,12 +15,15 @@ import {
   type Node,
 } from '@xyflow/react'
 import {
+  Copy,
   Download,
   ExternalLink,
   KeyRound,
+  Layers,
   Loader2,
   Monitor,
   Moon,
+  Plus,
   RefreshCw,
   Save,
   ShoppingBag,
@@ -78,6 +83,23 @@ type PaneMenu = {
   position: { x: number; y: number }
 } | null
 
+type WorkflowCanvas = {
+  id: string
+  name: string
+  updatedAt: number
+  nodes: WorkflowNode[]
+  edges: WorkflowEdge[]
+  prompt: string
+  generationMode: 'text' | 'image'
+  referenceImages: ReferenceImage[]
+  latestImageId?: string
+}
+
+type StateUpdater<T> = T | ((current: T) => T)
+
+const WORKFLOW_CANVASES_STORAGE_KEY = 'gpt-image-tools.workflow-canvases.v1'
+const ACTIVE_CANVAS_STORAGE_KEY = 'gpt-image-tools.active-canvas.v1'
+
 const initialWorkflowNodes: WorkflowNode[] = [
   { id: 'asset-1', type: 'asset', position: { x: -520, y: -130 }, data: {} },
   { id: 'prompt-1', type: 'prompt', position: { x: -520, y: 255 }, data: {} },
@@ -107,6 +129,95 @@ const initialWorkflowEdges: WorkflowEdge[] = [
     data: { label: '提示词 -> 图片生成' },
   },
 ]
+
+function resolveUpdater<T>(updater: StateUpdater<T>, current: T): T {
+  return typeof updater === 'function'
+    ? (updater as (currentValue: T) => T)(current)
+    : updater
+}
+
+function cloneWorkflowNodes(nodes: WorkflowNode[]) {
+  return nodes.map((node) => ({
+    ...node,
+    position: { ...node.position },
+    data: {},
+  }))
+}
+
+function cloneWorkflowEdges(edges: WorkflowEdge[]) {
+  return edges.map((edge) => ({
+    ...edge,
+    data: { ...edge.data },
+  }))
+}
+
+function createWorkflowCanvas(index: number, base?: WorkflowCanvas): WorkflowCanvas {
+  const now = Date.now()
+  const id = `canvas-${now}-${crypto.randomUUID()}`
+
+  return {
+    id,
+    name: base ? `${base.name} 副本` : `画布 ${index}`,
+    updatedAt: now,
+    nodes: cloneWorkflowNodes(base?.nodes || initialWorkflowNodes),
+    edges: cloneWorkflowEdges(base?.edges || initialWorkflowEdges),
+    prompt: base?.prompt || '',
+    generationMode: base?.generationMode || 'text',
+    referenceImages: base?.referenceImages ? [...base.referenceImages] : [],
+    latestImageId: base?.latestImageId,
+  }
+}
+
+function normalizeStoredCanvases(value: unknown): WorkflowCanvas[] {
+  if (!Array.isArray(value)) return []
+
+  const canvases: WorkflowCanvas[] = []
+
+  value.forEach((item, index) => {
+    if (!item || typeof item !== 'object') return
+    const canvas = item as Partial<WorkflowCanvas>
+    if (typeof canvas.id !== 'string' || typeof canvas.name !== 'string') return
+
+    canvases.push({
+      id: canvas.id,
+      name: canvas.name || `画布 ${index + 1}`,
+      updatedAt: typeof canvas.updatedAt === 'number' ? canvas.updatedAt : Date.now(),
+      nodes: Array.isArray(canvas.nodes)
+        ? cloneWorkflowNodes(canvas.nodes as WorkflowNode[])
+        : cloneWorkflowNodes(initialWorkflowNodes),
+      edges: Array.isArray(canvas.edges)
+        ? cloneWorkflowEdges(canvas.edges as WorkflowEdge[])
+        : cloneWorkflowEdges(initialWorkflowEdges),
+      prompt: typeof canvas.prompt === 'string' ? canvas.prompt : '',
+      generationMode: canvas.generationMode === 'image' ? 'image' : 'text',
+      referenceImages: Array.isArray(canvas.referenceImages)
+        ? (canvas.referenceImages as ReferenceImage[])
+        : [],
+      latestImageId:
+        typeof canvas.latestImageId === 'string' ? canvas.latestImageId : undefined,
+    })
+  })
+
+  return canvases
+}
+
+function loadWorkflowCanvases() {
+  try {
+    const raw = window.localStorage.getItem(WORKFLOW_CANVASES_STORAGE_KEY)
+    const stored = raw ? normalizeStoredCanvases(JSON.parse(raw)) : []
+    return stored.length > 0 ? stored : [createWorkflowCanvas(1)]
+  } catch {
+    return [createWorkflowCanvas(1)]
+  }
+}
+
+function loadActiveCanvasId() {
+  try {
+    return window.localStorage.getItem(ACTIVE_CANVAS_STORAGE_KEY) || ''
+  } catch {
+    return ''
+  }
+}
 
 function imageModelScore(model: ModelOption) {
   const id = model.id.toLowerCase()
@@ -201,14 +312,13 @@ export function App() {
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark')
   const [models, setModels] = useState<ModelOption[]>([])
   const [model, setModel] = useState(DEFAULT_MODEL)
-  const [generationMode, setGenerationMode] = useState<'text' | 'image'>('text')
-  const [prompt, setPrompt] = useState('')
   const [size, setSize] = useState('1024x1024')
   const [quality, setQuality] = useState('auto')
   const [count, setCount] = useState(1)
   const [responseFormat, setResponseFormat] = useState<'url' | 'b64_json'>('url')
   const [inputFidelity, setInputFidelity] = useState<'low' | 'high'>('high')
-  const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([])
+  const [canvases, setCanvases] = useState<WorkflowCanvas[]>(loadWorkflowCanvases)
+  const [activeCanvasId, setActiveCanvasId] = useState(loadActiveCanvasId)
   const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationStartedAt, setGenerationStartedAt] = useState<number | null>(null)
@@ -219,14 +329,91 @@ export function App() {
   const [status, setStatus] = useState('未连接')
   const [error, setError] = useState('')
   const [paneMenu, setPaneMenu] = useState<PaneMenu>(null)
-  const [nodes, setNodes, onNodesChange] =
-    useNodesState<WorkflowNode>(initialWorkflowNodes)
-  const [edges, setEdges, onEdgesChange] =
-    useEdgesState<WorkflowEdge>(initialWorkflowEdges)
   const [flowInstance, setFlowInstance] =
     useState<ReactFlowInstance<WorkflowNode, WorkflowEdge> | null>(null)
 
-  const latestImage = images[0] || null
+  const activeCanvas = useMemo(
+    () => canvases.find((canvas) => canvas.id === activeCanvasId) || canvases[0],
+    [activeCanvasId, canvases]
+  )
+  const nodes = activeCanvas?.nodes || []
+  const edges = activeCanvas?.edges || []
+  const prompt = activeCanvas?.prompt || ''
+  const generationMode = activeCanvas?.generationMode || 'text'
+  const referenceImages = activeCanvas?.referenceImages || []
+  const latestImage =
+    images.find((image) => image.id === activeCanvas?.latestImageId) || images[0] || null
+
+  const updateActiveCanvas = useCallback(
+    (updater: (canvas: WorkflowCanvas) => WorkflowCanvas) => {
+      setCanvases((currentCanvases) =>
+        currentCanvases.map((canvas) =>
+          canvas.id === activeCanvas?.id
+            ? { ...updater(canvas), updatedAt: Date.now() }
+            : canvas
+        )
+      )
+    },
+    [activeCanvas?.id]
+  )
+
+  const setNodes = useCallback(
+    (updater: StateUpdater<WorkflowNode[]>) => {
+      updateActiveCanvas((canvas) => ({
+        ...canvas,
+        nodes: resolveUpdater(updater, canvas.nodes),
+      }))
+    },
+    [updateActiveCanvas]
+  )
+
+  const setEdges = useCallback(
+    (updater: StateUpdater<WorkflowEdge[]>) => {
+      updateActiveCanvas((canvas) => ({
+        ...canvas,
+        edges: resolveUpdater(updater, canvas.edges),
+      }))
+    },
+    [updateActiveCanvas]
+  )
+
+  const setPrompt = useCallback(
+    (nextPrompt: string) => {
+      updateActiveCanvas((canvas) => ({ ...canvas, prompt: nextPrompt }))
+    },
+    [updateActiveCanvas]
+  )
+
+  const setGenerationMode = useCallback(
+    (nextMode: 'text' | 'image') => {
+      updateActiveCanvas((canvas) => ({ ...canvas, generationMode: nextMode }))
+    },
+    [updateActiveCanvas]
+  )
+
+  const setReferenceImages = useCallback(
+    (updater: StateUpdater<ReferenceImage[]>) => {
+      updateActiveCanvas((canvas) => ({
+        ...canvas,
+        referenceImages: resolveUpdater(updater, canvas.referenceImages),
+      }))
+    },
+    [updateActiveCanvas]
+  )
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange<WorkflowNode>[]) => {
+      setNodes((currentNodes) => applyNodeChanges(changes, currentNodes))
+    },
+    [setNodes]
+  )
+
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange<WorkflowEdge>[]) => {
+      setEdges((currentEdges) => applyEdgeChanges(changes, currentEdges))
+    },
+    [setEdges]
+  )
 
   const sortedModels = useMemo(
     () =>
@@ -262,6 +449,27 @@ export function App() {
     })
     void refreshImages()
   }, [])
+
+  useEffect(() => {
+    if (!activeCanvas && canvases[0]) {
+      setActiveCanvasId(canvases[0].id)
+      return
+    }
+
+    if (activeCanvas && activeCanvas.id !== activeCanvasId) {
+      setActiveCanvasId(activeCanvas.id)
+    }
+  }, [activeCanvas, activeCanvasId, canvases])
+
+  useEffect(() => {
+    window.localStorage.setItem(WORKFLOW_CANVASES_STORAGE_KEY, JSON.stringify(canvases))
+  }, [canvases])
+
+  useEffect(() => {
+    if (activeCanvas?.id) {
+      window.localStorage.setItem(ACTIVE_CANVAS_STORAGE_KEY, activeCanvas.id)
+    }
+  }, [activeCanvas?.id])
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-color-scheme: dark)')
@@ -323,7 +531,7 @@ export function App() {
       window.clearTimeout(resizeTimer)
       window.removeEventListener('resize', refit)
     }
-  }, [flowInstance, resolvedTheme])
+  }, [activeCanvas?.id, flowInstance, resolvedTheme])
 
   async function refreshImages() {
     setImages(await listImages())
@@ -423,6 +631,7 @@ export function App() {
 
   async function handleGenerate() {
     const finalPrompt = prompt.trim()
+    const generatingCanvasId = activeCanvas?.id
     if (!finalPrompt) {
       setError('请先输入提示词')
       return
@@ -472,6 +681,15 @@ export function App() {
       }))
 
       await saveImages(records)
+      if (generatingCanvasId && records[0]) {
+        setCanvases((currentCanvases) =>
+          currentCanvases.map((canvas) =>
+            canvas.id === generatingCanvasId
+              ? { ...canvas, latestImageId: records[0].id, updatedAt: Date.now() }
+              : canvas
+          )
+        )
+      }
       await refreshImages()
       setGenerationProgress(100)
       setStatus(`已生成 ${records.length} 张图片，已保存到当前浏览器`)
@@ -497,6 +715,45 @@ export function App() {
 
   function handleDownloadImage(image: LocalImageRecord, index = 0) {
     downloadDataUrl(image.src, `gpt-image-${index + 1}.png`)
+  }
+
+  function handleCreateCanvas() {
+    const nextCanvas = createWorkflowCanvas(canvases.length + 1)
+    setCanvases((currentCanvases) => [...currentCanvases, nextCanvas])
+    setActiveCanvasId(nextCanvas.id)
+    setPaneMenu(null)
+    setStatus(`${nextCanvas.name} 已创建`)
+  }
+
+  function handleDuplicateCanvas(id: string) {
+    const sourceCanvas = canvases.find((canvas) => canvas.id === id)
+    if (!sourceCanvas) return
+
+    const nextCanvas = createWorkflowCanvas(canvases.length + 1, sourceCanvas)
+    setCanvases((currentCanvases) => [...currentCanvases, nextCanvas])
+    setActiveCanvasId(nextCanvas.id)
+    setPaneMenu(null)
+    setStatus(`${sourceCanvas.name} 已复制`)
+  }
+
+  function handleDeleteCanvas(id: string) {
+    if (canvases.length <= 1) {
+      setStatus('至少保留一个画布')
+      return
+    }
+
+    const deletedIndex = canvases.findIndex((canvas) => canvas.id === id)
+    const nextCanvases = canvases.filter((canvas) => canvas.id !== id)
+    setCanvases(nextCanvases)
+
+    if (id === activeCanvasId) {
+      const nextActive =
+        nextCanvases[Math.max(0, deletedIndex - 1)] || nextCanvases[0]
+      if (nextActive) setActiveCanvasId(nextActive.id)
+    }
+
+    setPaneMenu(null)
+    setStatus('画布已删除')
   }
 
   const deleteWorkflowEdge = useCallback(
@@ -710,8 +967,8 @@ export function App() {
           }
 
       setPaneMenu({
-        x: event.clientX,
-        y: event.clientY,
+        x: event.clientX - (bounds?.left || 0),
+        y: event.clientY - (bounds?.top || 0),
         position,
       })
     },
@@ -736,8 +993,71 @@ export function App() {
 
   return (
     <div className='app-shell flow-shell' data-theme={resolvedTheme}>
+      <aside className='canvas-drawer' aria-label='画布列表'>
+        <div className='canvas-drawer-header'>
+          <div className='section-title'>
+            <Layers size={16} />
+            <span>画布</span>
+          </div>
+          <button
+            type='button'
+            className='icon-button'
+            onClick={handleCreateCanvas}
+            aria-label='新建画布'
+            title='新建画布'
+          >
+            <Plus size={17} />
+          </button>
+        </div>
+
+        <div className='canvas-list'>
+          {canvases.map((canvas) => (
+            <article
+              key={canvas.id}
+              className={`canvas-item ${canvas.id === activeCanvas?.id ? 'active' : ''}`}
+            >
+              <button
+                type='button'
+                className='canvas-switch'
+                onClick={() => {
+                  setActiveCanvasId(canvas.id)
+                  setPaneMenu(null)
+                  setStatus(`已切换到 ${canvas.name}`)
+                }}
+                aria-pressed={canvas.id === activeCanvas?.id}
+              >
+                <strong>{canvas.name}</strong>
+                <span>
+                  {canvas.nodes.length} 节点 · {canvas.edges.length} 连接
+                </span>
+              </button>
+              <div className='canvas-actions'>
+                <button
+                  type='button'
+                  onClick={() => handleDuplicateCanvas(canvas.id)}
+                  aria-label={`复制 ${canvas.name}`}
+                  title='复制画布'
+                >
+                  <Copy size={14} />
+                </button>
+                <button
+                  type='button'
+                  onClick={() => handleDeleteCanvas(canvas.id)}
+                  disabled={canvases.length <= 1}
+                  aria-label={`删除 ${canvas.name}`}
+                  title='删除画布'
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </aside>
+
       <main className='workflow-stage'>
         <ReactFlow
+          key={activeCanvas?.id}
           nodes={workflowNodes}
           edges={workflowEdges}
           nodeTypes={nodeTypes}
@@ -789,7 +1109,7 @@ export function App() {
             </div>
             <div>
               <h1>GPT Image Tools</h1>
-              <p>右键创建节点 · 拖动端口连线</p>
+              <p>{activeCanvas?.name || '画布'} · 右键创建节点 · 拖动端口连线</p>
             </div>
           </div>
           <div className='status-pill'>
