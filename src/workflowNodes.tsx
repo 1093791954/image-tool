@@ -154,7 +154,7 @@ export function AssetNode({ id, data }: NodeProps<AssetFlowNode>) {
         <Handle type='source' position={Position.Right} id='reference' />
       </div>
       <div
-        className='asset-drop nodrag'
+        className={`asset-drop nodrag ${data.referenceImages.length > 0 ? 'asset-drop-filled' : ''}`}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault()
@@ -168,10 +168,15 @@ export function AssetNode({ id, data }: NodeProps<AssetFlowNode>) {
             <span>添加后作为生成参考输入</span>
           </>
         ) : (
-          <div className='asset-preview-grid'>
+          <div className={`asset-preview-grid asset-preview-count-${data.referenceImages.length}`}>
             {data.referenceImages.map((image) => (
-              <article key={image.id}>
-                <img src={image.dataUrl} alt={image.name} />
+              <article key={image.id} onDragStart={(event) => event.preventDefault()}>
+                <img
+                  src={image.dataUrl}
+                  alt={image.name}
+                  draggable={false}
+                  onDragStart={(event) => event.preventDefault()}
+                />
                 <button
                   type='button'
                   className='node-icon-button'
