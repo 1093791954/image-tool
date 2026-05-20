@@ -196,12 +196,38 @@ function createLocalId(prefix: string) {
   return `${prefix}-${Date.now()}-${randomId}`
 }
 
-function cloneWorkflowNodes(nodes: WorkflowNode[]) {
-  return nodes.map((node) => ({
-    ...node,
-    position: { ...node.position },
-    data: {},
-  }))
+function getWorkflowNodeReferenceImages(node?: Pick<WorkflowNode, 'data'> | null) {
+  const value = node?.data?.referenceImages
+  return Array.isArray(value) ? ensureReferenceTitles(value as ReferenceImage[]) : []
+}
+
+function cloneWorkflowNodes(nodes: WorkflowNode[], legacyReferenceImages: ReferenceImage[] = []) {
+  const normalizedLegacyReferenceImages = ensureReferenceTitles(legacyReferenceImages)
+  let hasStoredAssetReferences = false
+
+  const clonedNodes = nodes.map((node) => {
+    const referenceImages =
+      node.type === 'asset' ? getWorkflowNodeReferenceImages(node) : []
+    if (referenceImages.length > 0) hasStoredAssetReferences = true
+
+    return {
+      ...node,
+      position: { ...node.position },
+      data: referenceImages.length > 0 ? { referenceImages } : {},
+    }
+  })
+
+  if (normalizedLegacyReferenceImages.length > 0 && !hasStoredAssetReferences) {
+    const firstAssetIndex = clonedNodes.findIndex((node) => node.type === 'asset')
+    if (firstAssetIndex >= 0) {
+      clonedNodes[firstAssetIndex] = {
+        ...clonedNodes[firstAssetIndex],
+        data: { referenceImages: normalizedLegacyReferenceImages },
+      }
+    }
+  }
+
+  return clonedNodes
 }
 
 function cloneWorkflowEdges(edges: WorkflowEdge[]) {
@@ -238,6 +264,23 @@ function ensureReferenceTitles(images: ReferenceImage[]) {
     ...image,
     title: normalizeReferenceTitle(image.title || image.name) || `参考图${index + 1}`,
   }))
+}
+
+function getCanvasReferenceImages(canvas?: Pick<WorkflowCanvas, 'nodes'> | null) {
+  if (!canvas) return []
+
+  const seen = new Set<string>()
+  const images: ReferenceImage[] = []
+  canvas.nodes.forEach((node) => {
+    if (node.type !== 'asset') return
+    getWorkflowNodeReferenceImages(node).forEach((image) => {
+      if (seen.has(image.id)) return
+      seen.add(image.id)
+      images.push(image)
+    })
+  })
+
+  return images
 }
 
 function normalizeWorkflowEdges(edges: WorkflowEdge[], nodes: WorkflowNode[]) {
@@ -297,20 +340,24 @@ function normalizePromptOptimizationPreset(value: unknown): PromptOptimizationPr
 function createWorkflowCanvas(index: number, base?: WorkflowCanvas): WorkflowCanvas {
   const id = createLocalId('canvas')
   const now = Date.now()
+  const baseNodes = cloneWorkflowNodes(
+    base?.nodes || initialWorkflowNodes,
+    base?.referenceImages || []
+  )
 
   return {
     id,
     name: base ? `${base.name} 副本` : `画布 ${index}`,
     updatedAt: now,
-    nodes: cloneWorkflowNodes(base?.nodes || initialWorkflowNodes),
+    nodes: baseNodes,
     edges: normalizeWorkflowEdges(
       cloneWorkflowEdges(base?.edges || initialWorkflowEdges),
-      cloneWorkflowNodes(base?.nodes || initialWorkflowNodes)
+      baseNodes
     ),
     prompt: base?.prompt || '',
     promptOptimizationPreset: base?.promptOptimizationPreset || DEFAULT_PROMPT_OPTIMIZATION_PRESET,
     generationMode: base?.generationMode || 'text',
-    referenceImages: base?.referenceImages ? ensureReferenceTitles(base.referenceImages) : [],
+    referenceImages: [],
     latestImageId: base?.latestImageId,
   }
 }
@@ -325,9 +372,12 @@ function normalizeStoredCanvases(value: unknown): WorkflowCanvas[] {
     const canvas = item as Partial<WorkflowCanvas>
     if (typeof canvas.id !== 'string' || typeof canvas.name !== 'string') return
 
+    const legacyReferenceImages = Array.isArray(canvas.referenceImages)
+      ? ensureReferenceTitles(canvas.referenceImages as ReferenceImage[])
+      : []
     const normalizedNodes = Array.isArray(canvas.nodes)
-      ? cloneWorkflowNodes(canvas.nodes as WorkflowNode[])
-      : cloneWorkflowNodes(initialWorkflowNodes)
+      ? cloneWorkflowNodes(canvas.nodes as WorkflowNode[], legacyReferenceImages)
+      : cloneWorkflowNodes(initialWorkflowNodes, legacyReferenceImages)
     const rawEdges = Array.isArray(canvas.edges)
       ? cloneWorkflowEdges(canvas.edges as WorkflowEdge[])
       : cloneWorkflowEdges(initialWorkflowEdges)
@@ -343,9 +393,7 @@ function normalizeStoredCanvases(value: unknown): WorkflowCanvas[] {
         canvas.promptOptimizationPreset
       ),
       generationMode: canvas.generationMode === 'image' ? 'image' : 'text',
-      referenceImages: Array.isArray(canvas.referenceImages)
-        ? ensureReferenceTitles(canvas.referenceImages as ReferenceImage[])
-        : [],
+      referenceImages: [],
       latestImageId:
         typeof canvas.latestImageId === 'string' ? canvas.latestImageId : undefined,
       generationTaskId:
@@ -688,7 +736,7 @@ export function App() {
   const promptOptimizationPreset =
     activeCanvas?.promptOptimizationPreset || DEFAULT_PROMPT_OPTIMIZATION_PRESET
   const generationMode = activeCanvas?.generationMode || 'text'
-  const referenceImages = activeCanvas?.referenceImages || []
+  const referenceImages = getCanvasReferenceImages(activeCanvas)
   const activeCanvasGenerating = activeCanvas ? isCanvasGenerating(activeCanvas) : false
   const latestImage =
     images.find((image) => image.id === activeCanvas?.latestImageId) || null
@@ -750,11 +798,22 @@ export function App() {
     [updateActiveCanvas]
   )
 
-  const setReferenceImages = useCallback(
-    (updater: StateUpdater<ReferenceImage[]>) => {
+  const setAssetNodeReferenceImages = useCallback(
+    (nodeId: string, updater: StateUpdater<ReferenceImage[]>) => {
       updateActiveCanvas((canvas) => ({
         ...canvas,
-        referenceImages: resolveUpdater(updater, canvas.referenceImages),
+        referenceImages: [],
+        nodes: canvas.nodes.map((node) => {
+          if (node.id !== nodeId || node.type !== 'asset') return node
+
+          const currentImages = getWorkflowNodeReferenceImages(node)
+          const nextImages = ensureReferenceTitles(resolveUpdater(updater, currentImages))
+
+          return {
+            ...node,
+            data: nextImages.length > 0 ? { referenceImages: nextImages } : {},
+          }
+        }),
       }))
     },
     [updateActiveCanvas]
@@ -1170,36 +1229,41 @@ export function App() {
     }
   }
 
-  async function addReferenceFiles(files: FileList | File[]) {
+  async function addReferenceFiles(nodeId: string, files: FileList | File[]) {
     const imageFiles = [...files].filter((file) => file.type.startsWith('image/'))
     if (imageFiles.length === 0) return
 
-    const remainingSlots = Math.max(0, MAX_REFERENCE_IMAGES - referenceImages.length)
+    const nodeReferenceImages = getWorkflowNodeReferenceImages(
+      nodes.find((node) => node.id === nodeId)
+    )
+    const remainingSlots = Math.max(0, MAX_REFERENCE_IMAGES - nodeReferenceImages.length)
     const selectedFiles = imageFiles.slice(0, remainingSlots)
     const nextImages = await Promise.all(
       selectedFiles.map(async (file, index) => ({
         id: createLocalId('reference'),
         name: file.name,
-        title: referenceTitleFromFileName(file.name, referenceImages.length + index),
+        title: referenceTitleFromFileName(file.name, nodeReferenceImages.length + index),
         type: file.type || 'image/png',
         dataUrl: await fileToDataUrl(file),
       }))
     )
 
-    setReferenceImages((current) => [...current, ...nextImages])
+    setAssetNodeReferenceImages(nodeId, (current) => [...current, ...nextImages])
     setGenerationMode('image')
     if (imageFiles.length > remainingSlots) setStatus(`最多添加 ${MAX_REFERENCE_IMAGES} 张参考图`)
   }
 
-  function removeReferenceImage(id: string) {
+  function removeReferenceImage(nodeId: string, id: string) {
     const willRemoveLastReference =
       referenceImages.length <= 1 && referenceImages.some((image) => image.id === id)
-    setReferenceImages((current) => current.filter((image) => image.id !== id))
+    setAssetNodeReferenceImages(nodeId, (current) =>
+      current.filter((image) => image.id !== id)
+    )
     if (willRemoveLastReference) setGenerationMode('text')
   }
 
-  function updateReferenceImageTitle(id: string, title: string) {
-    setReferenceImages((current) =>
+  function updateReferenceImageTitle(nodeId: string, id: string, title: string) {
+    setAssetNodeReferenceImages(nodeId, (current) =>
       current.map((image) =>
         image.id === id ? { ...image, title: normalizeReferenceTitle(title) } : image
       )
@@ -1523,14 +1587,19 @@ export function App() {
   const canGenerate =
     !activeCanvasGenerating && Boolean(apiKey && baseUrl && model && prompt.trim())
 
-  function nodeDataFor(type: WorkflowNodeType): WorkflowNode['data'] {
+  function nodeDataFor(node: WorkflowNode): WorkflowNode['data'] {
+    const type = node.type as WorkflowNodeType
+
     if (type === 'asset') {
+      const nodeReferenceImages = getWorkflowNodeReferenceImages(node)
+
       return {
         onDeleteNode: deleteWorkflowNode,
-        referenceImages,
-        addReferenceFiles,
-        removeReferenceImage,
-        updateReferenceImageTitle,
+        referenceImages: nodeReferenceImages,
+        addReferenceFiles: (files: FileList | File[]) => addReferenceFiles(node.id, files),
+        removeReferenceImage: (id: string) => removeReferenceImage(node.id, id),
+        updateReferenceImageTitle: (id: string, title: string) =>
+          updateReferenceImageTitle(node.id, id, title),
       }
     }
 
@@ -1590,7 +1659,7 @@ export function App() {
     () =>
       nodes.map((node) => ({
         ...node,
-        data: nodeDataFor(node.type as WorkflowNodeType),
+        data: nodeDataFor(node),
       })),
     [
       nodes,
