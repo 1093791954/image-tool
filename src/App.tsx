@@ -136,6 +136,15 @@ function resolveUpdater<T>(updater: StateUpdater<T>, current: T): T {
     : updater
 }
 
+function createLocalId(prefix: string) {
+  const randomId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2)
+
+  return `${prefix}-${Date.now()}-${randomId}`
+}
+
 function cloneWorkflowNodes(nodes: WorkflowNode[]) {
   return nodes.map((node) => ({
     ...node,
@@ -152,8 +161,8 @@ function cloneWorkflowEdges(edges: WorkflowEdge[]) {
 }
 
 function createWorkflowCanvas(index: number, base?: WorkflowCanvas): WorkflowCanvas {
+  const id = createLocalId('canvas')
   const now = Date.now()
-  const id = `canvas-${now}-${crypto.randomUUID()}`
 
   return {
     id,
@@ -250,7 +259,7 @@ function downloadJsonFile(data: unknown, filename: string) {
 }
 
 function newImageId(index: number) {
-  return `${Date.now()}-${index}-${crypto.randomUUID()}`
+  return createLocalId(`image-${index}`)
 }
 
 function fileToDataUrl(file: File) {
@@ -590,7 +599,7 @@ export function App() {
     const selectedFiles = imageFiles.slice(0, remainingSlots)
     const nextImages = await Promise.all(
       selectedFiles.map(async (file) => ({
-        id: `${Date.now()}-${crypto.randomUUID()}`,
+        id: createLocalId('reference'),
         name: file.name,
         type: file.type || 'image/png',
         dataUrl: await fileToDataUrl(file),
