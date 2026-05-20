@@ -691,7 +691,8 @@ select:disabled {
 
 .field span,
 .checkbox-row,
-.node-param-grid label span {
+.node-param-grid label span,
+.prompt-optimization-select span {
   color: var(--label);
   font-size: 12px;
   font-weight: 650;
@@ -700,6 +701,7 @@ select:disabled {
 .field input,
 .field select,
 .node-param-grid select,
+.prompt-optimization-select select,
 .node-textarea {
   width: 100%;
   min-width: 0;
@@ -716,7 +718,8 @@ select:disabled {
 
 .field input,
 .field select,
-.node-param-grid select {
+.node-param-grid select,
+.prompt-optimization-select select {
   height: 38px;
   padding: 0 10px;
 }
@@ -724,6 +727,7 @@ select:disabled {
 .field input:focus,
 .field select:focus,
 .node-param-grid select:focus,
+.prompt-optimization-select select:focus,
 .node-textarea:focus,
 .theme-switcher button:focus-visible,
 .shop-link:focus-visible,
@@ -1126,6 +1130,12 @@ select:disabled {
   padding: 14px;
   resize: none;
   line-height: 1.6;
+}
+
+.prompt-optimization-select {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 10px;
 }
 
 .generation-preview,

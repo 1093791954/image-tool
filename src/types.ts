@@ -18,6 +18,14 @@ export type ModelOption = {
   owned_by?: string
 }
 
+export type PromptOptimizationPreset =
+  | 'general'
+  | 'ecommerce'
+  | 'product'
+  | 'social'
+  | 'brand'
+  | 'character'
+
 export type ImageGenerationPayload = {
   baseUrl: string
   apiKey: string
@@ -74,6 +82,7 @@ export type PromptOptimizationPayload = {
   model: string
   prompt: string
   mode: 'text' | 'image'
+  optimizationPreset: PromptOptimizationPreset
 }
 
 export type LocalImageRecord = {

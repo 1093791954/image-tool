@@ -5,6 +5,7 @@ import type {
   ManagedNewApiLoginResult,
   ModelOption,
   PromptOptimizationPayload,
+  PromptOptimizationPreset,
 } from './types'
 
 function normalizeBaseUrl(baseUrl: string) {
@@ -98,8 +99,42 @@ async function parsePromptOptimizationResult(body: {
   return optimizedPrompt
 }
 
+const promptPresetMagic: Record<PromptOptimizationPreset, { label: string; instruction: string }> = {
+  general: {
+    label: '通用增强',
+    instruction:
+      '按通用高质量图像生成要求增强：明确主体、画面层次、构图、材质、光线、镜头语言、风格和画质，不额外添加营销话术。',
+  },
+  ecommerce: {
+    label: '电商卖货',
+    instruction:
+      '加入电商转化导向：突出商品主体和核心卖点，强化详情页/主图可用的干净构图、质感、消费场景、利益点氛围、真实材质和高级棚拍光线；避免要求模型生成不可控的长文字。',
+  },
+  product: {
+    label: '产品质感',
+    instruction:
+      '加入产品摄影魔法：强调材质纹理、边缘高光、反射控制、微距细节、干净背景、商业棚拍、真实阴影和高级质感，让主体适合被清楚检视。',
+  },
+  social: {
+    label: '社媒爆款',
+    instruction:
+      '加入社媒传播魔法：强化第一眼吸引力、强对比主视觉、情绪氛围、生活方式场景、封面感构图、节奏感和平台内容审美，但保持画面干净。',
+  },
+  brand: {
+    label: '品牌海报',
+    instruction:
+      '加入品牌视觉魔法：强调品牌调性、主视觉秩序、留白、视觉层级、色彩系统、海报级构图、精致光影和可用于品牌 Campaign 的高级感。',
+  },
+  character: {
+    label: 'IP/角色',
+    instruction:
+      '加入角色/IP 魔法：强化角色辨识度、表情、姿态、服装细节、世界观氛围、动作叙事和一致性；不要改变用户指定的角色核心特征。',
+  },
+}
+
 function promptOptimizationMessages(payload: PromptOptimizationPayload) {
   const modeLabel = payload.mode === 'image' ? '图像参考生成' : '文生图'
+  const magic = promptPresetMagic[payload.optimizationPreset] || promptPresetMagic.general
   return [
     {
       role: 'system',
@@ -108,7 +143,7 @@ function promptOptimizationMessages(payload: PromptOptimizationPayload) {
     },
     {
       role: 'user',
-      content: `任务类型：${modeLabel}\n请把下面的中文图像生成提示词优化得更具体、更适合商业海报和高质量图像生成。保留用户原意，补足主体、构图、材质、光线、风格、画质要求。不要改变为英文。\n\n原提示词：${payload.prompt}`,
+      content: `任务类型：${modeLabel}\n优化方向：${magic.label}\n方向魔法：${magic.instruction}\n请把下面的中文图像生成提示词优化得更具体、更适合高质量图像生成。保留用户原意，补足主体、构图、材质、光线、风格、画质要求。不要改变为英文。\n\n原提示词：${payload.prompt}`,
     },
   ]
 }

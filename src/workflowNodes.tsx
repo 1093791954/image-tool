@@ -22,7 +22,11 @@ import {
   WandSparkles,
   X,
 } from 'lucide-react'
-import type { LocalImageRecord, ReferenceImage } from './types'
+import type {
+  LocalImageRecord,
+  PromptOptimizationPreset,
+  ReferenceImage,
+} from './types'
 
 type GenerationMode = 'text' | 'image'
 
@@ -41,6 +45,9 @@ export type AssetNodeData = {
 export type PromptNodeData = {
   prompt: string
   setPrompt: Dispatch<SetStateAction<string>>
+  optimizationPreset: PromptOptimizationPreset
+  optimizationPresets: Array<{ value: PromptOptimizationPreset; label: string }>
+  setOptimizationPreset: (preset: PromptOptimizationPreset) => void
   generationMode: GenerationMode
   isOptimizingPrompt: boolean
   canOptimizePrompt: boolean
@@ -253,6 +260,21 @@ export function PromptNode({ id, data }: NodeProps<PromptFlowNode>) {
         <span>提示词输出</span>
         <Handle type='source' position={Position.Right} id='prompt' />
       </div>
+      <label className='prompt-optimization-select nodrag'>
+        <span>优化方向</span>
+        <select
+          value={data.optimizationPreset}
+          onChange={(event) =>
+            data.setOptimizationPreset(event.target.value as PromptOptimizationPreset)
+          }
+        >
+          {data.optimizationPresets.map((preset) => (
+            <option key={preset.value} value={preset.value}>
+              {preset.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <textarea
         className='node-textarea nodrag'
         value={data.prompt}

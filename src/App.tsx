@@ -63,11 +63,18 @@ import {
   type GenerateNodeData,
   type PromptNodeData,
 } from './workflowNodes'
-import type { LocalImageRecord, ModelOption, ReferenceImage, ThemeMode } from './types'
+import type {
+  LocalImageRecord,
+  ModelOption,
+  PromptOptimizationPreset,
+  ReferenceImage,
+  ThemeMode,
+} from './types'
 
 const DEFAULT_BASE_URL = 'https://cc.api-corp.top'
 const DEFAULT_MODEL = 'gpt-image-2'
 const DEFAULT_TEXT_MODEL = 'gpt-5.5'
+const DEFAULT_PROMPT_OPTIMIZATION_PRESET: PromptOptimizationPreset = 'ecommerce'
 const SHOP_URL = 'https://pay.ldxp.cn/shop/LY6AR08H'
 const CONSOLE_URL = 'https://cc.api-corp.top/'
 
@@ -79,6 +86,14 @@ const themeOptions: Array<{ value: ThemeMode; label: string; icon: typeof Sun }>
   { value: 'light', label: '亮色', icon: Sun },
   { value: 'dark', label: '暗色', icon: Moon },
   { value: 'system', label: '跟随系统', icon: Monitor },
+]
+const promptOptimizationPresets: Array<{ value: PromptOptimizationPreset; label: string }> = [
+  { value: 'ecommerce', label: '电商卖货' },
+  { value: 'product', label: '产品质感' },
+  { value: 'social', label: '社媒爆款' },
+  { value: 'brand', label: '品牌海报' },
+  { value: 'character', label: 'IP/角色' },
+  { value: 'general', label: '通用增强' },
 ]
 
 type WorkflowNode = Node<
@@ -102,6 +117,7 @@ type WorkflowCanvas = {
   nodes: WorkflowNode[]
   edges: WorkflowEdge[]
   prompt: string
+  promptOptimizationPreset: PromptOptimizationPreset
   generationMode: 'text' | 'image'
   referenceImages: ReferenceImage[]
   latestImageId?: string
@@ -172,6 +188,12 @@ function cloneWorkflowEdges(edges: WorkflowEdge[]) {
   }))
 }
 
+function normalizePromptOptimizationPreset(value: unknown): PromptOptimizationPreset {
+  return promptOptimizationPresets.some((preset) => preset.value === value)
+    ? (value as PromptOptimizationPreset)
+    : DEFAULT_PROMPT_OPTIMIZATION_PRESET
+}
+
 function createWorkflowCanvas(index: number, base?: WorkflowCanvas): WorkflowCanvas {
   const id = createLocalId('canvas')
   const now = Date.now()
@@ -183,6 +205,7 @@ function createWorkflowCanvas(index: number, base?: WorkflowCanvas): WorkflowCan
     nodes: cloneWorkflowNodes(base?.nodes || initialWorkflowNodes),
     edges: cloneWorkflowEdges(base?.edges || initialWorkflowEdges),
     prompt: base?.prompt || '',
+    promptOptimizationPreset: base?.promptOptimizationPreset || DEFAULT_PROMPT_OPTIMIZATION_PRESET,
     generationMode: base?.generationMode || 'text',
     referenceImages: base?.referenceImages ? [...base.referenceImages] : [],
     latestImageId: base?.latestImageId,
@@ -210,6 +233,9 @@ function normalizeStoredCanvases(value: unknown): WorkflowCanvas[] {
         ? cloneWorkflowEdges(canvas.edges as WorkflowEdge[])
         : cloneWorkflowEdges(initialWorkflowEdges),
       prompt: typeof canvas.prompt === 'string' ? canvas.prompt : '',
+      promptOptimizationPreset: normalizePromptOptimizationPreset(
+        canvas.promptOptimizationPreset
+      ),
       generationMode: canvas.generationMode === 'image' ? 'image' : 'text',
       referenceImages: Array.isArray(canvas.referenceImages)
         ? (canvas.referenceImages as ReferenceImage[])
@@ -367,6 +393,8 @@ export function App() {
   const nodes = activeCanvas?.nodes || []
   const edges = activeCanvas?.edges || []
   const prompt = activeCanvas?.prompt || ''
+  const promptOptimizationPreset =
+    activeCanvas?.promptOptimizationPreset || DEFAULT_PROMPT_OPTIMIZATION_PRESET
   const generationMode = activeCanvas?.generationMode || 'text'
   const referenceImages = activeCanvas?.referenceImages || []
   const latestImage =
@@ -408,6 +436,16 @@ export function App() {
   const setPrompt = useCallback(
     (nextPrompt: string) => {
       updateActiveCanvas((canvas) => ({ ...canvas, prompt: nextPrompt }))
+    },
+    [updateActiveCanvas]
+  )
+
+  const setPromptOptimizationPreset = useCallback(
+    (nextPreset: PromptOptimizationPreset) => {
+      updateActiveCanvas((canvas) => ({
+        ...canvas,
+        promptOptimizationPreset: nextPreset,
+      }))
     },
     [updateActiveCanvas]
   )
@@ -735,6 +773,7 @@ export function App() {
         model: textModel.trim() || DEFAULT_TEXT_MODEL,
         prompt: currentPrompt,
         mode: generationMode,
+        optimizationPreset: promptOptimizationPreset,
       })
       setPrompt(optimizedPrompt)
       setStatus('提示词已优化')
@@ -939,6 +978,9 @@ export function App() {
         onDeleteNode: deleteWorkflowNode,
         prompt,
         setPrompt,
+        optimizationPreset: promptOptimizationPreset,
+        optimizationPresets: promptOptimizationPresets,
+        setOptimizationPreset: setPromptOptimizationPreset,
         generationMode,
         isOptimizingPrompt,
         canOptimizePrompt: Boolean(prompt.trim()) && Boolean(codexApiKey) && !isOptimizingPrompt,
@@ -993,6 +1035,7 @@ export function App() {
       generationMode,
       referenceImages,
       prompt,
+      promptOptimizationPreset,
       codexApiKey,
       textModel,
       isOptimizingPrompt,
@@ -1010,6 +1053,7 @@ export function App() {
       remainingSeconds,
       latestImage,
       deleteWorkflowNode,
+      setPromptOptimizationPreset,
     ]
   )
 
