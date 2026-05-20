@@ -37,6 +37,7 @@ import {
   ShoppingBag,
   Sparkles,
   Sun,
+  Terminal,
   Trash2,
   Upload,
   X,
@@ -66,6 +67,7 @@ import type { LocalImageRecord, ModelOption, ReferenceImage, ThemeMode } from '.
 const DEFAULT_BASE_URL = 'https://cc.api-corp.top'
 const DEFAULT_MODEL = 'gpt-image-2'
 const SHOP_URL = 'https://pay.ldxp.cn/shop/LY6AR08H'
+const CONSOLE_URL = 'https://cc.api-corp.top/'
 
 const sizes = ['1024x1024', '1024x1536', '1536x1024', '1024x1792', '1792x1024']
 const qualities = ['auto', 'standard', 'hd', 'low', 'medium', 'high']
@@ -572,6 +574,10 @@ export function App() {
 
   async function handleOpenShop() {
     await bridge.openExternal(SHOP_URL)
+  }
+
+  async function handleOpenConsole() {
+    await bridge.openExternal(CONSOLE_URL)
   }
 
   async function handleExportBackup() {
@@ -1196,6 +1202,19 @@ export function App() {
       </main>
 
       <aside className='control-dock'>
+        <div className='dock-action-bar'>
+          <button className='top-link console-link' onClick={() => void handleOpenConsole()}>
+            <Terminal size={16} />
+            控制台
+            <ExternalLink size={14} />
+          </button>
+          <button className='top-link shop-link' onClick={() => void handleOpenShop()}>
+            <ShoppingBag size={16} />
+            小店
+            <ExternalLink size={14} />
+          </button>
+        </div>
+
         <section className='dock-panel'>
           <div className='section-title'>
             <KeyRound size={16} />
@@ -1314,11 +1333,6 @@ export function App() {
               <h2>本地图库</h2>
               <p>{images.length} 张图片</p>
             </div>
-            <button className='shop-link' onClick={() => void handleOpenShop()}>
-              <ShoppingBag size={16} />
-              小店
-              <ExternalLink size={14} />
-            </button>
           </div>
           {images.length === 0 ? (
             <div className='gallery-empty'>生成结果会出现在这里</div>

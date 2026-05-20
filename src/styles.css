@@ -540,6 +540,13 @@ select:disabled {
   background: rgb(247 249 252 / 92%);
 }
 
+.dock-action-bar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .dock-panel,
 .flow-node {
   background: linear-gradient(180deg, rgb(255 255 255 / 5%), rgb(255 255 255 / 2%)),
@@ -677,6 +684,7 @@ select:disabled {
 .secondary,
 .ghost,
 .shop-link,
+.top-link,
 .theme-switcher button,
 .file-action,
 .node-file-button,
@@ -725,10 +733,33 @@ select:disabled {
   display: none;
 }
 
+.top-link {
+  min-height: 40px;
+  padding: 0 13px;
+  background: rgb(15 18 26 / 78%);
+  box-shadow: 0 14px 38px var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.console-link {
+  color: var(--text);
+  background: rgb(15 18 26 / 78%);
+}
+
+:root[data-theme='light'] .top-link,
+:root[data-theme='light'] .console-link {
+  background: rgb(255 255 255 / 82%);
+}
+
 .shop-link {
   color: #061014;
   background: linear-gradient(135deg, var(--green), var(--blue));
   border-color: transparent;
+}
+
+.top-link.shop-link,
+:root[data-theme='light'] .top-link.shop-link {
+  background: linear-gradient(135deg, var(--green), var(--blue));
 }
 
 .theme-switcher {
