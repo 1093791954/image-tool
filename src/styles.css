@@ -187,16 +187,46 @@ select:disabled {
   background: var(--field-hover);
 }
 
-.canvas-switch strong,
+.canvas-name-field {
+  display: grid;
+  min-width: 0;
+}
+
+.canvas-name-field span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.canvas-name-field input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+}
+
+.canvas-name-field input:focus {
+  padding: 2px 5px;
+  background: var(--field);
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
 .canvas-switch span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.canvas-switch strong {
-  font-size: 13px;
-  line-height: 1.25;
 }
 
 .canvas-switch span {
@@ -382,6 +412,54 @@ select:disabled {
   justify-content: space-between;
   gap: 16px;
   pointer-events: none;
+}
+
+.canvas-title-bar {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(360px, 34vw);
+  min-width: 220px;
+  padding: 10px 12px;
+  color: var(--text);
+  background: rgb(15 18 26 / 82%);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 14px 38px var(--shadow);
+  transform: translateX(-50%);
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+}
+
+:root[data-theme='light'] .canvas-title-bar {
+  background: rgb(255 255 255 / 82%);
+}
+
+.canvas-title-bar input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 15px;
+  font-weight: 850;
+  line-height: 1.25;
+  text-align: center;
+  text-overflow: ellipsis;
+}
+
+.canvas-title-bar input:focus {
+  padding: 2px 6px;
+  background: var(--field);
+  border-radius: 7px;
+  box-shadow: 0 0 0 2px var(--focus);
 }
 
 .brand {
@@ -1333,6 +1411,14 @@ select:disabled {
   .floating-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .canvas-title-bar {
+    top: 116px;
+    left: 18px;
+    width: min(360px, calc(100vw - 36px));
+    min-width: 0;
+    transform: none;
   }
 
   .status-pill {

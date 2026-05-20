@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react'
 import {
   Background,
   Controls,
@@ -17,6 +24,7 @@ import {
 import {
   Copy,
   Download,
+  Edit3,
   ExternalLink,
   KeyRound,
   Layers,
@@ -765,6 +773,33 @@ export function App() {
     setStatus('画布已删除')
   }
 
+  function handleRenameCanvas(id: string, nextName: string) {
+    const normalizedName = nextName.slice(0, 32)
+    setCanvases((currentCanvases) =>
+      currentCanvases.map((canvas) =>
+        canvas.id === id
+          ? { ...canvas, name: normalizedName, updatedAt: Date.now() }
+          : canvas
+      )
+    )
+  }
+
+  function handleCommitCanvasName(id: string) {
+    const canvas = canvases.find((item) => item.id === id)
+    if (!canvas) return
+
+    const nextName = canvas.name.trim() || '未命名画布'
+    if (nextName !== canvas.name) handleRenameCanvas(id, nextName)
+    setStatus(`${nextName} 已命名`)
+  }
+
+  function stopCanvasNameShortcut(event: ReactKeyboardEvent<HTMLInputElement>) {
+    event.stopPropagation()
+    if (event.key === 'Enter') {
+      event.currentTarget.blur()
+    }
+  }
+
   const deleteWorkflowEdge = useCallback(
     (id: string) => {
       setEdges((currentEdges) => currentEdges.filter((edge) => edge.id !== id))
@@ -1025,21 +1060,30 @@ export function App() {
               key={canvas.id}
               className={`canvas-item ${canvas.id === activeCanvas?.id ? 'active' : ''}`}
             >
-              <button
-                type='button'
+              <div
                 className='canvas-switch'
                 onClick={() => {
                   setActiveCanvasId(canvas.id)
                   setPaneMenu(null)
                   setStatus(`已切换到 ${canvas.name}`)
                 }}
-                aria-pressed={canvas.id === activeCanvas?.id}
               >
-                <strong>{canvas.name}</strong>
+                <label className='canvas-name-field'>
+                  <span>画布名称</span>
+                  <input
+                    value={canvas.name}
+                    onChange={(event) => handleRenameCanvas(canvas.id, event.target.value)}
+                    onBlur={() => handleCommitCanvasName(canvas.id)}
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={stopCanvasNameShortcut}
+                    aria-label={`修改 ${canvas.name || '画布'} 名称`}
+                    placeholder='未命名画布'
+                  />
+                </label>
                 <span>
                   {canvas.nodes.length} 节点 · {canvas.edges.length} 连接
                 </span>
-              </button>
+              </div>
               <div className='canvas-actions'>
                 <button
                   type='button'
@@ -1118,13 +1162,27 @@ export function App() {
             </div>
             <div>
               <h1>GPT Image Tools</h1>
-              <p>{activeCanvas?.name || '画布'} · 右键创建节点 · 拖动端口连线</p>
+              <p>右键创建节点 · 拖动端口连线</p>
             </div>
           </div>
           <div className='status-pill'>
             <span>{status}</span>
           </div>
         </header>
+
+        {activeCanvas ? (
+          <label className='canvas-title-bar'>
+            <Edit3 size={15} />
+            <input
+              value={activeCanvas.name}
+              onChange={(event) => handleRenameCanvas(activeCanvas.id, event.target.value)}
+              onBlur={() => handleCommitCanvasName(activeCanvas.id)}
+              onKeyDown={stopCanvasNameShortcut}
+              aria-label='当前画布名称'
+              placeholder='未命名画布'
+            />
+          </label>
+        ) : null}
 
         {error ? (
           <div className='error-toast'>
