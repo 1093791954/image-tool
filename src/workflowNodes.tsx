@@ -129,36 +129,24 @@ function getMentionState(value: string, caret: number): MentionState {
   return { query, start: atIndex, end: caret }
 }
 
-function renderPromptWithMentions(prompt: string, knownTitles: Set<string>) {
-  const parts: ReactNode[] = []
+type PromptMentionSummary = {
+  title: string
+  isKnown: boolean
+}
+
+function getPromptMentionSummary(prompt: string, knownTitles: Set<string>) {
+  const mentions: PromptMentionSummary[] = []
   const pattern = /@([^\s@，。,.!！?？;；:：、()[\]{}<>《》"'“”‘’]+)/g
-  let lastIndex = 0
   let match: RegExpExecArray | null
 
   while ((match = pattern.exec(prompt)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(prompt.slice(lastIndex, match.index))
-    }
-
     const rawTitle = match[1] || ''
     const title = normalizeMentionTitle(rawTitle)
-    const isKnown = knownTitles.has(title)
-    parts.push(
-      <mark
-        key={`${match.index}-${match[0]}`}
-        className={isKnown ? 'prompt-mention-known' : 'prompt-mention-missing'}
-      >
-        {match[0]}
-      </mark>
-    )
-    lastIndex = match.index + match[0].length
+    if (!title || mentions.some((item) => item.title === title)) continue
+    mentions.push({ title, isKnown: knownTitles.has(title) })
   }
 
-  if (lastIndex < prompt.length) {
-    parts.push(prompt.slice(lastIndex))
-  }
-
-  return parts.length > 0 ? parts : prompt
+  return mentions
 }
 
 function NodeShell({
@@ -289,7 +277,6 @@ export function PromptNode({ id, data }: NodeProps<PromptFlowNode>) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const [mentionState, setMentionState] = useState<MentionState>(null)
   const [activeMentionIndex, setActiveMentionIndex] = useState(0)
-  const [isPromptFocused, setIsPromptFocused] = useState(false)
   const referenceTitles = useMemo(
     () =>
       data.referenceImages
@@ -305,8 +292,8 @@ export function PromptNode({ id, data }: NodeProps<PromptFlowNode>) {
       .filter((title) => title.toLowerCase().includes(query))
       .slice(0, 8)
   }, [mentionState, referenceTitles])
-  const highlightedPrompt = useMemo(
-    () => renderPromptWithMentions(data.prompt, knownReferenceTitles),
+  const mentionSummary = useMemo(
+    () => getPromptMentionSummary(data.prompt, knownReferenceTitles),
     [data.prompt, knownReferenceTitles]
   )
 
@@ -416,12 +403,6 @@ export function PromptNode({ id, data }: NodeProps<PromptFlowNode>) {
         </select>
       </label>
       <div className='prompt-editor nodrag'>
-        <div
-          className={`prompt-highlight-layer ${isPromptFocused ? 'editing' : ''}`}
-          aria-hidden='true'
-        >
-          {data.prompt ? highlightedPrompt : null}
-        </div>
         <textarea
           ref={textareaRef}
           className='node-textarea prompt-textarea'
@@ -433,22 +414,27 @@ export function PromptNode({ id, data }: NodeProps<PromptFlowNode>) {
           onKeyDown={handlePromptKeyDown}
           onKeyUp={(event) => syncMentionState(event.currentTarget)}
           onClick={(event) => syncMentionState(event.currentTarget)}
-          onFocus={() => setIsPromptFocused(true)}
           onBlur={() =>
             window.setTimeout(() => {
               setMentionState(null)
-              setIsPromptFocused(false)
             }, 120)
           }
           placeholder={
             data.generationMode === 'image'
               ? '输入图像生成提示词，例如：使用 @商品图 的包装元素，改成科技海报风格'
-              : '产品海报、科技感、高级材质、清晰主视觉；需要参考图时输入 @参考图标题'
+            : '产品海报、科技感、高级材质、清晰主视觉；需要参考图时输入 @参考图标题'
           }
         />
-        {data.prompt ? (
-          <div className='prompt-reference-preview' aria-hidden='true'>
-            {highlightedPrompt}
+        {mentionSummary.length > 0 ? (
+          <div className='prompt-reference-summary' aria-label='提示词引用的参考图'>
+            {mentionSummary.map((mention) => (
+              <span
+                key={mention.title}
+                className={mention.isKnown ? 'known' : 'missing'}
+              >
+                @{mention.title}
+              </span>
+            ))}
           </div>
         ) : null}
         {mentionState ? (

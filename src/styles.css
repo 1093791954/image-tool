@@ -1200,65 +1200,23 @@ select:disabled {
   min-height: 244px;
 }
 
-.prompt-highlight-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  width: 100%;
-  min-height: 244px;
-  padding: 14px;
-  overflow: hidden;
-  color: var(--text);
-  background: var(--field);
-  border: 1px solid transparent;
-  border-radius: 8px;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.6;
-  pointer-events: none;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.prompt-highlight-layer.editing {
-  color: transparent;
-}
-
-.prompt-highlight-layer mark {
-  padding: 1px 3px;
-  border-radius: 5px;
-  color: #061014;
-  background: var(--green);
-  box-shadow: 0 0 18px rgb(57 229 167 / 26%);
-}
-
-.prompt-highlight-layer .prompt-mention-missing {
-  color: var(--danger);
-  background: var(--danger-bg);
-  border: 1px solid var(--danger-border);
-  box-shadow: none;
-}
-
 .prompt-textarea {
   position: relative;
-  z-index: 1;
   min-height: 244px;
   color: var(--text);
-  background: transparent !important;
+  background: var(--field);
   caret-color: var(--text);
 }
 
 .prompt-textarea:focus {
   color: var(--text);
-  background: transparent !important;
 }
 
 .prompt-textarea::placeholder {
   color: var(--text-muted);
 }
 
-.prompt-reference-preview {
+.prompt-reference-summary {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -1268,7 +1226,7 @@ select:disabled {
   line-height: 1.5;
 }
 
-.prompt-reference-preview mark {
+.prompt-reference-summary span {
   padding: 2px 5px;
   color: #061014;
   background: var(--green);
@@ -1276,7 +1234,7 @@ select:disabled {
   font-weight: 850;
 }
 
-.prompt-reference-preview .prompt-mention-missing {
+.prompt-reference-summary .missing {
   color: var(--danger);
   background: var(--danger-bg);
   border: 1px solid var(--danger-border);
