@@ -647,8 +647,9 @@ export function App() {
     activeCanvas?.promptOptimizationPreset || DEFAULT_PROMPT_OPTIMIZATION_PRESET
   const generationMode = activeCanvas?.generationMode || 'text'
   const referenceImages = activeCanvas?.referenceImages || []
+  const activeCanvasGenerating = activeCanvas ? isCanvasGenerating(activeCanvas) : false
   const latestImage =
-    images.find((image) => image.id === activeCanvas?.latestImageId) || images[0] || null
+    images.find((image) => image.id === activeCanvas?.latestImageId) || null
 
   const updateActiveCanvas = useCallback(
     (updater: (canvas: WorkflowCanvas) => WorkflowCanvas) => {
@@ -1477,7 +1478,8 @@ export function App() {
     [setEdges, setNodes]
   )
 
-  const canGenerate = !isGenerating && Boolean(apiKey && baseUrl && model && prompt.trim())
+  const canGenerate =
+    !activeCanvasGenerating && Boolean(apiKey && baseUrl && model && prompt.trim())
 
   function nodeDataFor(type: WorkflowNodeType): WorkflowNode['data'] {
     if (type === 'asset') {
@@ -1527,7 +1529,7 @@ export function App() {
         inputFidelities,
         setInputFidelity,
         generationMode,
-        isGenerating,
+        isGenerating: activeCanvasGenerating,
         canGenerate,
         onGenerate: handleGenerate,
         progressLabel: progressStage(generationProgress, generationMode),
@@ -1564,7 +1566,7 @@ export function App() {
       count,
       responseFormat,
       inputFidelity,
-      isGenerating,
+      activeCanvasGenerating,
       canGenerate,
       generationProgress,
       generationElapsedSeconds,
@@ -1593,10 +1595,10 @@ export function App() {
         },
         animated:
           edge.source.includes('prompt') ||
-          (isGenerating && edge.source.includes('generate')) ||
+          (activeCanvasGenerating && edge.source.includes('generate')) ||
           edge.source.includes('asset'),
       })),
-    [deleteWorkflowEdge, edges, isGenerating]
+    [activeCanvasGenerating, deleteWorkflowEdge, edges]
   )
 
   const isValidConnection: IsValidConnection<WorkflowEdge> = useCallback(
