@@ -121,6 +121,10 @@ function normalizeMentionTitle(value: string) {
   return value.trim().replace(/^@+/, '')
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 function getMentionState(value: string, caret: number): MentionState {
   const beforeCaret = value.slice(0, caret)
   const atIndex = beforeCaret.lastIndexOf('@')
@@ -138,6 +142,21 @@ type PromptMentionSummary = {
 }
 
 function getPromptMentionSummary(prompt: string, knownTitles: Set<string>) {
+  const orderedTitles = [...knownTitles].sort((a, b) => b.length - a.length)
+  if (orderedTitles.length > 0) {
+    const mentions: PromptMentionSummary[] = []
+    const pattern = new RegExp(`@(${orderedTitles.map(escapeRegExp).join('|')})`, 'g')
+    let match: RegExpExecArray | null
+
+    while ((match = pattern.exec(prompt)) !== null) {
+      const title = normalizeMentionTitle(match[1] || '')
+      if (!title || mentions.some((item) => item.title === title)) continue
+      mentions.push({ title, isKnown: knownTitles.has(title) })
+    }
+
+    if (mentions.length > 0) return mentions
+  }
+
   const mentions: PromptMentionSummary[] = []
   const pattern = /@([^\s@，。,.!！?？;；:：、()[\]{}<>《》"'“”‘’]+)/g
   let match: RegExpExecArray | null

@@ -229,6 +229,10 @@ function referenceTitleFromFileName(name: string, index: number) {
   return normalizeReferenceTitle(name) || `参考图${index + 1}`
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 function ensureReferenceTitles(images: ReferenceImage[]) {
   return images.map((image, index) => ({
     ...image,
@@ -469,7 +473,22 @@ function imageModelScore(model: ModelOption) {
   return 20
 }
 
-function extractReferenceMentions(prompt: string) {
+function extractReferenceMentions(prompt: string, knownTitles: string[] = []) {
+  const orderedTitles = [...new Set(knownTitles.map((title) => normalizeReferenceTitle(title)).filter(Boolean))].sort(
+    (a, b) => b.length - a.length
+  )
+
+  if (orderedTitles.length > 0) {
+    const mentions: string[] = []
+    const pattern = new RegExp(`@(${orderedTitles.map(escapeRegExp).join('|')})`, 'g')
+    let match: RegExpExecArray | null
+    while ((match = pattern.exec(prompt)) !== null) {
+      const title = normalizeReferenceTitle(match[1] || '')
+      if (title && !mentions.includes(title)) mentions.push(title)
+    }
+    if (mentions.length > 0) return mentions
+  }
+
   const mentions: string[] = []
   const pattern = /@([^\s@，。,.!！?？;；:：、()[\]{}<>《》"'“”‘’]+)/g
   let match: RegExpExecArray | null
@@ -481,7 +500,10 @@ function extractReferenceMentions(prompt: string) {
 }
 
 function resolvePromptReferenceImages(prompt: string, images: ReferenceImage[]) {
-  const mentions = extractReferenceMentions(prompt)
+  const mentions = extractReferenceMentions(
+    prompt,
+    images.map((image) => image.title || image.name)
+  )
   if (mentions.length === 0) return { mentions, images: [], missing: [] }
 
   const matchedImages: ReferenceImage[] = []
@@ -493,6 +515,26 @@ function resolvePromptReferenceImages(prompt: string, images: ReferenceImage[]) 
   })
 
   return { mentions, images: matchedImages, missing }
+}
+
+function normalizeOptimizedPromptMentions(prompt: string, images: ReferenceImage[]) {
+  const orderedTitles = [...new Set(images.map((image) => normalizeReferenceTitle(image.title || image.name)).filter(Boolean))].sort(
+    (a, b) => b.length - a.length
+  )
+  if (orderedTitles.length === 0) return prompt.trim()
+
+  let next = prompt
+  orderedTitles.forEach((title) => {
+    const mention = `@${title}`
+    const pattern = new RegExp(escapeRegExp(mention), 'g')
+    next = next.replace(pattern, ` ${mention} `)
+  })
+
+  return next
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([，。,.!！?？;；:：、()[\]{}<>《》"'“”‘’])/g, '$1')
+    .replace(/([，。,.!！?？;；:：、()[\]{}<>《》"'“”‘’])\s+/g, '$1 ')
+    .trim()
 }
 
 function downloadDataUrl(src: string, filename: string) {
@@ -1258,7 +1300,7 @@ export function App() {
         mode: generationMode,
         optimizationPreset: promptOptimizationPreset,
       })
-      setPrompt(optimizedPrompt)
+      setPrompt(normalizeOptimizedPromptMentions(optimizedPrompt, referenceImages))
       setStatus('提示词已优化')
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
