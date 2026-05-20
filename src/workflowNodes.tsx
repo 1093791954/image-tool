@@ -1,5 +1,15 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react'
-import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
+import {
+  BaseEdge,
+  EdgeLabelRenderer,
+  Handle,
+  Position,
+  getBezierPath,
+  type Edge,
+  type EdgeProps,
+  type Node,
+  type NodeProps,
+} from '@xyflow/react'
 import {
   Download,
   Image as ImageIcon,
@@ -15,19 +25,23 @@ import type { LocalImageRecord, ReferenceImage } from './types'
 
 type GenerationMode = 'text' | 'image'
 
+type BaseNodeData = {
+  onDeleteNode: (id: string) => void
+} & Record<string, unknown>
+
 export type AssetNodeData = {
   generationMode: GenerationMode
   setGenerationMode: Dispatch<SetStateAction<GenerationMode>>
   referenceImages: ReferenceImage[]
   addReferenceFiles: (files: FileList | File[]) => void
   removeReferenceImage: (id: string) => void
-} & Record<string, unknown>
+} & BaseNodeData
 
 export type PromptNodeData = {
   prompt: string
   setPrompt: Dispatch<SetStateAction<string>>
   generationMode: GenerationMode
-} & Record<string, unknown>
+} & BaseNodeData
 
 export type GenerateNodeData = {
   model: string
@@ -54,46 +68,78 @@ export type GenerateNodeData = {
   progressLabel: string
   progressDetail: string
   generationProgress: number
-} & Record<string, unknown>
+  image: LocalImageRecord | null
+  onPreview: (image: LocalImageRecord) => void
+  onDownload: (image: LocalImageRecord) => void
+} & BaseNodeData
 
 export type OutputNodeData = {
   image: LocalImageRecord | null
   isGenerating: boolean
   onPreview: (image: LocalImageRecord) => void
   onDownload: (image: LocalImageRecord) => void
+} & BaseNodeData
+
+export type BlueprintEdgeData = {
+  label: string
+  onDelete: (id: string) => void
 } & Record<string, unknown>
 
 type AssetFlowNode = Node<AssetNodeData, 'asset'>
 type PromptFlowNode = Node<PromptNodeData, 'prompt'>
 type GenerateFlowNode = Node<GenerateNodeData, 'generate'>
 type OutputFlowNode = Node<OutputNodeData, 'output'>
+type BlueprintFlowEdge = Edge<BlueprintEdgeData, 'blueprint'>
 
 function NodeShell({
+  id,
   accent,
   title,
   subtitle,
+  onDelete,
   children,
 }: {
+  id: string
   accent: 'blue' | 'violet' | 'pink' | 'green'
   title: string
   subtitle: string
+  onDelete: (id: string) => void
   children: ReactNode
 }) {
   return (
     <section className={`flow-node flow-node-${accent}`}>
       <div className='node-title'>
         <span>{title}</span>
-        <small>{subtitle}</small>
+        <div>
+          <small>{subtitle}</small>
+          <button
+            type='button'
+            className='node-delete nodrag'
+            onClick={(event) => {
+              event.stopPropagation()
+              onDelete(id)
+            }}
+            aria-label={`删除 ${title}`}
+          >
+            <X size={14} />
+          </button>
+        </div>
       </div>
       {children}
     </section>
   )
 }
 
-export function AssetNode({ data }: NodeProps<AssetFlowNode>) {
+export function AssetNode({ id, data }: NodeProps<AssetFlowNode>) {
   return (
-    <NodeShell accent='blue' title='输入图片' subtitle='Image Input'>
-      <Handle type='source' position={Position.Right} />
+    <NodeShell
+      id={id}
+      accent='blue'
+      title='参考图片'
+      subtitle='Reference'
+      onDelete={data.onDeleteNode}
+    >
+      <Handle type='source' position={Position.Right} id='reference' />
       <div
         className='asset-drop nodrag'
         onDragOver={(event) => event.preventDefault()}
@@ -106,7 +152,7 @@ export function AssetNode({ data }: NodeProps<AssetFlowNode>) {
         {data.referenceImages.length === 0 ? (
           <>
             <ImageIcon size={34} />
-            <strong>拖入图片 / 选择资产</strong>
+            <strong>拖入图片 / 选择参考图</strong>
             <span>点击或拖入图片后自动切到图片引导</span>
           </>
         ) : (
@@ -165,10 +211,16 @@ export function AssetNode({ data }: NodeProps<AssetFlowNode>) {
   )
 }
 
-export function PromptNode({ data }: NodeProps<PromptFlowNode>) {
+export function PromptNode({ id, data }: NodeProps<PromptFlowNode>) {
   return (
-    <NodeShell accent='violet' title='文本描述' subtitle='Prompt'>
-      <Handle type='source' position={Position.Right} />
+    <NodeShell
+      id={id}
+      accent='violet'
+      title='文字描述'
+      subtitle='Prompt'
+      onDelete={data.onDeleteNode}
+    >
+      <Handle type='source' position={Position.Right} id='prompt' />
       <textarea
         className='node-textarea nodrag'
         value={data.prompt}
@@ -183,14 +235,28 @@ export function PromptNode({ data }: NodeProps<PromptFlowNode>) {
   )
 }
 
-export function GenerateNode({ data }: NodeProps<GenerateFlowNode>) {
+export function GenerateNode({ id, data }: NodeProps<GenerateFlowNode>) {
   return (
-    <NodeShell accent='pink' title='图片生成' subtitle='Generation'>
+    <NodeShell
+      id={id}
+      accent='pink'
+      title='图片生成'
+      subtitle='Generation'
+      onDelete={data.onDeleteNode}
+    >
       <Handle type='target' position={Position.Left} id='image' style={{ top: 82 }} />
       <Handle type='target' position={Position.Left} id='prompt' style={{ top: 164 }} />
-      <Handle type='source' position={Position.Right} />
       <div className='generation-preview'>
-        {data.isGenerating ? (
+        {data.image ? (
+          <button
+            type='button'
+            className='node-preview-button nodrag'
+            onClick={() => data.onPreview(data.image!)}
+            aria-label='打开生成图片预览'
+          >
+            <img src={data.image.src} alt={data.image.revisedPrompt || data.image.prompt} />
+          </button>
+        ) : data.isGenerating ? (
           <Loader2 className='spin' size={44} />
         ) : (
           <>
@@ -287,6 +353,17 @@ export function GenerateNode({ data }: NodeProps<GenerateFlowNode>) {
           立即生成
         </button>
       </div>
+      {data.image ? (
+        <div className='output-actions nodrag'>
+          <button type='button' onClick={() => data.onDownload(data.image!)}>
+            <Download size={15} />
+            下载结果
+          </button>
+          <button type='button' onClick={() => data.onPreview(data.image!)}>
+            打开预览
+          </button>
+        </div>
+      ) : null}
       {data.isGenerating ? (
         <div className='node-progress' aria-label='图片生成进度'>
           <span style={{ width: `${data.generationProgress}%` }} />
@@ -296,9 +373,15 @@ export function GenerateNode({ data }: NodeProps<GenerateFlowNode>) {
   )
 }
 
-export function OutputNode({ data }: NodeProps<OutputFlowNode>) {
+export function OutputNode({ id, data }: NodeProps<OutputFlowNode>) {
   return (
-    <NodeShell accent='green' title='输出预览' subtitle='Result'>
+    <NodeShell
+      id={id}
+      accent='green'
+      title='输出预览'
+      subtitle='Result'
+      onDelete={data.onDeleteNode}
+    >
       <Handle type='target' position={Position.Left} />
       <div className='output-frame nodrag'>
         {data.image ? (
@@ -328,6 +411,50 @@ export function OutputNode({ data }: NodeProps<OutputFlowNode>) {
         </div>
       ) : null}
     </NodeShell>
+  )
+}
+
+export function BlueprintEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  data,
+  markerEnd,
+}: EdgeProps<BlueprintFlowEdge>) {
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  })
+
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} />
+      <EdgeLabelRenderer>
+        <div
+          className='edge-label nodrag nopan'
+          style={{
+            transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+          }}
+        >
+          <span>{data?.label || '连接'}</span>
+          <button
+            type='button'
+            onClick={() => data?.onDelete(id)}
+            aria-label={`删除连接 ${data?.label || id}`}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      </EdgeLabelRenderer>
+    </>
   )
 }
 
@@ -372,4 +499,8 @@ export const nodeTypes = {
   prompt: PromptNode,
   generate: GenerateNode,
   output: OutputNode,
+}
+
+export const edgeTypes = {
+  blueprint: BlueprintEdge,
 }

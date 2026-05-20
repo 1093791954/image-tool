@@ -1,9 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import {
   Background,
   Controls,
   ReactFlow,
+  addEdge,
+  useEdgesState,
+  useNodesState,
   type ReactFlowInstance,
+  type IsValidConnection,
+  type Connection,
   type Edge,
   type Node,
 } from '@xyflow/react'
@@ -36,10 +41,11 @@ import {
 import { bridge } from './bridge'
 import {
   GalleryStrip,
+  edgeTypes,
   nodeTypes,
   type AssetNodeData,
+  type BlueprintEdgeData,
   type GenerateNodeData,
-  type OutputNodeData,
   type PromptNodeData,
 } from './workflowNodes'
 import type { LocalImageRecord, ModelOption, ReferenceImage, ThemeMode } from './types'
@@ -59,8 +65,48 @@ const themeOptions: Array<{ value: ThemeMode; label: string; icon: typeof Sun }>
 ]
 
 type WorkflowNode = Node<
-  AssetNodeData | PromptNodeData | GenerateNodeData | OutputNodeData
+  Record<string, unknown>,
+  WorkflowNodeType
 >
+
+type WorkflowNodeType = 'asset' | 'prompt' | 'generate'
+type WorkflowEdge = Edge<Partial<BlueprintEdgeData>, 'blueprint'>
+
+type PaneMenu = {
+  x: number
+  y: number
+  position: { x: number; y: number }
+} | null
+
+const initialWorkflowNodes: WorkflowNode[] = [
+  { id: 'asset-1', type: 'asset', position: { x: -520, y: -130 }, data: {} },
+  { id: 'prompt-1', type: 'prompt', position: { x: -520, y: 255 }, data: {} },
+  { id: 'generate-1', type: 'generate', position: { x: 25, y: 45 }, data: {} },
+]
+
+const initialWorkflowEdges: WorkflowEdge[] = [
+  {
+    id: 'asset-1-generate-1',
+    type: 'blueprint',
+    source: 'asset-1',
+    target: 'generate-1',
+    sourceHandle: 'reference',
+    targetHandle: 'image',
+    className: 'edge-blue',
+    data: { label: '参考图 -> 图片生成' },
+  },
+  {
+    id: 'prompt-1-generate-1',
+    type: 'blueprint',
+    source: 'prompt-1',
+    target: 'generate-1',
+    sourceHandle: 'prompt',
+    targetHandle: 'prompt',
+    animated: true,
+    className: 'edge-violet',
+    data: { label: '提示词 -> 图片生成' },
+  },
+]
 
 function imageModelScore(model: ModelOption) {
   const id = model.id.toLowerCase()
@@ -172,8 +218,13 @@ export function App() {
   const [previewImage, setPreviewImage] = useState<LocalImageRecord | null>(null)
   const [status, setStatus] = useState('未连接')
   const [error, setError] = useState('')
+  const [paneMenu, setPaneMenu] = useState<PaneMenu>(null)
+  const [nodes, setNodes, onNodesChange] =
+    useNodesState<WorkflowNode>(initialWorkflowNodes)
+  const [edges, setEdges, onEdgesChange] =
+    useEdgesState<WorkflowEdge>(initialWorkflowEdges)
   const [flowInstance, setFlowInstance] =
-    useState<ReactFlowInstance<WorkflowNode, Edge> | null>(null)
+    useState<ReactFlowInstance<WorkflowNode, WorkflowEdge> | null>(null)
 
   const latestImage = images[0] || null
 
@@ -448,76 +499,92 @@ export function App() {
     downloadDataUrl(image.src, `gpt-image-${index + 1}.png`)
   }
 
+  const deleteWorkflowEdge = useCallback(
+    (id: string) => {
+      setEdges((currentEdges) => currentEdges.filter((edge) => edge.id !== id))
+      setStatus('连接已删除')
+    },
+    [setEdges]
+  )
+
+  const deleteWorkflowNode = useCallback(
+    (id: string) => {
+      setNodes((currentNodes) => currentNodes.filter((node) => node.id !== id))
+      setEdges((currentEdges) =>
+        currentEdges.filter((edge) => edge.source !== id && edge.target !== id)
+      )
+      setStatus('节点已删除')
+    },
+    [setEdges, setNodes]
+  )
+
   const canGenerate = !isGenerating && Boolean(apiKey && baseUrl && model && prompt.trim())
 
+  function nodeDataFor(type: WorkflowNodeType): WorkflowNode['data'] {
+    if (type === 'asset') {
+      return {
+        onDeleteNode: deleteWorkflowNode,
+        generationMode,
+        setGenerationMode,
+        referenceImages,
+        addReferenceFiles,
+        removeReferenceImage,
+      }
+    }
+
+    if (type === 'prompt') {
+      return {
+        onDeleteNode: deleteWorkflowNode,
+        prompt,
+        setPrompt,
+        generationMode,
+      }
+    }
+
+    if (type === 'generate') {
+      return {
+        onDeleteNode: deleteWorkflowNode,
+        model,
+        sortedModels,
+        setModel,
+        size,
+        sizes,
+        setSize,
+        quality,
+        qualities,
+        setQuality,
+        count,
+        counts,
+        setCount,
+        responseFormat,
+        setResponseFormat,
+        inputFidelity,
+        inputFidelities,
+        setInputFidelity,
+        generationMode,
+        isGenerating,
+        canGenerate,
+        onGenerate: handleGenerate,
+        progressLabel: progressStage(generationProgress, generationMode),
+        progressDetail: `已等待 ${formatDuration(generationElapsedSeconds)} · 预计还需 ${formatDuration(remainingSeconds)}`,
+        generationProgress,
+        image: latestImage,
+        onPreview: setPreviewImage,
+        onDownload: handleDownloadImage,
+      }
+    }
+
+    return { onDeleteNode: deleteWorkflowNode }
+  }
+
   const workflowNodes = useMemo<WorkflowNode[]>(
-    () => [
-      {
-        id: 'asset',
-        type: 'asset',
-        position: { x: -520, y: -130 },
-        data: {
-          generationMode,
-          setGenerationMode,
-          referenceImages,
-          addReferenceFiles,
-          removeReferenceImage,
-        },
-      },
-      {
-        id: 'prompt',
-        type: 'prompt',
-        position: { x: -520, y: 255 },
-        data: {
-          prompt,
-          setPrompt,
-          generationMode,
-        },
-      },
-      {
-        id: 'generate',
-        type: 'generate',
-        position: { x: 25, y: 45 },
-        data: {
-          model,
-          sortedModels,
-          setModel,
-          size,
-          sizes,
-          setSize,
-          quality,
-          qualities,
-          setQuality,
-          count,
-          counts,
-          setCount,
-          responseFormat,
-          setResponseFormat,
-          inputFidelity,
-          inputFidelities,
-          setInputFidelity,
-          generationMode,
-          isGenerating,
-          canGenerate,
-          onGenerate: handleGenerate,
-          progressLabel: progressStage(generationProgress, generationMode),
-          progressDetail: `已等待 ${formatDuration(generationElapsedSeconds)} · 预计还需 ${formatDuration(remainingSeconds)}`,
-          generationProgress,
-        },
-      },
-      {
-        id: 'output',
-        type: 'output',
-        position: { x: 120, y: -300 },
-        data: {
-          image: latestImage,
-          isGenerating,
-          onPreview: setPreviewImage,
-          onDownload: handleDownloadImage,
-        },
-      },
-    ],
+    () =>
+      nodes.map((node) => ({
+        ...node,
+        data: nodeDataFor(node.type as WorkflowNodeType),
+      })),
     [
+      nodes,
       generationMode,
       referenceImages,
       prompt,
@@ -534,37 +601,138 @@ export function App() {
       generationElapsedSeconds,
       remainingSeconds,
       latestImage,
+      deleteWorkflowNode,
     ]
   )
 
-  const workflowEdges = useMemo<Edge[]>(
-    () => [
-      {
-        id: 'asset-generate',
-        source: 'asset',
-        target: 'generate',
-        targetHandle: 'image',
-        animated: generationMode === 'image',
-        className: 'edge-blue',
-      },
-      {
-        id: 'prompt-generate',
-        source: 'prompt',
-        target: 'generate',
-        targetHandle: 'prompt',
-        animated: true,
-        className: 'edge-violet',
-      },
-      {
-        id: 'generate-output',
-        source: 'generate',
-        target: 'output',
-        animated: isGenerating,
-        className: 'edge-pink',
-      },
-    ],
-    [generationMode, isGenerating]
+  const workflowEdges = useMemo<WorkflowEdge[]>(
+    () =>
+      edges.map((edge) => ({
+        ...edge,
+        type: 'blueprint',
+        data: {
+          ...edge.data,
+          label:
+            edge.data?.label ||
+            (edge.source.startsWith('asset') ? '参考图 -> 图片生成' : '提示词 -> 图片生成'),
+          onDelete: deleteWorkflowEdge,
+        },
+        animated:
+          edge.source.includes('prompt') ||
+          (isGenerating && edge.source.includes('generate')) ||
+          (generationMode === 'image' && edge.source.includes('asset')),
+      })),
+    [deleteWorkflowEdge, edges, generationMode, isGenerating]
   )
+
+  const isValidConnection: IsValidConnection<WorkflowEdge> = useCallback(
+    (connection) => {
+      const source = nodes.find((node) => node.id === connection.source)
+      const target = nodes.find((node) => node.id === connection.target)
+      if (!source || !target || target.type !== 'generate') return false
+      if (source.id === target.id) return false
+
+      if (source.type === 'asset') {
+        return connection.sourceHandle === 'reference' && connection.targetHandle === 'image'
+      }
+
+      if (source.type === 'prompt') {
+        return connection.sourceHandle === 'prompt' && connection.targetHandle === 'prompt'
+      }
+
+      return false
+    },
+    [nodes]
+  )
+
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      if (!isValidConnection(connection)) {
+        setStatus('这个端口不能这样连接')
+        return
+      }
+
+      const sourceType = connection.source?.split('-')[0]
+      const label =
+        sourceType === 'asset' ? '参考图 -> 图片生成' : '提示词 -> 图片生成'
+      const className =
+        sourceType === 'asset'
+          ? 'edge-blue'
+          : sourceType === 'prompt'
+            ? 'edge-violet'
+            : sourceType === 'generate'
+              ? 'edge-pink'
+              : 'edge-green'
+
+      setEdges((currentEdges) => {
+        const withoutPreviousInput = currentEdges.filter(
+          (edge) =>
+            !(
+              edge.target === connection.target &&
+              edge.targetHandle === connection.targetHandle
+            )
+        )
+
+        return addEdge(
+          {
+            ...connection,
+            type: 'blueprint',
+            id: `${connection.source}-${connection.sourceHandle || 'out'}-${connection.target}-${connection.targetHandle || 'in'}-${Date.now()}`,
+            className,
+            animated: sourceType === 'prompt',
+            data: { label },
+          },
+          withoutPreviousInput
+        )
+      })
+      setPaneMenu(null)
+      setStatus(`${label} 已连接`)
+    },
+    [isValidConnection, setEdges]
+  )
+
+  const handlePaneContextMenu = useCallback(
+    (event: ReactMouseEvent<Element> | globalThis.MouseEvent) => {
+      event.preventDefault()
+      const currentTarget =
+        'currentTarget' in event && event.currentTarget
+          ? (event.currentTarget as HTMLDivElement)
+          : null
+      const bounds = currentTarget?.getBoundingClientRect()
+      const position = flowInstance
+        ? flowInstance.screenToFlowPosition({
+            x: event.clientX,
+            y: event.clientY,
+          })
+        : {
+            x: event.clientX - (bounds?.left || 0),
+            y: event.clientY - (bounds?.top || 0),
+          }
+
+      setPaneMenu({
+        x: event.clientX,
+        y: event.clientY,
+        position,
+      })
+    },
+    [flowInstance]
+  )
+
+  function addWorkflowNode(type: WorkflowNodeType) {
+    if (!paneMenu) return
+    const id = `${type}-${Date.now()}`
+    setNodes((currentNodes) => [
+      ...currentNodes,
+      {
+        id,
+        type,
+        position: paneMenu.position,
+        data: {},
+      },
+    ])
+    setPaneMenu(null)
+    setStatus('已创建节点，拖动端口可连线')
+  }
 
   return (
     <div className='app-shell flow-shell' data-theme={resolvedTheme}>
@@ -573,18 +741,46 @@ export function App() {
           nodes={workflowNodes}
           edges={workflowEdges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           fitView
           minZoom={0.45}
           maxZoom={1.35}
           defaultViewport={{ x: 120, y: 80, zoom: 0.76 }}
           nodesDraggable
-          nodesConnectable={false}
+          nodesConnectable
           elementsSelectable
+          elevateEdgesOnSelect
+          deleteKeyCode={['Backspace', 'Delete']}
+          isValidConnection={isValidConnection}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
           onInit={setFlowInstance}
+          onPaneClick={() => setPaneMenu(null)}
+          onPaneContextMenu={handlePaneContextMenu}
         >
           <Background color='rgba(255,255,255,0.08)' gap={32} size={1} />
           <Controls showInteractive={false} />
         </ReactFlow>
+
+        {paneMenu ? (
+          <div
+            className='pane-menu'
+            style={{ left: paneMenu.x, top: paneMenu.y }}
+            onContextMenu={(event) => event.preventDefault()}
+          >
+            <strong>创建节点</strong>
+            <button type='button' onClick={() => addWorkflowNode('asset')}>
+              普通节点 · 参考图片
+            </button>
+            <button type='button' onClick={() => addWorkflowNode('prompt')}>
+              普通节点 · 文字描述
+            </button>
+            <button type='button' onClick={() => addWorkflowNode('generate')}>
+              工作节点 · 图片生成
+            </button>
+          </div>
+        ) : null}
 
         <header className='floating-header'>
           <div className='brand'>
@@ -593,7 +789,7 @@ export function App() {
             </div>
             <div>
               <h1>GPT Image Tools</h1>
-              <p>本地优先 · 节点式生图工作流</p>
+              <p>右键创建节点 · 拖动端口连线</p>
             </div>
           </div>
           <div className='status-pill'>
