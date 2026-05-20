@@ -67,6 +67,7 @@ import {
 } from './workflowNodes'
 import type {
   ImageGenerationTask,
+  ImageGenerationTaskStatus,
   LocalImageRecord,
   ModelOption,
   PromptOptimizationPreset,
@@ -125,6 +126,9 @@ type WorkflowCanvas = {
   generationMode: 'text' | 'image'
   referenceImages: ReferenceImage[]
   latestImageId?: string
+  generationTaskId?: string
+  generationTaskStatus?: ImageGenerationTaskStatus
+  generationTaskUpdatedAt?: number
 }
 
 type PendingGenerationTaskRecord = {
@@ -137,6 +141,8 @@ type PendingGenerationTaskRecord = {
   referenceImageNames?: string[]
   canvasId?: string
   createdAt: number
+  status?: ImageGenerationTaskStatus
+  updatedAt?: number
 }
 
 type StateUpdater<T> = T | ((current: T) => T)
@@ -203,6 +209,10 @@ function cloneWorkflowEdges(edges: WorkflowEdge[]) {
     ...edge,
     data: { ...edge.data },
   }))
+}
+
+function isCanvasGenerating(canvas: WorkflowCanvas) {
+  return canvas.generationTaskStatus === 'queued' || canvas.generationTaskStatus === 'running'
 }
 
 function normalizeReferenceTitle(value: string) {
@@ -334,6 +344,20 @@ function normalizeStoredCanvases(value: unknown): WorkflowCanvas[] {
         : [],
       latestImageId:
         typeof canvas.latestImageId === 'string' ? canvas.latestImageId : undefined,
+      generationTaskId:
+        typeof canvas.generationTaskId === 'string' ? canvas.generationTaskId : undefined,
+      generationTaskStatus:
+        canvas.generationTaskStatus === 'queued' ||
+        canvas.generationTaskStatus === 'running' ||
+        canvas.generationTaskStatus === 'completed' ||
+        canvas.generationTaskStatus === 'failed' ||
+        canvas.generationTaskStatus === 'expired'
+          ? canvas.generationTaskStatus
+          : undefined,
+      generationTaskUpdatedAt:
+        typeof canvas.generationTaskUpdatedAt === 'number'
+          ? canvas.generationTaskUpdatedAt
+          : undefined,
     })
   })
 
@@ -344,7 +368,8 @@ function loadWorkflowCanvases() {
   try {
     const raw = window.localStorage.getItem(WORKFLOW_CANVASES_STORAGE_KEY)
     const stored = raw ? normalizeStoredCanvases(JSON.parse(raw)) : []
-    return stored.length > 0 ? stored : [createWorkflowCanvas(1)]
+    const baseCanvases = stored.length > 0 ? stored : [createWorkflowCanvas(1)]
+    return reconcileCanvasGenerationState(baseCanvases, loadPendingGenerationTasks())
   } catch {
     return [createWorkflowCanvas(1)]
   }
@@ -382,6 +407,36 @@ function loadPendingGenerationTasks() {
   }
 }
 
+function reconcileCanvasGenerationState(
+  canvases: WorkflowCanvas[],
+  tasks: PendingGenerationTaskRecord[]
+) {
+  const taskByCanvasId = new Map(
+    tasks
+      .filter((task) => task.canvasId)
+      .map((task) => [task.canvasId as string, task])
+  )
+
+  return canvases.map((canvas) => {
+    const task = taskByCanvasId.get(canvas.id)
+    if (!task) {
+      return canvas
+    }
+    const status =
+      task.status === 'queued' || task.status === 'running'
+        ? task.status
+        : task.status
+          ? undefined
+          : 'running'
+    return {
+      ...canvas,
+      generationTaskId: status ? task.taskId : undefined,
+      generationTaskStatus: status,
+      generationTaskUpdatedAt: status ? task.updatedAt || task.createdAt : undefined,
+    }
+  })
+}
+
 function savePendingGenerationTasks(tasks: PendingGenerationTaskRecord[]) {
   window.localStorage.setItem(PENDING_GENERATION_TASKS_STORAGE_KEY, JSON.stringify(tasks))
 }
@@ -395,6 +450,11 @@ function upsertPendingGenerationTask(record: PendingGenerationTaskRecord) {
 
 function removePendingGenerationTask(taskId: string) {
   const next = loadPendingGenerationTasks().filter((item) => item.taskId !== taskId)
+  savePendingGenerationTasks(next)
+}
+
+function removePendingGenerationTasksByCanvasId(canvasId: string) {
+  const next = loadPendingGenerationTasks().filter((item) => item.canvasId !== canvasId)
   savePendingGenerationTasks(next)
 }
 
@@ -814,12 +874,46 @@ export function App() {
     upsertPendingGenerationTask({
       taskId: task.taskId,
       createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      status: task.status,
       ...context,
     })
   }
 
   function clearPendingGenerationTaskRecord(taskId: string) {
     removePendingGenerationTask(taskId)
+  }
+
+  function setCanvasGenerationTask(
+    canvasId: string,
+    task: Pick<ImageGenerationTask, 'taskId' | 'status' | 'updatedAt' | 'createdAt'> | null
+  ) {
+    setCanvases((currentCanvases) =>
+      currentCanvases.map((canvas) =>
+        canvas.id === canvasId
+          ? {
+              ...canvas,
+              generationTaskId:
+                task && (task.status === 'queued' || task.status === 'running')
+                  ? task.taskId
+                  : undefined,
+              generationTaskStatus:
+                task && (task.status === 'queued' || task.status === 'running')
+                  ? task.status
+                  : undefined,
+              generationTaskUpdatedAt:
+                task && (task.status === 'queued' || task.status === 'running')
+                  ? task.updatedAt || task.createdAt
+                  : undefined,
+              updatedAt: Date.now(),
+            }
+          : canvas
+      )
+    )
+  }
+
+  function clearCanvasGenerationTask(canvasId: string) {
+    setCanvasGenerationTask(canvasId, null)
   }
 
   function buildLocalImageRecords(
@@ -867,7 +961,14 @@ export function App() {
       setCanvases((currentCanvases) =>
         currentCanvases.map((canvas) =>
           canvas.id === context.canvasId
-            ? { ...canvas, latestImageId: records[0].id, updatedAt: Date.now() }
+            ? {
+                ...canvas,
+                latestImageId: records[0].id,
+                generationTaskId: undefined,
+                generationTaskStatus: undefined,
+                generationTaskUpdatedAt: undefined,
+                updatedAt: Date.now(),
+              }
             : canvas
         )
       )
@@ -912,6 +1013,11 @@ export function App() {
     for (const task of pendingTasks) {
       if (generationTaskIdsRef.current.has(task.taskId)) continue
       generationTaskIdsRef.current.add(task.taskId)
+      if (!task.canvasId) {
+        clearPendingGenerationTaskRecord(task.taskId)
+        generationTaskIdsRef.current.delete(task.taskId)
+        continue
+      }
 
       try {
         setIsGenerating(true)
@@ -919,17 +1025,25 @@ export function App() {
         setGenerationElapsedSeconds(0)
         setGenerationProgress(8)
         setStatus(taskStatusLabel('queued'))
+        setCanvasGenerationTask(task.canvasId, {
+          taskId: task.taskId,
+          status: task.status || 'queued',
+          updatedAt: task.updatedAt || task.createdAt,
+          createdAt: task.createdAt,
+        })
 
         let currentTask = await readGenerationTask(task.taskId)
         while (currentTask.status === 'queued' || currentTask.status === 'running') {
           setStatus(taskStatusLabel(currentTask.status))
           setGenerationProgress(currentTask.status === 'running' ? 68 : 24)
+          setCanvasGenerationTask(task.canvasId, currentTask)
           await new Promise((resolve) => window.setTimeout(resolve, currentTask.pollAfterMs || 1500))
           currentTask = await readGenerationTask(task.taskId)
         }
 
         if (currentTask.status === 'failed' || currentTask.status === 'expired') {
           clearPendingGenerationTaskRecord(task.taskId)
+          clearCanvasGenerationTask(task.canvasId)
           setError(currentTask.error || '服务器后台生图失败')
           setStatus(taskStatusLabel(currentTask.status))
           continue
@@ -949,6 +1063,8 @@ export function App() {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
         setError(message)
+        clearCanvasGenerationTask(task.canvasId)
+        clearPendingGenerationTaskRecord(task.taskId)
         setStatus('恢复后台任务失败')
       } finally {
         generationTaskIdsRef.current.delete(task.taskId)
@@ -1222,6 +1338,13 @@ export function App() {
           currentTaskId = task.taskId
           generationTaskIdsRef.current.add(task.taskId)
           savePendingGenerationTaskRecord(task, generationContext)
+          if (generationContext.canvasId) {
+            if (task.status === 'queued' || task.status === 'running') {
+              setCanvasGenerationTask(generationContext.canvasId, task)
+            } else {
+              clearCanvasGenerationTask(generationContext.canvasId)
+            }
+          }
           setStatus(taskStatusLabel(task.status))
           if (task.status === 'queued') setGenerationProgress(18)
           if (task.status === 'running') setGenerationProgress(66)
@@ -1245,6 +1368,7 @@ export function App() {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
       if (currentTaskId) clearPendingGenerationTaskRecord(currentTaskId)
+      if (generatingCanvasId) clearCanvasGenerationTask(generatingCanvasId)
       setStatus('生成失败')
     } finally {
       if (currentTaskId) generationTaskIdsRef.current.delete(currentTaskId)
@@ -1295,6 +1419,7 @@ export function App() {
     const deletedIndex = canvases.findIndex((canvas) => canvas.id === id)
     const nextCanvases = canvases.filter((canvas) => canvas.id !== id)
     setCanvases(nextCanvases)
+    removePendingGenerationTasksByCanvasId(id)
 
     if (id === activeCanvasId) {
       const nextActive =
@@ -1635,9 +1760,17 @@ export function App() {
                     placeholder='未命名画布'
                   />
                 </label>
-                <span>
+                <div className='canvas-switch-meta'>
+                  <span>
                   {canvas.nodes.length} 节点 · {canvas.edges.length} 连接
-                </span>
+                  </span>
+                  {isCanvasGenerating(canvas) ? (
+                    <span className='canvas-generation-state'>
+                      <Loader2 className='spin' size={12} />
+                      生成中
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <div className='canvas-actions'>
                 <button

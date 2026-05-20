@@ -229,9 +229,26 @@ select:disabled {
   white-space: nowrap;
 }
 
+.canvas-switch-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .canvas-switch span {
   color: var(--text-muted);
   font-size: 11px;
+}
+
+.canvas-generation-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
 }
 
 .canvas-actions {
