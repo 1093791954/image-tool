@@ -213,6 +213,15 @@ function getWorkflowNodeSelectedStyleId(node?: Pick<WorkflowNode, 'data'> | null
   return typeof value === 'string' ? value : ''
 }
 
+function getWorkflowNodePrompt(node?: Pick<WorkflowNode, 'data'> | null) {
+  const value = node?.data?.prompt
+  return typeof value === 'string' ? value : ''
+}
+
+function getWorkflowNodePromptOptimizationPreset(node?: Pick<WorkflowNode, 'data'> | null) {
+  return normalizePromptOptimizationPreset(node?.data?.promptOptimizationPreset)
+}
+
 function getWorkflowNodeLatestImageId(node?: Pick<WorkflowNode, 'data'> | null) {
   const value = node?.data?.latestImageId
   return typeof value === 'string' ? value : ''
@@ -239,6 +248,16 @@ function workflowNodeDataForStorage(node: WorkflowNode) {
   if (node.type === 'style') {
     const selectedStyleId = getWorkflowNodeSelectedStyleId(node)
     return selectedStyleId ? { selectedStyleId } : {}
+  }
+  if (node.type === 'prompt') {
+    const prompt = getWorkflowNodePrompt(node)
+    const promptOptimizationPreset = getWorkflowNodePromptOptimizationPreset(node)
+    return {
+      ...(prompt ? { prompt } : {}),
+      ...(promptOptimizationPreset !== DEFAULT_PROMPT_OPTIMIZATION_PRESET
+        ? { promptOptimizationPreset }
+        : {}),
+    }
   }
   if (node.type === 'generate') {
     const latestImageId = getWorkflowNodeLatestImageId(node)
@@ -310,37 +329,76 @@ function hydrateWorkflowCanvases(
   }))
 }
 
-function cloneWorkflowNodes(nodes: WorkflowNode[], legacyReferenceImages: ReferenceImage[] = []) {
+function cloneWorkflowNodes(
+  nodes: WorkflowNode[],
+  legacyReferenceImages: ReferenceImage[] = [],
+  legacyPrompt = '',
+  legacyPromptOptimizationPreset: PromptOptimizationPreset = DEFAULT_PROMPT_OPTIMIZATION_PRESET
+) {
   const normalizedLegacyReferenceImages = ensureReferenceTitles(legacyReferenceImages)
   let hasStoredAssetReferences = false
+  let hasStoredPrompt = false
+  let hasStoredPromptOptimizationPreset = false
+  let firstPromptIndex = -1
 
-  const clonedNodes = nodes.map((node) => {
-    const referenceImages =
-      node.type === 'asset' ? normalizeAssetNodeReferenceImages(getWorkflowNodeReferenceImages(node)) : []
-    const selectedStyleId =
-      node.type === 'style' ? getWorkflowNodeSelectedStyleId(node) : ''
-    const latestImageId =
-      node.type === 'generate' ? getWorkflowNodeLatestImageId(node) : ''
-    const outputTitle =
-      node.type === 'generate' ? getWorkflowNodeCustomOutputTitle(node) : ''
-    if (referenceImages.length > 0) hasStoredAssetReferences = true
+  const clonedNodes = nodes.map((node, index) => {
+    let data: Record<string, unknown> = {}
+
+    if (node.type === 'asset') {
+      const referenceImages = normalizeAssetNodeReferenceImages(getWorkflowNodeReferenceImages(node))
+      if (referenceImages.length > 0) {
+        hasStoredAssetReferences = true
+        data = { referenceImages }
+      }
+    } else if (node.type === 'style') {
+      const selectedStyleId = getWorkflowNodeSelectedStyleId(node)
+      data = selectedStyleId ? { selectedStyleId } : {}
+    } else if (node.type === 'prompt') {
+      if (firstPromptIndex < 0) firstPromptIndex = index
+      const prompt = getWorkflowNodePrompt(node)
+      const promptOptimizationPreset = getWorkflowNodePromptOptimizationPreset(node)
+      if (prompt) hasStoredPrompt = true
+      if (promptOptimizationPreset !== DEFAULT_PROMPT_OPTIMIZATION_PRESET) {
+        hasStoredPromptOptimizationPreset = true
+      }
+      data = {
+        ...(prompt ? { prompt } : {}),
+        ...(promptOptimizationPreset !== DEFAULT_PROMPT_OPTIMIZATION_PRESET
+          ? { promptOptimizationPreset }
+          : {}),
+      }
+    } else if (node.type === 'generate') {
+      const latestImageId = getWorkflowNodeLatestImageId(node)
+      const outputTitle = getWorkflowNodeCustomOutputTitle(node)
+      data = {
+        ...(latestImageId ? { latestImageId } : {}),
+        ...(outputTitle ? { outputTitle } : {}),
+      }
+    }
 
     return {
       ...node,
       position: { ...node.position },
-      data:
-        referenceImages.length > 0
-          ? { referenceImages }
-          : selectedStyleId
-            ? { selectedStyleId }
-            : latestImageId || outputTitle
-              ? {
-                  ...(latestImageId ? { latestImageId } : {}),
-                  ...(outputTitle ? { outputTitle } : {}),
-                }
-              : {},
+      data,
     }
   })
+
+  if (
+    firstPromptIndex >= 0 &&
+    (legacyPrompt || legacyPromptOptimizationPreset !== DEFAULT_PROMPT_OPTIMIZATION_PRESET)
+  ) {
+    clonedNodes[firstPromptIndex] = {
+      ...clonedNodes[firstPromptIndex],
+      data: {
+        ...clonedNodes[firstPromptIndex].data,
+        ...(!hasStoredPrompt && legacyPrompt ? { prompt: legacyPrompt } : {}),
+        ...(!hasStoredPromptOptimizationPreset &&
+        legacyPromptOptimizationPreset !== DEFAULT_PROMPT_OPTIMIZATION_PRESET
+          ? { promptOptimizationPreset: legacyPromptOptimizationPreset }
+          : {}),
+      },
+    }
+  }
 
   if (normalizedLegacyReferenceImages.length > 0 && !hasStoredAssetReferences) {
     const assetIndices = clonedNodes
@@ -661,7 +719,9 @@ function createWorkflowCanvas(index: number, base?: WorkflowCanvas): WorkflowCan
   const now = Date.now()
   const baseNodes = cloneWorkflowNodes(
     base?.nodes || initialWorkflowNodes,
-    base?.referenceImages || []
+    base?.referenceImages || [],
+    base?.prompt || '',
+    base?.promptOptimizationPreset || DEFAULT_PROMPT_OPTIMIZATION_PRESET
   )
 
   return {
@@ -695,8 +755,18 @@ function normalizeStoredCanvases(value: unknown): WorkflowCanvas[] {
       ? ensureReferenceTitles(canvas.referenceImages as ReferenceImage[])
       : []
     const normalizedNodes = Array.isArray(canvas.nodes)
-      ? cloneWorkflowNodes(canvas.nodes as WorkflowNode[], legacyReferenceImages)
-      : cloneWorkflowNodes(initialWorkflowNodes, legacyReferenceImages)
+      ? cloneWorkflowNodes(
+          canvas.nodes as WorkflowNode[],
+          legacyReferenceImages,
+          typeof canvas.prompt === 'string' ? canvas.prompt : '',
+          normalizePromptOptimizationPreset(canvas.promptOptimizationPreset)
+        )
+      : cloneWorkflowNodes(
+          initialWorkflowNodes,
+          legacyReferenceImages,
+          typeof canvas.prompt === 'string' ? canvas.prompt : '',
+          normalizePromptOptimizationPreset(canvas.promptOptimizationPreset)
+        )
     const rawEdges = Array.isArray(canvas.edges)
       ? cloneWorkflowEdges(canvas.edges as WorkflowEdge[])
       : cloneWorkflowEdges(initialWorkflowEdges)
@@ -1021,9 +1091,6 @@ export function App() {
   )
   const nodes = activeCanvas?.nodes || []
   const edges = activeCanvas?.edges || []
-  const prompt = activeCanvas?.prompt || ''
-  const promptOptimizationPreset =
-    activeCanvas?.promptOptimizationPreset || DEFAULT_PROMPT_OPTIMIZATION_PRESET
   const generationMode = activeCanvas?.generationMode || 'text'
   const referenceImages = useMemo(() => getCanvasReferenceImages(activeCanvas), [activeCanvas])
   const activeCanvasGenerating = activeCanvas ? isCanvasGenerating(activeCanvas) : false
@@ -1069,21 +1136,43 @@ export function App() {
     [updateActiveCanvas]
   )
 
-  const setPrompt = useCallback(
-    (nextPrompt: string) => {
-      updateActiveCanvas((canvas) => ({ ...canvas, prompt: nextPrompt }))
+  const setPromptNodePrompt = useCallback(
+    (nodeId: string, updater: StateUpdater<string>) => {
+      setNodes((currentNodes) =>
+        currentNodes.map((node) => {
+          if (node.id !== nodeId || node.type !== 'prompt') return node
+
+          const nextPrompt = resolveUpdater(updater, getWorkflowNodePrompt(node))
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              prompt: nextPrompt,
+            },
+          }
+        })
+      )
     },
-    [updateActiveCanvas]
+    [setNodes]
   )
 
-  const setPromptOptimizationPreset = useCallback(
-    (nextPreset: PromptOptimizationPreset) => {
-      updateActiveCanvas((canvas) => ({
-        ...canvas,
-        promptOptimizationPreset: nextPreset,
-      }))
+  const setPromptNodeOptimizationPreset = useCallback(
+    (nodeId: string, nextPreset: PromptOptimizationPreset) => {
+      setNodes((currentNodes) =>
+        currentNodes.map((node) =>
+          node.id === nodeId && node.type === 'prompt'
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  promptOptimizationPreset: nextPreset,
+                },
+              }
+            : node
+        )
+      )
     },
-    [updateActiveCanvas]
+    [setNodes]
   )
 
   const setGenerationMode = useCallback(
@@ -1726,8 +1815,10 @@ export function App() {
     }
   }
 
-  async function handleOptimizePrompt(promptNodeId?: string) {
-    const currentPrompt = prompt.trim()
+  async function handleOptimizePrompt(promptNodeId: string) {
+    const promptNode = nodes.find((node) => node.id === promptNodeId && node.type === 'prompt')
+    const currentPrompt = getWorkflowNodePrompt(promptNode).trim()
+    const promptOptimizationPreset = getWorkflowNodePromptOptimizationPreset(promptNode)
     if (!currentPrompt) {
       setError('请先输入需要优化的提示词')
       return
@@ -1751,10 +1842,15 @@ export function App() {
         mode: generationMode,
         optimizationPreset: promptOptimizationPreset,
       })
-      const promptReferenceImages = promptNodeId
-        ? getPromptMentionReferenceImages(promptNodeId, activeCanvas, images)
-        : referenceImages
-      setPrompt(normalizeOptimizedPromptMentions(optimizedPrompt, promptReferenceImages))
+      const promptReferenceImages = getPromptMentionReferenceImages(
+        promptNodeId,
+        activeCanvas,
+        images
+      )
+      setPromptNodePrompt(
+        promptNodeId,
+        normalizeOptimizedPromptMentions(optimizedPrompt, promptReferenceImages)
+      )
       setStatus('提示词已优化')
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -1766,12 +1862,7 @@ export function App() {
   }
 
   async function handleGenerate(targetGenerateNodeId?: string) {
-    const finalPrompt = prompt.trim()
     const generatingCanvasId = activeCanvas?.id
-    if (!finalPrompt) {
-      setError('请先输入提示词')
-      return
-    }
     const duplicateTitles = getDuplicateCanvasReferenceTitles(activeCanvas)
     if (duplicateTitles.length > 0) {
       setError(`画布内图片名称重复：${duplicateTitles.join('、')}`)
@@ -1815,6 +1906,8 @@ export function App() {
           nodes.find((node) => node.type === 'prompt') ||
           null
         if (!promptNode) throw new Error('请先创建文字描述节点并连接到图片生成节点')
+        const finalPrompt = getWorkflowNodePrompt(promptNode).trim()
+        if (!finalPrompt) throw new Error('请先输入提示词')
 
         const upstreamGenerateEdges = edges.filter(
           (edge) =>
@@ -2064,9 +2157,6 @@ export function App() {
     [setEdges, setNodes]
   )
 
-  const canGenerate =
-    !activeCanvasGenerating && Boolean(apiKey && baseUrl && model && prompt.trim())
-
   function nodeDataFor(node: WorkflowNode): WorkflowNode['data'] {
     const type = node.type as WorkflowNodeType
 
@@ -2093,19 +2183,22 @@ export function App() {
     }
 
     if (type === 'prompt') {
+      const nodePrompt = getWorkflowNodePrompt(node)
+      const nodePromptOptimizationPreset = getWorkflowNodePromptOptimizationPreset(node)
       const promptReferenceImages = getPromptMentionReferenceImages(node.id, activeCanvas, images)
 
       return {
         onDeleteNode: deleteWorkflowNode,
-        prompt,
-        setPrompt,
+        prompt: nodePrompt,
+        setPrompt: (updater: StateUpdater<string>) => setPromptNodePrompt(node.id, updater),
         referenceImages: promptReferenceImages,
-        optimizationPreset: promptOptimizationPreset,
+        optimizationPreset: nodePromptOptimizationPreset,
         optimizationPresets: promptOptimizationPresets,
-        setOptimizationPreset: setPromptOptimizationPreset,
+        setOptimizationPreset: (preset: PromptOptimizationPreset) =>
+          setPromptNodeOptimizationPreset(node.id, preset),
         generationMode,
         isOptimizingPrompt,
-        canOptimizePrompt: Boolean(prompt.trim()) && Boolean(codexApiKey) && !isOptimizingPrompt,
+        canOptimizePrompt: Boolean(nodePrompt.trim()) && Boolean(codexApiKey) && !isOptimizingPrompt,
         onOptimizePrompt: () => void handleOptimizePrompt(node.id),
       }
     }
@@ -2122,6 +2215,20 @@ export function App() {
     }
 
     if (type === 'generate') {
+      const promptEdge = edges.find(
+        (edge) =>
+          edge.target === node.id &&
+          edge.targetHandle === 'prompt' &&
+          nodes.find((item) => item.id === edge.source)?.type === 'prompt'
+      )
+      const promptNode =
+        (promptEdge ? nodes.find((item) => item.id === promptEdge.source) : null) ||
+        nodes.find((item) => item.type === 'prompt') ||
+        null
+      const canGenerateNode =
+        !activeCanvasGenerating &&
+        Boolean(apiKey && baseUrl && model && getWorkflowNodePrompt(promptNode).trim())
+
       return {
         onDeleteNode: deleteWorkflowNode,
         model,
@@ -2143,7 +2250,7 @@ export function App() {
         setInputFidelity,
         generationMode,
         isGenerating: activeCanvasGenerating,
-        canGenerate,
+        canGenerate: canGenerateNode,
         onGenerate: () => void handleGenerate(node.id),
         image: images.find((image) => image.id === getWorkflowNodeLatestImageId(node)) || null,
         outputTitle: getWorkflowNodeOutputTitle(node),
@@ -2169,10 +2276,11 @@ export function App() {
       })),
     [
       nodes,
+      edges,
       generationMode,
       referenceImages,
-      prompt,
-      promptOptimizationPreset,
+      apiKey,
+      baseUrl,
       codexApiKey,
       textModel,
       isOptimizingPrompt,
@@ -2190,9 +2298,9 @@ export function App() {
       images,
       activeCanvas,
       activeCanvasGenerating,
-      canGenerate,
       deleteWorkflowNode,
-      setPromptOptimizationPreset,
+      setPromptNodePrompt,
+      setPromptNodeOptimizationPreset,
     ]
   )
 
