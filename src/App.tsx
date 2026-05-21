@@ -1106,7 +1106,9 @@ export function App() {
   const [activeCanvasId, setActiveCanvasId] = useState(loadActiveCanvasId)
   const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isOptimizingPrompt, setIsOptimizingPrompt] = useState(false)
+  const [optimizingPromptNodeIds, setOptimizingPromptNodeIds] = useState<Set<string>>(
+    () => new Set()
+  )
   const [images, setImages] = useState<LocalImageRecord[]>([])
   const [previewImage, setPreviewImage] = useState<LocalImageRecord | null>(null)
   const [status, setStatus] = useState('未连接')
@@ -1862,8 +1864,10 @@ export function App() {
     }
 
     setError('')
+    if (optimizingPromptNodeIds.has(promptNodeId)) return
+
     setStatus('正在优化提示词...')
-    setIsOptimizingPrompt(true)
+    setOptimizingPromptNodeIds((current) => new Set(current).add(promptNodeId))
 
     try {
       const optimizedPrompt = await bridge.optimizePrompt({
@@ -1889,7 +1893,11 @@ export function App() {
       setError(message)
       setStatus('提示词优化失败')
     } finally {
-      setIsOptimizingPrompt(false)
+      setOptimizingPromptNodeIds((current) => {
+        const next = new Set(current)
+        next.delete(promptNodeId)
+        return next
+      })
     }
   }
 
@@ -2201,6 +2209,7 @@ export function App() {
       const nodePrompt = getWorkflowNodePrompt(node)
       const nodePromptOptimizationPreset = getWorkflowNodePromptOptimizationPreset(node)
       const promptReferenceImages = getPromptMentionReferenceImages(node.id, activeCanvas, images)
+      const isPromptOptimizing = optimizingPromptNodeIds.has(node.id)
 
       return {
         onDeleteNode: deleteWorkflowNode,
@@ -2212,8 +2221,8 @@ export function App() {
         setOptimizationPreset: (preset: PromptOptimizationPreset) =>
           setPromptNodeOptimizationPreset(node.id, preset),
         generationMode,
-        isOptimizingPrompt,
-        canOptimizePrompt: Boolean(nodePrompt.trim()) && Boolean(codexApiKey) && !isOptimizingPrompt,
+        isOptimizingPrompt: isPromptOptimizing,
+        canOptimizePrompt: Boolean(nodePrompt.trim()) && Boolean(codexApiKey) && !isPromptOptimizing,
         onOptimizePrompt: () => void handleOptimizePrompt(node.id),
       }
     }
@@ -2298,7 +2307,7 @@ export function App() {
       baseUrl,
       codexApiKey,
       textModel,
-      isOptimizingPrompt,
+      optimizingPromptNodeIds,
       styles,
       styleCategories,
       isLoadingStyles,
