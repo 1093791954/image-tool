@@ -510,17 +510,18 @@ select:disabled {
 .github-repo-link {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 7px;
   flex: 0 0 auto;
-  width: 100%;
-  min-height: 38px;
-  padding: 9px 11px;
+  align-self: flex-start;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 7px 10px;
   overflow: hidden;
   color: var(--text);
   background: rgb(15 18 26 / 82%);
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: 8px;
   box-shadow: 0 14px 38px var(--shadow);
   font-size: 12px;
   font-weight: 850;
