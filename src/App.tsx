@@ -27,6 +27,7 @@ import {
   Download,
   Edit3,
   ExternalLink,
+  Github,
   KeyRound,
   Layers,
   LogIn,
@@ -84,6 +85,7 @@ const DEFAULT_TEXT_MODEL = 'gpt-5.5'
 const DEFAULT_PROMPT_OPTIMIZATION_PRESET: PromptOptimizationPreset = 'ecommerce'
 const SHOP_URL = 'https://pay.ldxp.cn/shop/LY6AR08H'
 const CONSOLE_URL = 'https://cc.api-corp.top/'
+const GITHUB_REPO_URL = 'https://github.com/1093791954/image-tool'
 
 const sizes = ['1024x1024', '1024x1536', '1536x1024', '1024x1792', '1792x1024']
 const qualities = ['auto', 'standard', 'hd', 'low', 'medium', 'high']
@@ -2679,6 +2681,18 @@ export function App() {
             </button>
           </div>
         ) : null}
+
+        <a
+          className='github-repo-link'
+          href={GITHUB_REPO_URL}
+          target='_blank'
+          rel='noreferrer'
+          aria-label='打开 GitHub 开源仓库'
+        >
+          <Github size={16} />
+          <span>Open Source</span>
+          <ExternalLink size={13} />
+        </a>
       </main>
 
       <aside className='control-dock'>

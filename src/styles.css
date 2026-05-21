@@ -505,6 +505,45 @@ select:disabled {
   box-shadow: 0 0 0 2px var(--focus);
 }
 
+.github-repo-link {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 36px);
+  padding: 9px 11px;
+  overflow: hidden;
+  color: var(--text);
+  background: rgb(15 18 26 / 82%);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: 0 14px 38px var(--shadow);
+  font-size: 12px;
+  font-weight: 850;
+  text-decoration: none;
+  backdrop-filter: blur(18px);
+}
+
+.github-repo-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.github-repo-link:hover {
+  border-color: rgb(78 167 255 / 52%);
+  box-shadow:
+    0 0 0 1px rgb(78 167 255 / 18%),
+    0 14px 38px var(--shadow);
+}
+
+:root[data-theme='light'] .github-repo-link {
+  background: rgb(255 255 255 / 84%);
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -1847,6 +1886,11 @@ select:disabled {
     width: min(360px, calc(100vw - 36px));
     min-width: 0;
     transform: none;
+  }
+
+  .github-repo-link {
+    right: 12px;
+    bottom: 12px;
   }
 
   .status-pill {
