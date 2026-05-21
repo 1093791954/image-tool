@@ -147,6 +147,7 @@ select:disabled {
 
 .canvas-list {
   display: grid;
+  flex: 1 1 auto;
   gap: 8px;
   min-height: 0;
   overflow-y: auto;
@@ -506,14 +507,12 @@ select:disabled {
 }
 
 .github-repo-link {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
-  z-index: 6;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
-  max-width: calc(100% - 36px);
+  width: 100%;
+  min-height: 38px;
   padding: 9px 11px;
   overflow: hidden;
   color: var(--text);
@@ -1852,6 +1851,7 @@ select:disabled {
   }
 
   .canvas-list {
+    flex: 1 1 auto;
     display: flex;
     gap: 8px;
     overflow-x: auto;
@@ -1886,11 +1886,6 @@ select:disabled {
     width: min(360px, calc(100vw - 36px));
     min-width: 0;
     transform: none;
-  }
-
-  .github-repo-link {
-    right: 12px;
-    bottom: 12px;
   }
 
   .status-pill {

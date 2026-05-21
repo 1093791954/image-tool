@@ -2591,6 +2591,18 @@ export function App() {
             </article>
           ))}
         </div>
+
+        <a
+          className='github-repo-link'
+          href={GITHUB_REPO_URL}
+          target='_blank'
+          rel='noreferrer'
+          aria-label='打开 GitHub 开源仓库'
+        >
+          <Github size={16} />
+          <span>Open Source</span>
+          <ExternalLink size={13} />
+        </a>
       </aside>
 
       <main className='workflow-stage'>
@@ -2682,17 +2694,6 @@ export function App() {
           </div>
         ) : null}
 
-        <a
-          className='github-repo-link'
-          href={GITHUB_REPO_URL}
-          target='_blank'
-          rel='noreferrer'
-          aria-label='打开 GitHub 开源仓库'
-        >
-          <Github size={16} />
-          <span>Open Source</span>
-          <ExternalLink size={13} />
-        </a>
       </main>
 
       <aside className='control-dock'>
