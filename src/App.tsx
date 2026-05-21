@@ -74,6 +74,7 @@ import type {
   ModelOption,
   PromptOptimizationPreset,
   ReferenceImage,
+  StyleOption,
   ThemeMode,
 } from './types'
 
@@ -107,7 +108,7 @@ type WorkflowNode = Node<
   WorkflowNodeType
 >
 
-type WorkflowNodeType = 'asset' | 'prompt' | 'generate'
+type WorkflowNodeType = 'asset' | 'prompt' | 'style' | 'generate'
 type WorkflowEdge = Edge<Partial<BlueprintEdgeData>, 'blueprint'>
 
 type PaneMenu = {
@@ -206,6 +207,23 @@ function normalizeAssetNodeReferenceImages(images: ReferenceImage[]) {
   return ensureReferenceTitles(images).slice(0, 1)
 }
 
+function getWorkflowNodeSelectedStyleId(node?: Pick<WorkflowNode, 'data'> | null) {
+  const value = node?.data?.selectedStyleId
+  return typeof value === 'string' ? value : ''
+}
+
+function workflowNodeDataForStorage(node: WorkflowNode) {
+  if (node.type === 'asset') {
+    const referenceImages = getWorkflowNodeReferenceImages(node).map(stripReferenceImageDataUrl)
+    return referenceImages.length > 0 ? { referenceImages } : {}
+  }
+  if (node.type === 'style') {
+    const selectedStyleId = getWorkflowNodeSelectedStyleId(node)
+    return selectedStyleId ? { selectedStyleId } : {}
+  }
+  return {}
+}
+
 function stripReferenceImageDataUrl(image: ReferenceImage): Omit<ReferenceImage, 'dataUrl'> {
   const { dataUrl: _dataUrl, ...rest } = image
   return rest
@@ -215,13 +233,9 @@ function serializeWorkflowCanvases(canvases: WorkflowCanvas[]) {
   return canvases.map((canvas) => ({
     ...canvas,
     nodes: canvas.nodes.map((node) => {
-      if (node.type !== 'asset') return node
-
-      const referenceImages = getWorkflowNodeReferenceImages(node).map(stripReferenceImageDataUrl)
-
       return {
         ...node,
-        data: referenceImages.length > 0 ? { referenceImages } : {},
+        data: workflowNodeDataForStorage(node),
       }
     }),
   }))
@@ -276,12 +290,19 @@ function cloneWorkflowNodes(nodes: WorkflowNode[], legacyReferenceImages: Refere
   const clonedNodes = nodes.map((node) => {
     const referenceImages =
       node.type === 'asset' ? normalizeAssetNodeReferenceImages(getWorkflowNodeReferenceImages(node)) : []
+    const selectedStyleId =
+      node.type === 'style' ? getWorkflowNodeSelectedStyleId(node) : ''
     if (referenceImages.length > 0) hasStoredAssetReferences = true
 
     return {
       ...node,
       position: { ...node.position },
-      data: referenceImages.length > 0 ? { referenceImages } : {},
+      data:
+        referenceImages.length > 0
+          ? { referenceImages }
+          : selectedStyleId
+            ? { selectedStyleId }
+            : {},
     }
   })
 
@@ -355,6 +376,31 @@ function getCanvasReferenceImages(canvas?: Pick<WorkflowCanvas, 'nodes'> | null)
   })
 
   return images
+}
+
+function getCanvasSelectedStyleIds(canvas?: Pick<WorkflowCanvas, 'nodes' | 'edges'> | null) {
+  if (!canvas) return []
+  const styleNodeIds = new Set(
+    canvas.nodes.filter((node) => node.type === 'style').map((node) => node.id)
+  )
+  const connectedStyleNodeIds = new Set(
+    canvas.edges
+      .filter(
+        (edge) =>
+          edge.sourceHandle === 'style' &&
+          edge.targetHandle === 'style' &&
+          styleNodeIds.has(edge.source)
+      )
+      .map((edge) => edge.source)
+  )
+  const scopedNodeIds = connectedStyleNodeIds.size > 0 ? connectedStyleNodeIds : styleNodeIds
+  const selectedIds: string[] = []
+  canvas.nodes.forEach((node) => {
+    if (node.type !== 'style' || !scopedNodeIds.has(node.id)) return
+    const selectedStyleId = getWorkflowNodeSelectedStyleId(node)
+    if (selectedStyleId && !selectedIds.includes(selectedStyleId)) selectedIds.push(selectedStyleId)
+  })
+  return selectedIds
 }
 
 function normalizeWorkflowEdges(edges: WorkflowEdge[], nodes: WorkflowNode[]) {
@@ -699,6 +745,17 @@ function taskStatusLabel(status: ImageGenerationTask['status']) {
   return '服务器后台生成失败'
 }
 
+function promptWithStyles(prompt: string, selectedStyles: StyleOption[]) {
+  if (selectedStyles.length === 0) return prompt
+  const styleProtocols = selectedStyles
+    .map(
+      (style, index) =>
+        `风格 ${index + 1}：${style.category} / ${style.name}\n${JSON.stringify(style.styleJson, null, 2)}`
+    )
+    .join('\n\n')
+  return `${prompt}\n\n请按以下风格协议生成图像。风格协议只用于控制视觉效果，不要在画面中渲染 JSON 或参数文字；如果有参考图，请保持参考图主体内容不变，只应用风格转换。\n${styleProtocols}`
+}
+
 async function readGenerationTask(taskId: string) {
   const response = await fetch(`/api/openai/tasks/${encodeURIComponent(taskId)}`)
   const text = await response.text()
@@ -734,6 +791,9 @@ export function App() {
   const [themeMode, setThemeMode] = useState<ThemeMode>('dark')
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark')
   const [models, setModels] = useState<ModelOption[]>([])
+  const [styles, setStyles] = useState<StyleOption[]>([])
+  const [styleCategories, setStyleCategories] = useState<Array<{ name: string; count: number }>>([])
+  const [isLoadingStyles, setIsLoadingStyles] = useState(false)
   const [model, setModel] = useState(DEFAULT_MODEL)
   const [textModel, setTextModel] = useState(DEFAULT_TEXT_MODEL)
   const [size, setSize] = useState('1024x1024')
@@ -857,6 +917,25 @@ export function App() {
     [updateActiveCanvas]
   )
 
+  const setStyleNodeSelection = useCallback(
+    (nodeId: string, selectedStyleId: string) => {
+      updateActiveCanvas((canvas) => ({
+        ...canvas,
+        nodes: canvas.nodes.map((node) =>
+          node.id === nodeId && node.type === 'style'
+            ? {
+                ...node,
+                data: selectedStyleId ? { selectedStyleId } : {},
+              }
+            : node
+        ),
+      }))
+      const style = styles.find((item) => item.id === selectedStyleId)
+      setStatus(style ? `已选择风格：${style.name}` : '风格已清空')
+    },
+    [styles, updateActiveCanvas]
+  )
+
   const onNodesChange = useCallback(
     (changes: NodeChange<WorkflowNode>[]) => {
       setNodes((currentNodes) => applyNodeChanges(changes, currentNodes))
@@ -890,6 +969,29 @@ export function App() {
       if (settings.persistApiKey && settings.codexApiKey) setCodexApiKey(settings.codexApiKey)
     })
     void refreshImages()
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    setIsLoadingStyles(true)
+    void bridge.listStyles()
+      .then((library) => {
+        if (cancelled) return
+        setStyles(library.styles)
+        setStyleCategories(library.categories)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        const message = err instanceof Error ? err.message : String(err)
+        setStatus(message)
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingStyles(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -1431,6 +1533,11 @@ export function App() {
       setError(`没有找到这些 @参考图：${resolvedReferences.missing.join('、')}`)
       return
     }
+    const selectedStyleIds = getCanvasSelectedStyleIds(activeCanvas)
+    const selectedStyles = selectedStyleIds
+      .map((styleId) => styles.find((style) => style.id === styleId))
+      .filter((style): style is StyleOption => Boolean(style))
+    const submittedPrompt = promptWithStyles(finalPrompt, selectedStyles)
     const effectiveGenerationMode: 'text' | 'image' =
       resolvedReferences.images.length > 0 ? 'image' : 'text'
     const referenceImageNames =
@@ -1438,7 +1545,7 @@ export function App() {
         ? resolvedReferences.images.map((image) => image.title || image.name)
         : undefined
     const generationContext = {
-      prompt: finalPrompt,
+      prompt: submittedPrompt,
       model,
       size,
       quality,
@@ -1450,8 +1557,10 @@ export function App() {
     setError('')
     setStatus(
       effectiveGenerationMode === 'image'
-        ? `正在根据 ${resolvedReferences.images.length} 张 @参考图提交后台任务...`
-        : '正在提交后台生图任务...'
+        ? `正在根据 ${resolvedReferences.images.length} 张 @参考图${selectedStyles.length > 0 ? `和 ${selectedStyles.length} 个风格` : ''}提交后台任务...`
+        : selectedStyles.length > 0
+          ? `正在按 ${selectedStyles.length} 个风格提交后台生图任务...`
+          : '正在提交后台生图任务...'
     )
     setIsGenerating(true)
 
@@ -1463,7 +1572,7 @@ export function App() {
         apiKey,
         mode: effectiveGenerationMode,
         model,
-        prompt: finalPrompt,
+        prompt: submittedPrompt,
         size,
         quality,
         count,
@@ -1643,6 +1752,17 @@ export function App() {
       }
     }
 
+    if (type === 'style') {
+      return {
+        onDeleteNode: deleteWorkflowNode,
+        styles,
+        categories: styleCategories,
+        selectedStyleId: getWorkflowNodeSelectedStyleId(node),
+        setSelectedStyleId: (id: string) => setStyleNodeSelection(node.id, id),
+        isLoadingStyles,
+      }
+    }
+
     if (type === 'generate') {
       return {
         onDeleteNode: deleteWorkflowNode,
@@ -1691,6 +1811,10 @@ export function App() {
       codexApiKey,
       textModel,
       isOptimizingPrompt,
+      styles,
+      styleCategories,
+      isLoadingStyles,
+      setStyleNodeSelection,
       model,
       sortedModels,
       size,
@@ -1717,6 +1841,8 @@ export function App() {
             edge.data?.label ||
             (edge.source.startsWith('asset')
               ? '参考图 -> 文字描述'
+              : edge.source.startsWith('style')
+                ? '风格 -> 文字描述'
               : edge.source.startsWith('generate')
                 ? '生成图 -> 参考图'
                 : '提示词 -> 图片生成'),
@@ -1725,6 +1851,7 @@ export function App() {
         animated:
           edge.source.includes('prompt') ||
           (activeCanvasGenerating && edge.source.includes('generate')) ||
+          edge.source.includes('style') ||
           edge.source.includes('asset'),
       })),
     [activeCanvasGenerating, deleteWorkflowEdge, edges]
@@ -1743,6 +1870,14 @@ export function App() {
           target.type === 'prompt' &&
           connection.sourceHandle === 'reference' &&
           PROMPT_REFERENCE_HANDLE_IDS.includes(targetHandle)
+        )
+      }
+
+      if (source.type === 'style') {
+        return (
+          target.type === 'prompt' &&
+          connection.sourceHandle === 'style' &&
+          connection.targetHandle === 'style'
         )
       }
 
@@ -1768,13 +1903,19 @@ export function App() {
 
       const sourceType = connection.source?.split('-')[0]
       const label =
-        sourceType === 'asset' ? '参考图 -> 文字描述' : '提示词 -> 图片生成'
+        sourceType === 'asset'
+          ? '参考图 -> 文字描述'
+          : sourceType === 'style'
+            ? '风格 -> 文字描述'
+            : '提示词 -> 图片生成'
       const className =
         sourceType === 'asset'
           ? 'edge-blue'
-          : sourceType === 'prompt'
-            ? 'edge-violet'
-            : 'edge-green'
+          : sourceType === 'style'
+            ? 'edge-green'
+            : sourceType === 'prompt'
+              ? 'edge-violet'
+              : 'edge-green'
 
       setEdges((currentEdges) => {
         const withoutPreviousInput = currentEdges.filter(
@@ -1833,13 +1974,15 @@ export function App() {
   function addWorkflowNode(type: WorkflowNodeType) {
     if (!paneMenu) return
     const id = `${type}-${Date.now()}`
+    const data =
+      type === 'style' && styles[0] ? { selectedStyleId: styles[0].id } : {}
     setNodes((currentNodes) => [
       ...currentNodes,
       {
         id,
         type,
         position: paneMenu.position,
-        data: {},
+        data,
       },
     ])
     setPaneMenu(null)
@@ -1967,6 +2110,9 @@ export function App() {
             </button>
             <button type='button' onClick={() => addWorkflowNode('prompt')}>
               普通节点 · 文字描述
+            </button>
+            <button type='button' onClick={() => addWorkflowNode('style')}>
+              标签节点 · 选择风格
             </button>
             <button type='button' onClick={() => addWorkflowNode('generate')}>
               工作节点 · 图片生成

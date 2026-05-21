@@ -40,6 +40,14 @@ npm run preview
 - 建议用户定期使用“导出备份”保存 JSON 备份文件。
 - 导入备份会恢复设置和图库，但不会恢复 API Key。
 
+## 风格库
+
+- 风格素材不放入 Git 仓库，默认从仓库外读取。
+- Windows 默认路径：`D:\tmp\image-tool-lib\风格`
+- Linux 默认路径：`/opt/image-tool-lib/风格`
+- 可用 `IMAGE_TOOLS_STYLE_LIBRARY_DIR` 覆盖路径。
+- 每个分类目录里的 `*Json.xlsx` 提供风格协议，`*-风格.jpg/png` 用作节点预览示例图。
+
 ## 默认参数
 
 - Base URL: `https://cc.api-corp.top`

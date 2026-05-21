@@ -19,10 +19,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+import zipfile
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree
 
 
 def env_int(name: str, default: int) -> int:
@@ -60,6 +62,12 @@ OPENAI_IMAGE_PROXY_PATHS = {
 DATA_DIR = Path(os.environ.get("IMAGE_TOOLS_DATA_DIR", "server-data")).resolve()
 CACHE_DIR = Path(os.environ.get("IMAGE_TOOLS_CACHE_DIR", str(DATA_DIR / "image-cache"))).resolve()
 DB_PATH = Path(os.environ.get("IMAGE_TOOLS_DB_PATH", str(DATA_DIR / "image-tools.sqlite3"))).resolve()
+DEFAULT_STYLE_LIBRARY_DIR = (
+    r"D:\tmp\image-tool-lib\风格" if os.name == "nt" else "/opt/image-tool-lib/风格"
+)
+STYLE_LIBRARY_DIR = Path(
+    os.environ.get("IMAGE_TOOLS_STYLE_LIBRARY_DIR", DEFAULT_STYLE_LIBRARY_DIR)
+).resolve()
 
 DB_LOCK = threading.RLock()
 LOGGER = logging.getLogger("image-tools")
@@ -908,6 +916,169 @@ def task_response_payload(task: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def xlsx_column_index(cell_ref: str) -> int:
+    letters = "".join(char for char in cell_ref if char.isalpha()).upper()
+    index = 0
+    for char in letters:
+        index = index * 26 + (ord(char) - ord("A") + 1)
+    return max(index - 1, 0)
+
+
+def read_xlsx_shared_strings(archive: zipfile.ZipFile) -> list[str]:
+    try:
+        raw = archive.read("xl/sharedStrings.xml")
+    except KeyError:
+        return []
+
+    root = ElementTree.fromstring(raw)
+    namespace = {"x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    values: list[str] = []
+    for item in root.findall("x:si", namespace):
+        parts = [text.text or "" for text in item.findall(".//x:t", namespace)]
+        values.append("".join(parts))
+    return values
+
+
+def read_xlsx_rows(path: Path) -> list[list[str]]:
+    rows: list[list[str]] = []
+    namespace = {"x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    with zipfile.ZipFile(path) as archive:
+        shared_strings = read_xlsx_shared_strings(archive)
+        try:
+            sheet_raw = archive.read("xl/worksheets/sheet1.xml")
+        except KeyError:
+            return rows
+
+    root = ElementTree.fromstring(sheet_raw)
+    for row in root.findall(".//x:sheetData/x:row", namespace):
+        values: list[str] = []
+        for cell in row.findall("x:c", namespace):
+            cell_ref = cell.attrib.get("r", "A1")
+            cell_index = xlsx_column_index(cell_ref)
+            while len(values) <= cell_index:
+                values.append("")
+
+            cell_type = cell.attrib.get("t")
+            value = ""
+            if cell_type == "inlineStr":
+                value = "".join(
+                    text.text or "" for text in cell.findall(".//x:is/x:t", namespace)
+                )
+            else:
+                raw_value = cell.find("x:v", namespace)
+                if raw_value is not None and raw_value.text is not None:
+                    if cell_type == "s":
+                        try:
+                            value = shared_strings[int(raw_value.text)]
+                        except (ValueError, IndexError):
+                            value = ""
+                    else:
+                        value = raw_value.text
+            values[cell_index] = value
+        rows.append(values)
+    return rows
+
+
+def normalize_style_filename_value(value: str) -> str:
+    return value.replace(" ", "").replace("_", "").lower()
+
+
+def find_style_image(category_dir: Path, style_name: str, marker: str) -> Path | None:
+    normalized_name = normalize_style_filename_value(style_name)
+    candidates = [
+        path
+        for path in category_dir.iterdir()
+        if path.is_file()
+        and path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}
+        and f"-{marker}" in path.stem
+    ]
+    for path in candidates:
+        if normalized_name and normalized_name in normalize_style_filename_value(path.stem):
+            return path
+    return None
+
+
+def style_image_url(style_id: str, kind: str) -> str:
+    return f"/api/style-library/images/{urllib.parse.quote(style_id)}/{kind}"
+
+
+def build_style_library() -> dict[str, Any]:
+    if not STYLE_LIBRARY_DIR.exists() or not STYLE_LIBRARY_DIR.is_dir():
+        return {"root": str(STYLE_LIBRARY_DIR), "categories": [], "styles": []}
+
+    styles: list[dict[str, Any]] = []
+    categories: list[dict[str, Any]] = []
+    for category_dir in sorted(
+        [path for path in STYLE_LIBRARY_DIR.iterdir() if path.is_dir()],
+        key=lambda path: path.name,
+    ):
+        category_count = 0
+        xlsx_files = sorted(category_dir.glob("*Json.xlsx"))
+        if not xlsx_files:
+            continue
+
+        try:
+            rows = read_xlsx_rows(xlsx_files[0])
+        except (OSError, zipfile.BadZipFile, ElementTree.ParseError) as exc:
+            write_log(
+                "ERROR",
+                "style_library_failed",
+                f"读取风格表失败：{category_dir.name}",
+                details=str(exc),
+            )
+            continue
+
+        for row in rows[1:]:
+            if len(row) < 2:
+                continue
+            name = str(row[0] or "").strip()
+            raw_json = str(row[1] or "").strip()
+            if not name or not raw_json:
+                continue
+            try:
+                style_json = json.loads(raw_json)
+            except json.JSONDecodeError:
+                write_log(
+                    "ERROR",
+                    "style_library_failed",
+                    f"风格 JSON 无法解析：{category_dir.name}/{name}",
+                )
+                continue
+
+            style_id = uuid.uuid5(uuid.NAMESPACE_URL, f"{category_dir.name}/{name}").hex
+            preview = find_style_image(category_dir, name, "风格")
+            source = find_style_image(category_dir, name, "原")
+            keywords = style_json.get("style_keywords") if isinstance(style_json, dict) else []
+            styles.append(
+                {
+                    "id": style_id,
+                    "category": category_dir.name,
+                    "name": name,
+                    "styleJson": style_json,
+                    "keywords": keywords if isinstance(keywords, list) else [],
+                    "previewUrl": style_image_url(style_id, "preview") if preview else None,
+                    "sourceUrl": style_image_url(style_id, "source") if source else None,
+                }
+            )
+            category_count += 1
+
+        if category_count:
+            categories.append({"name": category_dir.name, "count": category_count})
+
+    return {"root": str(STYLE_LIBRARY_DIR), "categories": categories, "styles": styles}
+
+
+def style_image_path(style_id: str, kind: str) -> Path | None:
+    library = build_style_library()
+    for style in library["styles"]:
+        if style["id"] != style_id:
+            continue
+        category_dir = STYLE_LIBRARY_DIR / str(style["category"])
+        marker = "风格" if kind == "preview" else "原"
+        return find_style_image(category_dir, str(style["name"]), marker)
+    return None
+
+
 class ImageToolsHandler(SimpleHTTPRequestHandler):
     def end_headers(self) -> None:
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -915,6 +1086,12 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed_path = urllib.parse.urlparse(self.path)
+        if parsed_path.path == "/api/style-library":
+            self.handle_style_library()
+            return
+        if parsed_path.path.startswith("/api/style-library/images/"):
+            self.handle_style_image(parsed_path)
+            return
         if parsed_path.path.startswith("/api/openai/tasks/"):
             self.handle_openai_task_status(parsed_path)
             return
@@ -995,6 +1172,50 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 {"success": False, "message": "下载生成图片失败，请稍后重试"},
             )
+
+    def handle_style_library(self) -> None:
+        try:
+            json_response(
+                self,
+                HTTPStatus.OK,
+                {"success": True, "message": "", "data": build_style_library()},
+            )
+        except Exception:
+            LOGGER.exception("failed to read style library")
+            json_response(
+                self,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"success": False, "message": "读取风格库失败，请检查服务器素材目录"},
+            )
+
+    def handle_style_image(self, parsed_path: urllib.parse.ParseResult) -> None:
+        prefix = "/api/style-library/images/"
+        relative = parsed_path.path[len(prefix):]
+        parts = [urllib.parse.unquote(part) for part in relative.split("/") if part]
+        if len(parts) != 2 or parts[1] not in {"preview", "source"}:
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+
+        style_id, kind = parts
+        path = style_image_path(style_id, kind)
+        if path is None or not path.exists() or not path.is_file():
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        try:
+            if not str(path.resolve()).startswith(str(STYLE_LIBRARY_DIR)):
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+            data = path.read_bytes()
+        except OSError:
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", self.guess_type(str(path)))
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def handle_openai_task_status(self, parsed_path: urllib.parse.ParseResult) -> None:
         task_id = parsed_path.path.removeprefix("/api/openai/tasks/").strip("/")

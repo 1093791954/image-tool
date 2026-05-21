@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -22,6 +23,7 @@ import {
   Download,
   Image as ImageIcon,
   Loader2,
+  Palette,
   Play,
   Trash2,
   Upload,
@@ -32,6 +34,7 @@ import type {
   LocalImageRecord,
   PromptOptimizationPreset,
   ReferenceImage,
+  StyleOption,
 } from './types'
 
 type GenerationMode = 'text' | 'image'
@@ -61,6 +64,14 @@ export type PromptNodeData = {
   isOptimizingPrompt: boolean
   canOptimizePrompt: boolean
   onOptimizePrompt: () => void
+} & BaseNodeData
+
+export type StyleNodeData = {
+  styles: StyleOption[]
+  categories: Array<{ name: string; count: number }>
+  selectedStyleId: string
+  setSelectedStyleId: (id: string) => void
+  isLoadingStyles: boolean
 } & BaseNodeData
 
 export type GenerateNodeData = {
@@ -104,6 +115,7 @@ export type BlueprintEdgeData = {
 
 type AssetFlowNode = Node<AssetNodeData, 'asset'>
 type PromptFlowNode = Node<PromptNodeData, 'prompt'>
+type StyleFlowNode = Node<StyleNodeData, 'style'>
 type GenerateFlowNode = Node<GenerateNodeData, 'generate'>
 type OutputFlowNode = Node<OutputNodeData, 'output'>
 type BlueprintFlowEdge = Edge<BlueprintEdgeData, 'blueprint'>
@@ -415,6 +427,10 @@ export function PromptNode({ id, data }: NodeProps<PromptFlowNode>) {
     >
       <div className='node-port-grid prompt-port-grid'>
         <div className='prompt-reference-port-list'>
+          <div className='node-port-row node-port-row-target'>
+            <Handle type='target' position={Position.Left} id='style' />
+            <span>风格输入</span>
+          </div>
           {PROMPT_REFERENCE_HANDLE_IDS.map((handleId, index) => (
             <div key={handleId} className='node-port-row node-port-row-target'>
               <Handle type='target' position={Position.Left} id={handleId} />
@@ -501,6 +517,117 @@ export function PromptNode({ id, data }: NodeProps<PromptFlowNode>) {
             )}
           </div>
         ) : null}
+      </div>
+    </NodeShell>
+  )
+}
+
+export function StyleNode({ id, data }: NodeProps<StyleFlowNode>) {
+  const selectedStyle =
+    data.styles.find((style) => style.id === data.selectedStyleId) || null
+  const [category, setCategory] = useState(selectedStyle?.category || '')
+  useEffect(() => {
+    if (!data.selectedStyleId && data.styles[0]) {
+      data.setSelectedStyleId(data.styles[0].id)
+    }
+  }, [data.selectedStyleId, data.setSelectedStyleId, data.styles])
+  useEffect(() => {
+    if (selectedStyle && selectedStyle.category !== category) {
+      setCategory(selectedStyle.category)
+    }
+  }, [category, selectedStyle])
+  const visibleStyles = useMemo(
+    () =>
+      category
+        ? data.styles.filter((style) => style.category === category)
+        : data.styles,
+    [category, data.styles]
+  )
+  const styleKeywords = selectedStyle?.keywords?.slice(0, 4) || []
+
+  return (
+    <NodeShell
+      id={id}
+      accent='blue'
+      title='风格选择'
+      subtitle='Style'
+      onDelete={data.onDeleteNode}
+    >
+      <div className='node-port-grid style-port-grid'>
+        <div className='node-port-row node-port-row-source'>
+          <span>风格输出</span>
+          <Handle type='source' position={Position.Right} id='style' />
+        </div>
+      </div>
+
+      <div className='style-node-body nodrag'>
+        <label>
+          <span>分类</span>
+          <select
+            value={category}
+            disabled={data.isLoadingStyles || data.categories.length === 0}
+            onChange={(event) => {
+              const nextCategory = event.target.value
+              setCategory(nextCategory)
+              const firstStyle = data.styles.find((style) =>
+                nextCategory ? style.category === nextCategory : true
+              )
+              data.setSelectedStyleId(firstStyle?.id || '')
+            }}
+          >
+            <option value=''>全部风格</option>
+            {data.categories.map((item) => (
+              <option key={item.name} value={item.name}>
+                {item.name} · {item.count}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          <span>风格</span>
+          <select
+            value={data.selectedStyleId}
+            disabled={data.isLoadingStyles || visibleStyles.length === 0}
+            onChange={(event) => data.setSelectedStyleId(event.target.value)}
+          >
+            {visibleStyles.length === 0 ? (
+              <option value=''>暂无风格</option>
+            ) : (
+              visibleStyles.map((style) => (
+                <option key={style.id} value={style.id}>
+                  {style.name}
+                </option>
+              ))
+            )}
+          </select>
+        </label>
+
+        <div className='style-preview-frame'>
+          {selectedStyle?.previewUrl ? (
+            <img src={selectedStyle.previewUrl} alt={`${selectedStyle.name} 风格示例`} />
+          ) : (
+            <div>
+              {data.isLoadingStyles ? <Loader2 className='spin' size={28} /> : <Palette size={32} />}
+              <span>{data.isLoadingStyles ? 'LOADING' : 'NO STYLE'}</span>
+            </div>
+          )}
+        </div>
+
+        {selectedStyle ? (
+          <div className='style-node-meta'>
+            <strong>{selectedStyle.category} / {selectedStyle.name}</strong>
+            {styleKeywords.length > 0 ? (
+              <div>
+                {styleKeywords.map((keyword) => (
+                  <span key={keyword}>{keyword}</span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className='style-node-empty'>右侧选择一个风格后，生成时会把对应 JSON 协议加入提示词。</p>
+        )}
       </div>
     </NodeShell>
   )
@@ -775,6 +902,7 @@ export function GalleryStrip({
 export const nodeTypes = {
   asset: AssetNode,
   prompt: PromptNode,
+  style: StyleNode,
   generate: GenerateNode,
   output: OutputNode,
 }

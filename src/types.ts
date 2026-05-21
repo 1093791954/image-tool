@@ -49,6 +49,22 @@ export type ReferenceImage = {
   dataUrl: string
 }
 
+export type StyleOption = {
+  id: string
+  category: string
+  name: string
+  styleJson: Record<string, unknown>
+  previewUrl?: string
+  sourceUrl?: string
+  keywords: string[]
+}
+
+export type StyleLibraryResult = {
+  root: string
+  categories: Array<{ name: string; count: number }>
+  styles: StyleOption[]
+}
+
 export type GeneratedImage = {
   src: string
   revisedPrompt?: string
@@ -128,6 +144,7 @@ export type ImageApiClient = {
     payload: ManagedNewApiLoginPayload
   ) => Promise<ManagedNewApiLoginResult>
   optimizePrompt: (payload: PromptOptimizationPayload) => Promise<string>
+  listStyles: () => Promise<StyleLibraryResult>
   generateImages: (
     payload: ImageGenerationPayload
   ) => Promise<ImageGenerationResult>

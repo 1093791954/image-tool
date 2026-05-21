@@ -7,6 +7,7 @@ import type {
   ModelOption,
   PromptOptimizationPayload,
   PromptOptimizationPreset,
+  StyleLibraryResult,
 } from './types'
 
 function normalizeBaseUrl(baseUrl: string) {
@@ -265,6 +266,16 @@ export const bridge: ImageApiClient = {
       choices?: Array<{ message?: { content?: string }; text?: string }>
     }>(response, 'Prompt optimization failed')
     return parsePromptOptimizationResult(body)
+  },
+
+  async listStyles() {
+    const response = await fetch('/api/style-library')
+    const body = await parseJsonResponse<{
+      success?: boolean
+      message?: string
+      data?: StyleLibraryResult
+    }>(response, 'Style library failed')
+    return assertApiSuccess(body, '读取风格库失败')
   },
 
   async generateImages(payload: ImageGenerationPayload) {
