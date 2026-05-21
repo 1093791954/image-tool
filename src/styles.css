@@ -148,6 +148,7 @@ select:disabled {
 .canvas-list {
   display: grid;
   flex: 1 1 auto;
+  align-content: start;
   gap: 8px;
   min-height: 0;
   overflow-y: auto;
@@ -511,6 +512,7 @@ select:disabled {
   align-items: center;
   justify-content: center;
   gap: 7px;
+  flex: 0 0 auto;
   width: 100%;
   min-height: 38px;
   padding: 9px 11px;
