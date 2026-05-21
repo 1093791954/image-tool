@@ -1329,6 +1329,7 @@ select:disabled {
 }
 
 .style-port-grid {
+  grid-template-columns: minmax(0, 1fr);
   justify-items: end;
 }
 
