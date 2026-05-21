@@ -564,6 +564,38 @@ function getCanvasReferenceImages(canvas?: Pick<WorkflowCanvas, 'nodes'> | null)
   return images
 }
 
+function getPromptAssetReferenceImages(
+  promptNodeId: string,
+  canvas: Pick<WorkflowCanvas, 'nodes' | 'edges'> | null | undefined
+) {
+  if (!canvas) return []
+
+  const connectedAssetNodeIds = new Set(
+    canvas.edges
+      .filter(
+        (edge) =>
+          edge.target === promptNodeId &&
+          edge.sourceHandle === 'reference' &&
+          (edge.targetHandle === 'reference' || edge.targetHandle?.startsWith('reference-')) &&
+          canvas.nodes.find((node) => node.id === edge.source)?.type === 'asset'
+      )
+      .map((edge) => edge.source)
+  )
+
+  const seen = new Set<string>()
+  const images: ReferenceImage[] = []
+  canvas.nodes.forEach((node) => {
+    if (node.type !== 'asset' || !connectedAssetNodeIds.has(node.id)) return
+    getWorkflowNodeReferenceImages(node).forEach((image) => {
+      if (seen.has(image.id)) return
+      seen.add(image.id)
+      images.push(image)
+    })
+  })
+
+  return images
+}
+
 function getPromptGeneratedReferenceImages(
   promptNodeId: string,
   canvas: Pick<WorkflowCanvas, 'nodes' | 'edges'> | null | undefined,
@@ -604,7 +636,7 @@ function getPromptMentionReferenceImages(
   images: LocalImageRecord[]
 ) {
   return [
-    ...getCanvasReferenceImages(canvas),
+    ...getPromptAssetReferenceImages(promptNodeId, canvas),
     ...getPromptGeneratedReferenceImages(promptNodeId, canvas, images),
   ]
 }
@@ -1934,33 +1966,16 @@ export function App() {
           })
         }
 
+        const promptReferenceImages = getPromptAssetReferenceImages(promptNode.id, activeCanvas)
         const availableReferenceImages = [
-          ...referenceImages,
+          ...promptReferenceImages,
           ...upstreamReferenceImages,
         ]
         const resolvedReferences = resolvePromptReferenceImages(finalPrompt, availableReferenceImages)
-        const hasAssetPromptConnection = edges.some(
-          (edge) => {
-            if (
-              edge.target !== promptNode.id ||
-              !(edge.targetHandle === 'reference' || edge.targetHandle?.startsWith('reference-'))
-            ) {
-              return false
-            }
-            const sourceNode = nodes.find((node) => node.id === edge.source)
-            return edge.sourceHandle === 'reference' && sourceNode?.type === 'asset'
-          }
-        )
         const hasGeneratedPromptConnection = upstreamGenerateEdges.length > 0
-        const mentionsAssetReference = resolvedReferences.images.some((image) =>
-          referenceImages.some((referenceImage) => referenceImage.id === image.id)
-        )
         const mentionsGeneratedReference = resolvedReferences.images.some((image) =>
           upstreamReferenceImages.some((referenceImage) => referenceImage.id === image.id)
         )
-        if (mentionsAssetReference && !hasAssetPromptConnection) {
-          throw new Error('请先把参考图片节点连接到文字描述节点，再使用 @引用参考图')
-        }
         if (mentionsGeneratedReference && !hasGeneratedPromptConnection) {
           throw new Error('请先把图片生成节点连接到文字描述节点，再使用 @引用生成图')
         }
