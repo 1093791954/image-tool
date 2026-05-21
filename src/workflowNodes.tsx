@@ -51,6 +51,7 @@ export type AssetNodeData = {
   addReferenceFiles: (files: FileList | File[]) => void
   removeReferenceImage: (id: string) => void
   updateReferenceImageTitle: (id: string, title: string) => void
+  isReferenceTitleDuplicate: (id: string) => boolean
 } & BaseNodeData
 
 export type PromptNodeData = {
@@ -97,6 +98,9 @@ export type GenerateNodeData = {
   canGenerate: boolean
   onGenerate: () => void
   image: LocalImageRecord | null
+  outputTitle: string
+  updateOutputTitle: (title: string) => void
+  isOutputTitleDuplicate: boolean
   onPreview: (image: LocalImageRecord) => void
   onDownload: (image: LocalImageRecord) => void
 } & BaseNodeData
@@ -262,37 +266,45 @@ export function AssetNode({ id, data }: NodeProps<AssetFlowNode>) {
           </>
         ) : (
           <div className={`asset-preview-grid asset-preview-count-${data.referenceImages.length}`}>
-            {data.referenceImages.map((image) => (
-              <article key={image.id} onDragStart={(event) => event.preventDefault()}>
-                <img
-                  src={image.dataUrl || ''}
-                  alt={image.name}
-                  draggable={false}
-                  onDragStart={(event) => event.preventDefault()}
-                />
-                <button
-                  type='button'
-                  className='node-icon-button'
-                  onClick={() => data.removeReferenceImage(image.id)}
-                  aria-label={`移除 ${image.name}`}
-                >
-                  <X size={14} />
-                </button>
-                <label className='asset-title-field'>
-                  <span>@</span>
-                  <input
-                    value={image.title ?? image.name}
-                    onChange={(event) =>
-                      data.updateReferenceImageTitle(image.id, event.target.value)
-                    }
-                    onClick={(event) => event.stopPropagation()}
+            {data.referenceImages.map((image) => {
+              const isTitleDuplicate = data.isReferenceTitleDuplicate(image.id)
+
+              return (
+                <article key={image.id} onDragStart={(event) => event.preventDefault()}>
+                  <img
+                    src={image.dataUrl || ''}
+                    alt={image.name}
+                    draggable={false}
                     onDragStart={(event) => event.preventDefault()}
-                    placeholder='参考图标题'
-                    spellCheck={false}
                   />
-                </label>
-              </article>
-            ))}
+                  <button
+                    type='button'
+                    className='node-icon-button'
+                    onClick={() => data.removeReferenceImage(image.id)}
+                    aria-label={`移除 ${image.name}`}
+                  >
+                    <X size={14} />
+                  </button>
+                  <label
+                    className={`asset-title-field ${isTitleDuplicate ? 'title-conflict' : ''}`}
+                    title={isTitleDuplicate ? '画布内图片名称重复' : '参考图名称'}
+                  >
+                    <span>@</span>
+                    <input
+                      value={image.title ?? image.name}
+                      onChange={(event) =>
+                        data.updateReferenceImageTitle(image.id, event.target.value)
+                      }
+                      aria-invalid={isTitleDuplicate}
+                      onClick={(event) => event.stopPropagation()}
+                      onDragStart={(event) => event.preventDefault()}
+                      placeholder='参考图标题'
+                      spellCheck={false}
+                    />
+                  </label>
+                </article>
+              )
+            })}
           </div>
         )}
         <button
@@ -513,7 +525,7 @@ export function PromptNode({ id, data }: NodeProps<PromptFlowNode>) {
             ) : referenceTitles.length > 0 ? (
               <div className='prompt-mention-empty'>没有匹配的参考图</div>
             ) : (
-              <div className='prompt-mention-empty'>先添加参考图片标题</div>
+              <div className='prompt-mention-empty'>先添加图片名称</div>
             )}
           </div>
         ) : null}
@@ -671,6 +683,19 @@ export function GenerateNode({ id, data }: NodeProps<GenerateFlowNode>) {
           </>
         )}
       </div>
+      <label
+        className={`generate-title-field nodrag ${data.isOutputTitleDuplicate ? 'title-conflict' : ''}`}
+        title={data.isOutputTitleDuplicate ? '画布内图片名称重复' : '生成图输出名称'}
+      >
+        <span>@</span>
+        <input
+          value={data.outputTitle}
+          onChange={(event) => data.updateOutputTitle(event.target.value)}
+          aria-invalid={data.isOutputTitleDuplicate}
+          placeholder='生成图名称'
+          spellCheck={false}
+        />
+      </label>
       <div className='node-param-grid nodrag'>
         <label>
           <span>模型</span>

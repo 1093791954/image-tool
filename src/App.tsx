@@ -218,6 +218,19 @@ function getWorkflowNodeLatestImageId(node?: Pick<WorkflowNode, 'data'> | null) 
   return typeof value === 'string' ? value : ''
 }
 
+function getWorkflowNodeCustomOutputTitle(node?: Pick<WorkflowNode, 'data'> | null) {
+  const value = node?.data?.outputTitle
+  return typeof value === 'string' ? normalizeReferenceTitle(value) : ''
+}
+
+function defaultGenerateOutputTitle(nodeId: string) {
+  return normalizeReferenceTitle(`生成图-${nodeId}`) || '生成图'
+}
+
+function getWorkflowNodeOutputTitle(node: Pick<WorkflowNode, 'id' | 'data'>) {
+  return getWorkflowNodeCustomOutputTitle(node) || defaultGenerateOutputTitle(node.id)
+}
+
 function workflowNodeDataForStorage(node: WorkflowNode) {
   if (node.type === 'asset') {
     const referenceImages = getWorkflowNodeReferenceImages(node).map(stripReferenceImageDataUrl)
@@ -229,7 +242,11 @@ function workflowNodeDataForStorage(node: WorkflowNode) {
   }
   if (node.type === 'generate') {
     const latestImageId = getWorkflowNodeLatestImageId(node)
-    return latestImageId ? { latestImageId } : {}
+    const outputTitle = getWorkflowNodeCustomOutputTitle(node)
+    return {
+      ...(latestImageId ? { latestImageId } : {}),
+      ...(outputTitle ? { outputTitle } : {}),
+    }
   }
   return {}
 }
@@ -304,6 +321,8 @@ function cloneWorkflowNodes(nodes: WorkflowNode[], legacyReferenceImages: Refere
       node.type === 'style' ? getWorkflowNodeSelectedStyleId(node) : ''
     const latestImageId =
       node.type === 'generate' ? getWorkflowNodeLatestImageId(node) : ''
+    const outputTitle =
+      node.type === 'generate' ? getWorkflowNodeCustomOutputTitle(node) : ''
     if (referenceImages.length > 0) hasStoredAssetReferences = true
 
     return {
@@ -314,8 +333,11 @@ function cloneWorkflowNodes(nodes: WorkflowNode[], legacyReferenceImages: Refere
           ? { referenceImages }
           : selectedStyleId
             ? { selectedStyleId }
-            : latestImageId
-              ? { latestImageId }
+            : latestImageId || outputTitle
+              ? {
+                  ...(latestImageId ? { latestImageId } : {}),
+                  ...(outputTitle ? { outputTitle } : {}),
+                }
               : {},
     }
   })
@@ -375,6 +397,98 @@ function ensureReferenceTitles(images: ReferenceImage[]) {
   }))
 }
 
+function referenceTitleKey(title: string) {
+  return normalizeReferenceTitle(title).toLocaleLowerCase()
+}
+
+function referenceImageOwnerId(imageId: string) {
+  return `asset:${imageId}`
+}
+
+function generateOutputOwnerId(nodeId: string) {
+  return `generate:${nodeId}`
+}
+
+function createUniqueReferenceTitle(baseTitle: string, entries: Array<{ title: string }>) {
+  const normalizedBase = normalizeReferenceTitle(baseTitle) || '图片'
+  const usedKeys = new Set(entries.map((entry) => referenceTitleKey(entry.title)).filter(Boolean))
+  if (!usedKeys.has(referenceTitleKey(normalizedBase))) return normalizedBase
+
+  for (let index = 2; index < 1000; index += 1) {
+    const suffix = `-${index}`
+    const candidate = `${normalizedBase.slice(0, Math.max(1, 24 - suffix.length))}${suffix}`
+    if (candidate && !usedKeys.has(referenceTitleKey(candidate))) return candidate
+  }
+
+  const suffix = `-${Date.now()}`
+  return `${normalizedBase.slice(0, Math.max(1, 24 - suffix.length))}${suffix}`
+}
+
+function getCanvasReferenceNameEntries(canvas?: Pick<WorkflowCanvas, 'nodes'> | null) {
+  if (!canvas) return []
+
+  const entries: Array<{
+    ownerId: string
+    nodeId: string
+    kind: 'asset' | 'generate'
+    title: string
+  }> = []
+
+  canvas.nodes.forEach((node) => {
+    if (node.type === 'asset') {
+      getWorkflowNodeReferenceImages(node).forEach((image) => {
+        const title = normalizeReferenceTitle(image.title || image.name)
+        if (!title) return
+        entries.push({
+          ownerId: referenceImageOwnerId(image.id),
+          nodeId: node.id,
+          kind: 'asset',
+          title,
+        })
+      })
+      return
+    }
+
+    if (node.type === 'generate') {
+      entries.push({
+        ownerId: generateOutputOwnerId(node.id),
+        nodeId: node.id,
+        kind: 'generate',
+        title: getWorkflowNodeOutputTitle(node),
+      })
+    }
+  })
+
+  return entries
+}
+
+function isReferenceTitleTaken(
+  canvas: Pick<WorkflowCanvas, 'nodes'> | null | undefined,
+  title: string,
+  ownerId: string
+) {
+  const key = referenceTitleKey(title)
+  if (!key) return false
+  return getCanvasReferenceNameEntries(canvas).some(
+    (entry) => entry.ownerId !== ownerId && referenceTitleKey(entry.title) === key
+  )
+}
+
+function getDuplicateCanvasReferenceTitles(canvas?: Pick<WorkflowCanvas, 'nodes'> | null) {
+  const seen = new Map<string, string>()
+  const duplicates = new Set<string>()
+
+  getCanvasReferenceNameEntries(canvas).forEach((entry) => {
+    const key = referenceTitleKey(entry.title)
+    if (!key) return
+    const existing = seen.get(key)
+    if (existing) duplicates.add(existing)
+    else seen.set(key, entry.title)
+  })
+
+  return [...duplicates]
+}
+
 function getCanvasReferenceImages(canvas?: Pick<WorkflowCanvas, 'nodes'> | null) {
   if (!canvas) return []
 
@@ -390,6 +504,27 @@ function getCanvasReferenceImages(canvas?: Pick<WorkflowCanvas, 'nodes'> | null)
   })
 
   return images
+}
+
+function getCanvasGeneratedReferenceImages(
+  canvas: Pick<WorkflowCanvas, 'nodes'> | null | undefined,
+  images: LocalImageRecord[]
+) {
+  if (!canvas) return []
+
+  return canvas.nodes
+    .filter((node) => node.type === 'generate')
+    .map((node) => {
+      const title = getWorkflowNodeOutputTitle(node)
+      const latestImage = images.find((image) => image.id === getWorkflowNodeLatestImageId(node))
+      return {
+        id: `generated-${node.id}`,
+        name: `${title}.png`,
+        title,
+        type: 'image/png',
+        dataUrl: latestImage?.src || '',
+      }
+    })
 }
 
 function getCanvasSelectedStyleIds(canvas?: Pick<WorkflowCanvas, 'nodes' | 'edges'> | null) {
@@ -866,7 +1001,14 @@ export function App() {
   const promptOptimizationPreset =
     activeCanvas?.promptOptimizationPreset || DEFAULT_PROMPT_OPTIMIZATION_PRESET
   const generationMode = activeCanvas?.generationMode || 'text'
-  const referenceImages = getCanvasReferenceImages(activeCanvas)
+  const referenceImages = useMemo(() => getCanvasReferenceImages(activeCanvas), [activeCanvas])
+  const mentionReferenceImages = useMemo(
+    () => [
+      ...referenceImages,
+      ...getCanvasGeneratedReferenceImages(activeCanvas, images),
+    ],
+    [activeCanvas, images, referenceImages]
+  )
   const activeCanvasGenerating = activeCanvas ? isCanvasGenerating(activeCanvas) : false
   const referenceImageBlobs = useMemo(
     () => extractReferenceImageBlobs(canvases),
@@ -1425,11 +1567,12 @@ export function App() {
 
     const selectedFile = imageFiles[0]
     if (!selectedFile) return
+    const baseTitle = referenceTitleFromFileName(selectedFile.name, 0)
 
     const nextImage: ReferenceImage = {
       id: createLocalId('reference'),
       name: selectedFile.name,
-      title: referenceTitleFromFileName(selectedFile.name, 0),
+      title: createUniqueReferenceTitle(baseTitle, getCanvasReferenceNameEntries(activeCanvas)),
       type: selectedFile.type || 'image/png',
       dataUrl: await fileToDataUrl(selectedFile),
     }
@@ -1451,9 +1594,48 @@ export function App() {
   }
 
   function updateReferenceImageTitle(nodeId: string, id: string, title: string) {
+    const nextTitle = normalizeReferenceTitle(title)
+    if (
+      activeCanvas &&
+      nextTitle &&
+      isReferenceTitleTaken(activeCanvas, nextTitle, referenceImageOwnerId(id))
+    ) {
+      setError(`画布内已存在图片名称：${nextTitle}`)
+      setStatus('图片名称不能重复')
+      return
+    }
+
+    setError('')
     setAssetNodeReferenceImages(nodeId, (current) =>
       current.map((image) =>
-        image.id === id ? { ...image, title: normalizeReferenceTitle(title) } : image
+        image.id === id ? { ...image, title: nextTitle } : image
+      )
+    )
+  }
+
+  function updateGenerateNodeOutputTitle(nodeId: string, title: string) {
+    const nextTitle = normalizeReferenceTitle(title) || defaultGenerateOutputTitle(nodeId)
+    if (
+      activeCanvas &&
+      isReferenceTitleTaken(activeCanvas, nextTitle, generateOutputOwnerId(nodeId))
+    ) {
+      setError(`画布内已存在图片名称：${nextTitle}`)
+      setStatus('图片名称不能重复')
+      return
+    }
+
+    setError('')
+    setNodes((currentNodes) =>
+      currentNodes.map((node) =>
+        node.id === nodeId && node.type === 'generate'
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                outputTitle: nextTitle,
+              },
+            }
+          : node
       )
     )
   }
@@ -1552,7 +1734,7 @@ export function App() {
         mode: generationMode,
         optimizationPreset: promptOptimizationPreset,
       })
-      setPrompt(normalizeOptimizedPromptMentions(optimizedPrompt, referenceImages))
+      setPrompt(normalizeOptimizedPromptMentions(optimizedPrompt, mentionReferenceImages))
       setStatus('提示词已优化')
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -1568,6 +1750,12 @@ export function App() {
     const generatingCanvasId = activeCanvas?.id
     if (!finalPrompt) {
       setError('请先输入提示词')
+      return
+    }
+    const duplicateTitles = getDuplicateCanvasReferenceTitles(activeCanvas)
+    if (duplicateTitles.length > 0) {
+      setError(`画布内图片名称重复：${duplicateTitles.join('、')}`)
+      setStatus('请先修改重复的图片名称')
       return
     }
     setError('')
@@ -1623,25 +1811,45 @@ export function App() {
           const upstreamRecords = await executeGenerateNode(upstreamNode, visiting)
           const firstRecord = upstreamRecords[0]
           if (!firstRecord) continue
+          const outputTitle = getWorkflowNodeOutputTitle(upstreamNode)
           upstreamReferenceImages.push({
             id: `generated-${firstRecord.id}`,
-            name: `${upstreamNode.id}.png`,
-            title: `上游生成-${upstreamNode.id}`,
+            name: `${outputTitle}.png`,
+            title: outputTitle,
             type: 'image/png',
             dataUrl: firstRecord.src,
           })
         }
 
-        const resolvedReferences = resolvePromptReferenceImages(finalPrompt, referenceImages)
-        const hasReferencePromptConnection = edges.some(
-          (edge) =>
-            edge.target === promptNode.id &&
-            edge.sourceHandle === 'reference' &&
-            (edge.targetHandle === 'reference' || edge.targetHandle?.startsWith('reference-')) &&
-            nodes.find((node) => node.id === edge.source)?.type === 'asset'
+        const availableReferenceImages = [
+          ...referenceImages,
+          ...upstreamReferenceImages,
+        ]
+        const resolvedReferences = resolvePromptReferenceImages(finalPrompt, availableReferenceImages)
+        const hasAssetPromptConnection = edges.some(
+          (edge) => {
+            if (
+              edge.target !== promptNode.id ||
+              !(edge.targetHandle === 'reference' || edge.targetHandle?.startsWith('reference-'))
+            ) {
+              return false
+            }
+            const sourceNode = nodes.find((node) => node.id === edge.source)
+            return edge.sourceHandle === 'reference' && sourceNode?.type === 'asset'
+          }
         )
-        if (resolvedReferences.mentions.length > 0 && !hasReferencePromptConnection) {
+        const hasGeneratedPromptConnection = upstreamGenerateEdges.length > 0
+        const mentionsAssetReference = resolvedReferences.images.some((image) =>
+          referenceImages.some((referenceImage) => referenceImage.id === image.id)
+        )
+        const mentionsGeneratedReference = resolvedReferences.images.some((image) =>
+          upstreamReferenceImages.some((referenceImage) => referenceImage.id === image.id)
+        )
+        if (mentionsAssetReference && !hasAssetPromptConnection) {
           throw new Error('请先把参考图片节点连接到文字描述节点，再使用 @引用参考图')
+        }
+        if (mentionsGeneratedReference && !hasGeneratedPromptConnection) {
+          throw new Error('请先把图片生成节点连接到文字描述节点，再使用 @引用生成图')
         }
         if (resolvedReferences.missing.length > 0) {
           throw new Error(`没有找到这些 @参考图：${resolvedReferences.missing.join('、')}`)
@@ -1652,10 +1860,8 @@ export function App() {
           .map((styleId) => styles.find((style) => style.id === styleId))
           .filter((style): style is StyleOption => Boolean(style))
         const submittedPrompt = promptWithStyles(finalPrompt, selectedStyles)
-        const flowReferenceImages = [
-          ...resolvedReferences.images,
-          ...upstreamReferenceImages,
-        ]
+        const flowReferenceImages = [...resolvedReferences.images, ...upstreamReferenceImages]
+          .filter((image, index, list) => list.findIndex((item) => item.id === image.id) === index)
         const effectiveGenerationMode: 'text' | 'image' =
           flowReferenceImages.length > 0 ? 'image' : 'text'
         const referenceImageNames =
@@ -1854,6 +2060,15 @@ export function App() {
         removeReferenceImage: (id: string) => removeReferenceImage(node.id, id),
         updateReferenceImageTitle: (id: string, title: string) =>
           updateReferenceImageTitle(node.id, id, title),
+        isReferenceTitleDuplicate: (id: string) => {
+          const image = nodeReferenceImages.find((item) => item.id === id)
+          if (!image) return false
+          return isReferenceTitleTaken(
+            activeCanvas,
+            image.title || image.name,
+            referenceImageOwnerId(id)
+          )
+        },
       }
     }
 
@@ -1862,7 +2077,7 @@ export function App() {
         onDeleteNode: deleteWorkflowNode,
         prompt,
         setPrompt,
-        referenceImages,
+        referenceImages: mentionReferenceImages,
         optimizationPreset: promptOptimizationPreset,
         optimizationPresets: promptOptimizationPresets,
         setOptimizationPreset: setPromptOptimizationPreset,
@@ -1909,6 +2124,13 @@ export function App() {
         canGenerate,
         onGenerate: () => void handleGenerate(node.id),
         image: images.find((image) => image.id === getWorkflowNodeLatestImageId(node)) || null,
+        outputTitle: getWorkflowNodeOutputTitle(node),
+        updateOutputTitle: (title: string) => updateGenerateNodeOutputTitle(node.id, title),
+        isOutputTitleDuplicate: isReferenceTitleTaken(
+          activeCanvas,
+          getWorkflowNodeOutputTitle(node),
+          generateOutputOwnerId(node.id)
+        ),
         onPreview: setPreviewImage,
         onDownload: handleDownloadImage,
       }
@@ -1927,6 +2149,7 @@ export function App() {
       nodes,
       generationMode,
       referenceImages,
+      mentionReferenceImages,
       prompt,
       promptOptimizationPreset,
       codexApiKey,
@@ -1943,6 +2166,8 @@ export function App() {
       count,
       responseFormat,
       inputFidelity,
+      images,
+      activeCanvas,
       activeCanvasGenerating,
       canGenerate,
       deleteWorkflowNode,
@@ -2105,17 +2330,29 @@ export function App() {
   function addWorkflowNode(type: WorkflowNodeType) {
     if (!paneMenu) return
     const id = `${type}-${Date.now()}`
-    const data =
-      type === 'style' && styles[0] ? { selectedStyleId: styles[0].id } : {}
-    setNodes((currentNodes) => [
-      ...currentNodes,
-      {
-        id,
-        type,
-        position: paneMenu.position,
-        data,
-      },
-    ])
+    setNodes((currentNodes) => {
+      const data =
+        type === 'style' && styles[0]
+          ? { selectedStyleId: styles[0].id }
+          : type === 'generate'
+            ? {
+                outputTitle: createUniqueReferenceTitle(
+                  `生成图${currentNodes.filter((node) => node.type === 'generate').length + 1}`,
+                  getCanvasReferenceNameEntries({ nodes: currentNodes })
+                ),
+              }
+            : {}
+
+      return [
+        ...currentNodes,
+        {
+          id,
+          type,
+          position: paneMenu.position,
+          data,
+        },
+      ]
+    })
     setPaneMenu(null)
     setStatus('已创建节点，拖动端口可连线')
   }

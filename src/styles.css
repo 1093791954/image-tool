@@ -1198,6 +1198,12 @@ select:disabled {
   font-weight: 800;
 }
 
+.asset-title-field.title-conflict,
+.generate-title-field.title-conflict {
+  border-color: var(--danger-border);
+  box-shadow: 0 0 0 1px var(--danger-border), 0 8px 18px rgb(0 0 0 / 30%);
+}
+
 .node-file-button {
   width: fit-content;
   color: var(--text);
@@ -1442,6 +1448,37 @@ select:disabled {
 .generation-preview {
   height: 190px;
   margin-bottom: 12px;
+}
+
+.generate-title-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  margin: -4px 0 12px;
+  padding: 7px 9px;
+  color: var(--text);
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.generate-title-field span {
+  color: var(--pink);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.generate-title-field input {
+  min-width: 0;
+  height: 24px;
+  padding: 0;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 12px;
+  font-weight: 850;
 }
 
 .generation-preview span,
