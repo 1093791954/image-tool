@@ -142,6 +142,7 @@ type PendingGenerationTaskRecord = {
   mode: 'text' | 'image'
   referenceImageNames?: string[]
   canvasId?: string
+  generateNodeId?: string
   createdAt: number
   status?: ImageGenerationTaskStatus
   updatedAt?: number
@@ -212,6 +213,11 @@ function getWorkflowNodeSelectedStyleId(node?: Pick<WorkflowNode, 'data'> | null
   return typeof value === 'string' ? value : ''
 }
 
+function getWorkflowNodeLatestImageId(node?: Pick<WorkflowNode, 'data'> | null) {
+  const value = node?.data?.latestImageId
+  return typeof value === 'string' ? value : ''
+}
+
 function workflowNodeDataForStorage(node: WorkflowNode) {
   if (node.type === 'asset') {
     const referenceImages = getWorkflowNodeReferenceImages(node).map(stripReferenceImageDataUrl)
@@ -220,6 +226,10 @@ function workflowNodeDataForStorage(node: WorkflowNode) {
   if (node.type === 'style') {
     const selectedStyleId = getWorkflowNodeSelectedStyleId(node)
     return selectedStyleId ? { selectedStyleId } : {}
+  }
+  if (node.type === 'generate') {
+    const latestImageId = getWorkflowNodeLatestImageId(node)
+    return latestImageId ? { latestImageId } : {}
   }
   return {}
 }
@@ -292,6 +302,8 @@ function cloneWorkflowNodes(nodes: WorkflowNode[], legacyReferenceImages: Refere
       node.type === 'asset' ? normalizeAssetNodeReferenceImages(getWorkflowNodeReferenceImages(node)) : []
     const selectedStyleId =
       node.type === 'style' ? getWorkflowNodeSelectedStyleId(node) : ''
+    const latestImageId =
+      node.type === 'generate' ? getWorkflowNodeLatestImageId(node) : ''
     if (referenceImages.length > 0) hasStoredAssetReferences = true
 
     return {
@@ -302,7 +314,9 @@ function cloneWorkflowNodes(nodes: WorkflowNode[], legacyReferenceImages: Refere
           ? { referenceImages }
           : selectedStyleId
             ? { selectedStyleId }
-            : {},
+            : latestImageId
+              ? { latestImageId }
+              : {},
     }
   })
 
@@ -397,6 +411,32 @@ function getCanvasSelectedStyleIds(canvas?: Pick<WorkflowCanvas, 'nodes' | 'edge
   const selectedIds: string[] = []
   canvas.nodes.forEach((node) => {
     if (node.type !== 'style' || !scopedNodeIds.has(node.id)) return
+    const selectedStyleId = getWorkflowNodeSelectedStyleId(node)
+    if (selectedStyleId && !selectedIds.includes(selectedStyleId)) selectedIds.push(selectedStyleId)
+  })
+  return selectedIds
+}
+
+function getPromptSelectedStyleIds(
+  promptNodeId: string,
+  canvas?: Pick<WorkflowCanvas, 'nodes' | 'edges'> | null
+) {
+  if (!canvas) return []
+  const connectedStyleNodeIds = new Set(
+    canvas.edges
+      .filter(
+        (edge) =>
+          edge.target === promptNodeId &&
+          edge.sourceHandle === 'style' &&
+          edge.targetHandle === 'style'
+      )
+      .map((edge) => edge.source)
+  )
+  if (connectedStyleNodeIds.size === 0) return getCanvasSelectedStyleIds(canvas)
+
+  const selectedIds: string[] = []
+  canvas.nodes.forEach((node) => {
+    if (node.type !== 'style' || !connectedStyleNodeIds.has(node.id)) return
     const selectedStyleId = getWorkflowNodeSelectedStyleId(node)
     if (selectedStyleId && !selectedIds.includes(selectedStyleId)) selectedIds.push(selectedStyleId)
   })
@@ -1114,6 +1154,7 @@ export function App() {
       mode: 'text' | 'image'
       referenceImageNames?: string[]
       canvasId?: string
+      generateNodeId?: string
     }
   ) {
     upsertPendingGenerationTask({
@@ -1198,6 +1239,7 @@ export function App() {
       mode: 'text' | 'image'
       referenceImageNames?: string[]
       canvasId?: string
+      generateNodeId?: string
     }
   ) {
     const records = buildLocalImageRecords(generatedImages, context)
@@ -1209,6 +1251,19 @@ export function App() {
             ? {
                 ...canvas,
                 latestImageId: records[0].id,
+                nodes: context.generateNodeId
+                  ? canvas.nodes.map((node) =>
+                      node.id === context.generateNodeId && node.type === 'generate'
+                        ? {
+                            ...node,
+                            data: {
+                              ...node.data,
+                              latestImageId: records[0].id,
+                            },
+                          }
+                        : node
+                    )
+                  : canvas.nodes,
                 generationTaskId: undefined,
                 generationTaskStatus: undefined,
                 generationTaskUpdatedAt: undefined,
@@ -1510,109 +1565,177 @@ export function App() {
     }
   }
 
-  async function handleGenerate() {
+  async function handleGenerate(targetGenerateNodeId?: string) {
     const finalPrompt = prompt.trim()
     const generatingCanvasId = activeCanvas?.id
     if (!finalPrompt) {
       setError('请先输入提示词')
       return
     }
-    const resolvedReferences = resolvePromptReferenceImages(finalPrompt, referenceImages)
-    const hasReferencePromptConnection = edges.some(
-      (edge) =>
-        edge.sourceHandle === 'reference' &&
-        (edge.targetHandle === 'reference' || edge.targetHandle?.startsWith('reference-')) &&
-        nodes.find((node) => node.id === edge.source)?.type === 'asset' &&
-        nodes.find((node) => node.id === edge.target)?.type === 'prompt'
-    )
-    if (resolvedReferences.mentions.length > 0 && !hasReferencePromptConnection) {
-      setError('请先把参考图片节点连接到文字描述节点，再使用 @引用参考图')
-      return
-    }
-    if (resolvedReferences.missing.length > 0) {
-      setError(`没有找到这些 @参考图：${resolvedReferences.missing.join('、')}`)
-      return
-    }
-    const selectedStyleIds = getCanvasSelectedStyleIds(activeCanvas)
-    const selectedStyles = selectedStyleIds
-      .map((styleId) => styles.find((style) => style.id === styleId))
-      .filter((style): style is StyleOption => Boolean(style))
-    const submittedPrompt = promptWithStyles(finalPrompt, selectedStyles)
-    const effectiveGenerationMode: 'text' | 'image' =
-      resolvedReferences.images.length > 0 ? 'image' : 'text'
-    const referenceImageNames =
-      effectiveGenerationMode === 'image'
-        ? resolvedReferences.images.map((image) => image.title || image.name)
-        : undefined
-    const generationContext = {
-      prompt: submittedPrompt,
-      model,
-      size,
-      quality,
-      mode: effectiveGenerationMode,
-      referenceImageNames,
-      canvasId: generatingCanvasId || undefined,
-    }
-
     setError('')
-    setStatus(
-      effectiveGenerationMode === 'image'
-        ? `正在根据 ${resolvedReferences.images.length} 张 @参考图${selectedStyles.length > 0 ? `和 ${selectedStyles.length} 个风格` : ''}提交后台任务...`
-        : selectedStyles.length > 0
-          ? `正在按 ${selectedStyles.length} 个风格提交后台生图任务...`
-          : '正在提交后台生图任务...'
-    )
     setIsGenerating(true)
+    const generatedRecordsByNode = new Map<string, LocalImageRecord[]>()
+    const activeTaskIds = new Set<string>()
+    let latestTaskId = ''
 
-    let currentTaskId = ''
+    const generateNodes = nodes.filter((node) => node.type === 'generate')
+    const targetNode =
+      (targetGenerateNodeId
+        ? generateNodes.find((node) => node.id === targetGenerateNodeId)
+        : generateNodes[0]) || null
 
     try {
-      const result = await bridge.generateImages({
-        baseUrl,
-        apiKey,
-        mode: effectiveGenerationMode,
-        model,
-        prompt: submittedPrompt,
-        size,
-        quality,
-        count,
-        responseFormat,
-        inputFidelity,
-        referenceImages:
-          effectiveGenerationMode === 'image' ? resolvedReferences.images : undefined,
-        onTaskUpdate: (task) => {
-          currentTaskId = task.taskId
-          generationTaskIdsRef.current.add(task.taskId)
-          savePendingGenerationTaskRecord(task, generationContext)
-          if (generationContext.canvasId) {
-            if (task.status === 'queued' || task.status === 'running') {
-              setCanvasGenerationTask(generationContext.canvasId, task)
-            } else {
-              clearCanvasGenerationTask(generationContext.canvasId)
-            }
-          }
-          setStatus(taskStatusLabel(task.status))
-        },
-      })
+      if (!targetNode) throw new Error('当前画布没有图片生成节点')
 
-      if (!currentTaskId) {
-        throw new Error('任务提交成功，但没有返回任务 ID')
+      const executeGenerateNode = async (
+        generateNode: WorkflowNode,
+        visiting: Set<string>
+      ): Promise<LocalImageRecord[]> => {
+        const cachedRecords = generatedRecordsByNode.get(generateNode.id)
+        if (cachedRecords) return cachedRecords
+        if (visiting.has(generateNode.id)) {
+          throw new Error('流程图中存在图片生成循环连接，请断开循环后重试')
+        }
+
+        visiting.add(generateNode.id)
+        const promptEdge = edges.find(
+          (edge) =>
+            edge.target === generateNode.id &&
+            edge.targetHandle === 'prompt' &&
+            nodes.find((node) => node.id === edge.source)?.type === 'prompt'
+        )
+        const promptNode =
+          (promptEdge ? nodes.find((node) => node.id === promptEdge.source) : null) ||
+          nodes.find((node) => node.type === 'prompt') ||
+          null
+        if (!promptNode) throw new Error('请先创建文字描述节点并连接到图片生成节点')
+
+        const upstreamGenerateEdges = edges.filter(
+          (edge) =>
+            edge.target === promptNode.id &&
+            edge.sourceHandle === 'generated-image' &&
+            (edge.targetHandle === 'reference' || edge.targetHandle?.startsWith('reference-')) &&
+            nodes.find((node) => node.id === edge.source)?.type === 'generate'
+        )
+        const upstreamReferenceImages: ReferenceImage[] = []
+        for (const edge of upstreamGenerateEdges) {
+          const upstreamNode = nodes.find((node) => node.id === edge.source)
+          if (!upstreamNode) continue
+          setStatus(`正在先执行上游图片生成：${upstreamNode.id}`)
+          const upstreamRecords = await executeGenerateNode(upstreamNode, visiting)
+          const firstRecord = upstreamRecords[0]
+          if (!firstRecord) continue
+          upstreamReferenceImages.push({
+            id: `generated-${firstRecord.id}`,
+            name: `${upstreamNode.id}.png`,
+            title: `上游生成-${upstreamNode.id}`,
+            type: 'image/png',
+            dataUrl: firstRecord.src,
+          })
+        }
+
+        const resolvedReferences = resolvePromptReferenceImages(finalPrompt, referenceImages)
+        const hasReferencePromptConnection = edges.some(
+          (edge) =>
+            edge.target === promptNode.id &&
+            edge.sourceHandle === 'reference' &&
+            (edge.targetHandle === 'reference' || edge.targetHandle?.startsWith('reference-')) &&
+            nodes.find((node) => node.id === edge.source)?.type === 'asset'
+        )
+        if (resolvedReferences.mentions.length > 0 && !hasReferencePromptConnection) {
+          throw new Error('请先把参考图片节点连接到文字描述节点，再使用 @引用参考图')
+        }
+        if (resolvedReferences.missing.length > 0) {
+          throw new Error(`没有找到这些 @参考图：${resolvedReferences.missing.join('、')}`)
+        }
+
+        const selectedStyleIds = getPromptSelectedStyleIds(promptNode.id, activeCanvas)
+        const selectedStyles = selectedStyleIds
+          .map((styleId) => styles.find((style) => style.id === styleId))
+          .filter((style): style is StyleOption => Boolean(style))
+        const submittedPrompt = promptWithStyles(finalPrompt, selectedStyles)
+        const flowReferenceImages = [
+          ...resolvedReferences.images,
+          ...upstreamReferenceImages,
+        ]
+        const effectiveGenerationMode: 'text' | 'image' =
+          flowReferenceImages.length > 0 ? 'image' : 'text'
+        const referenceImageNames =
+          effectiveGenerationMode === 'image'
+            ? flowReferenceImages.map((image) => image.title || image.name)
+            : undefined
+        const generationContext = {
+          prompt: submittedPrompt,
+          model,
+          size,
+          quality,
+          mode: effectiveGenerationMode,
+          referenceImageNames,
+          canvasId: generatingCanvasId || undefined,
+          generateNodeId: generateNode.id,
+        }
+
+        setStatus(
+          effectiveGenerationMode === 'image'
+            ? `正在执行 ${generateNode.id}，使用 ${flowReferenceImages.length} 张参考图${selectedStyles.length > 0 ? `和 ${selectedStyles.length} 个风格` : ''}...`
+            : selectedStyles.length > 0
+              ? `正在执行 ${generateNode.id}，使用 ${selectedStyles.length} 个风格...`
+              : `正在执行 ${generateNode.id}...`
+        )
+        let currentTaskId = ''
+        const result = await bridge.generateImages({
+          baseUrl,
+          apiKey,
+          mode: effectiveGenerationMode,
+          model,
+          prompt: submittedPrompt,
+          size,
+          quality,
+          count,
+          responseFormat,
+          inputFidelity,
+          referenceImages:
+            effectiveGenerationMode === 'image' ? flowReferenceImages : undefined,
+          onTaskUpdate: (task) => {
+            currentTaskId = task.taskId
+            latestTaskId = task.taskId
+            activeTaskIds.add(task.taskId)
+            generationTaskIdsRef.current.add(task.taskId)
+            savePendingGenerationTaskRecord(task, generationContext)
+            if (generationContext.canvasId) {
+              if (task.status === 'queued' || task.status === 'running') {
+                setCanvasGenerationTask(generationContext.canvasId, task)
+              } else {
+                clearCanvasGenerationTask(generationContext.canvasId)
+              }
+            }
+            setStatus(taskStatusLabel(task.status))
+          },
+        })
+
+        if (!currentTaskId) {
+          throw new Error('任务提交成功，但没有返回任务 ID')
+        }
+        const records = await persistCompletedTaskResult(
+          currentTaskId,
+          result.images,
+          generationContext
+        )
+        generatedRecordsByNode.set(generateNode.id, records)
+        visiting.delete(generateNode.id)
+        return records
       }
 
-      const records = await persistCompletedTaskResult(
-        currentTaskId,
-        result.images,
-        generationContext
-      )
+      const records = await executeGenerateNode(targetNode, new Set())
       setStatus(`已生成 ${records.length} 张图片，服务器缓存已同步到本地`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
-      if (currentTaskId) clearPendingGenerationTaskRecord(currentTaskId)
+      if (latestTaskId) clearPendingGenerationTaskRecord(latestTaskId)
       if (generatingCanvasId) clearCanvasGenerationTask(generatingCanvasId)
       setStatus('生成失败')
     } finally {
-      if (currentTaskId) generationTaskIdsRef.current.delete(currentTaskId)
+      activeTaskIds.forEach((taskId) => generationTaskIdsRef.current.delete(taskId))
       setIsGenerating(false)
     }
   }
@@ -1786,8 +1909,10 @@ export function App() {
         generationMode,
         isGenerating: activeCanvasGenerating,
         canGenerate,
-        onGenerate: handleGenerate,
-        image: latestImage,
+        onGenerate: () => void handleGenerate(node.id),
+        image:
+          images.find((image) => image.id === getWorkflowNodeLatestImageId(node)) ||
+          (nodes.filter((item) => item.type === 'generate').length <= 1 ? latestImage : null),
         onPreview: setPreviewImage,
         onDownload: handleDownloadImage,
       }
@@ -1844,7 +1969,7 @@ export function App() {
               : edge.source.startsWith('style')
                 ? '风格 -> 文字描述'
               : edge.source.startsWith('generate')
-                ? '生成图 -> 参考图'
+                ? '生成图 -> 文字描述'
                 : '提示词 -> 图片生成'),
           onDelete: deleteWorkflowEdge,
         },
@@ -1889,6 +2014,15 @@ export function App() {
         )
       }
 
+      if (source.type === 'generate') {
+        const targetHandle = connection.targetHandle || ''
+        return (
+          target.type === 'prompt' &&
+          connection.sourceHandle === 'generated-image' &&
+          PROMPT_REFERENCE_HANDLE_IDS.includes(targetHandle)
+        )
+      }
+
       return false
     },
     [nodes]
@@ -1907,7 +2041,9 @@ export function App() {
           ? '参考图 -> 文字描述'
           : sourceType === 'style'
             ? '风格 -> 文字描述'
-            : '提示词 -> 图片生成'
+            : sourceType === 'generate'
+              ? '生成图 -> 文字描述'
+              : '提示词 -> 图片生成'
       const className =
         sourceType === 'asset'
           ? 'edge-blue'
@@ -1915,7 +2051,7 @@ export function App() {
             ? 'edge-green'
             : sourceType === 'prompt'
               ? 'edge-violet'
-              : 'edge-green'
+              : 'edge-pink'
 
       setEdges((currentEdges) => {
         const withoutPreviousInput = currentEdges.filter(
