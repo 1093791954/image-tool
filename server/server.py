@@ -48,6 +48,8 @@ CODEX_TOKEN_NAME = "GPT Image Tools - codex"
 MAX_JSON_BODY = 16 * 1024
 MAX_IMAGE_BODY = 32 * 1024 * 1024
 MAX_PROXY_BODY = 96 * 1024 * 1024
+TOKEN_LIST_PAGE_SIZE = 100
+TOKEN_LIST_MAX_PAGES = 50
 REQUEST_TIMEOUT = env_int("IMAGE_TOOLS_REQUEST_TIMEOUT", 25)
 IMAGE_REQUEST_TIMEOUT = env_int("IMAGE_TOOLS_IMAGE_REQUEST_TIMEOUT", 600)
 CACHE_MAX_BYTES = env_int("IMAGE_TOOLS_CACHE_MAX_BYTES", 1024 * 1024 * 1024)
@@ -523,6 +525,7 @@ class NewApiSession:
             urllib.request.HTTPCookieProcessor(self.cookie_jar)
         )
         self.user_id: int | None = None
+        self.available_groups: set[str] | None = None
 
     def request(
         self,
@@ -581,8 +584,33 @@ class NewApiSession:
             raise NewApiError("登录成功但没有返回用户 ID")
         self.user_id = user_id
 
+    def list_available_groups(self) -> set[str]:
+        if self.available_groups is not None:
+            return self.available_groups
+
+        response = self.request("GET", "/api/group/")
+        if not response.get("success"):
+            raise NewApiError(str(response.get("message") or "获取账号可用分组失败"))
+
+        groups = response.get("data") or []
+        if not isinstance(groups, list):
+            return set()
+        self.available_groups = {group for group in groups if isinstance(group, str) and group}
+        return self.available_groups
+
+    def ensure_group_available(self, group: str) -> None:
+        groups = self.list_available_groups()
+        if group in groups:
+            return
+
+        visible_groups = "、".join(sorted(groups)[:8]) if groups else "无"
+        raise NewApiError(
+            f"当前账号没有“{group}”分组权限，请先在中转站后台给该用户开通该分组后再登录。"
+            f"当前可用分组：{visible_groups}"
+        )
+
     def list_tokens(self) -> list[dict[str, Any]]:
-        response = self.request("GET", "/api/token/?p=1&size=100")
+        response = self.request("GET", f"/api/token/?p=1&size={TOKEN_LIST_PAGE_SIZE}")
         if not response.get("success"):
             raise NewApiError(str(response.get("message") or "获取秘钥列表失败"))
 
@@ -590,7 +618,27 @@ class NewApiSession:
         items = data.get("items") or []
         if not isinstance(items, list):
             return []
-        return [item for item in items if isinstance(item, dict)]
+
+        tokens = [item for item in items if isinstance(item, dict)]
+        total = data.get("total")
+        if not isinstance(total, int) or total <= len(tokens):
+            return tokens
+
+        page = 2
+        while len(tokens) < total and page <= TOKEN_LIST_MAX_PAGES:
+            response = self.request(
+                "GET", f"/api/token/?p={page}&size={TOKEN_LIST_PAGE_SIZE}"
+            )
+            if not response.get("success"):
+                raise NewApiError(str(response.get("message") or "获取秘钥列表失败"))
+            data = response.get("data") or {}
+            page_items = data.get("items") or []
+            if not isinstance(page_items, list) or not page_items:
+                break
+            tokens.extend(item for item in page_items if isinstance(item, dict))
+            page += 1
+
+        return tokens
 
     def find_target_token(self, group: str, model: str) -> dict[str, Any] | None:
         for token in self.list_tokens():
@@ -622,17 +670,44 @@ class NewApiSession:
             },
         )
         if not response.get("success"):
-            raise NewApiError(str(response.get("message") or "创建秘钥失败"))
+            message = str(response.get("message") or "创建秘钥失败")
+            if message == "未找到":
+                message = (
+                    f"无法创建“{group}”分组的秘钥：中转站提示未找到。"
+                    "请确认该用户拥有此分组权限，并且该分组仍可用。"
+                )
+            raise NewApiError(message)
+
+        token = self.extract_created_token(response)
+        if token is not None:
+            return token
 
         token = self.find_target_token(group, model)
         if token is None:
             raise NewApiError(f"{group} 秘钥已创建，但重新查询时没有找到")
         return token
 
-    def get_full_key(self, token_id: int) -> str:
+    def extract_created_token(self, response: dict[str, Any]) -> dict[str, Any] | None:
+        data = response.get("data")
+        if isinstance(data, dict):
+            if isinstance(data.get("id"), int):
+                return data
+            for key in ("token", "item"):
+                nested = data.get(key)
+                if isinstance(nested, dict) and isinstance(nested.get("id"), int):
+                    return nested
+        return None
+
+    def get_full_key(self, token_id: int, group: str) -> str:
         response = self.request("POST", f"/api/token/{token_id}/key")
         if not response.get("success"):
-            raise NewApiError(str(response.get("message") or "获取完整秘钥失败"))
+            message = str(response.get("message") or "获取完整秘钥失败")
+            if message == "未找到":
+                message = (
+                    f"无法获取“{group}”分组的完整秘钥：中转站提示未找到。"
+                    "请确认该用户仍拥有此分组权限，或删除异常秘钥后重试。"
+                )
+            raise NewApiError(message)
 
         data = response.get("data") or {}
         key = data.get("key")
@@ -641,6 +716,7 @@ class NewApiSession:
         return key
 
     def obtain_token_key(self, name: str, group: str, model: str) -> dict[str, Any]:
+        self.ensure_group_available(group)
         token = self.find_target_token(group, model)
         created = False
         if token is None:
@@ -652,7 +728,7 @@ class NewApiSession:
             raise NewApiError(f"{group} 目标秘钥缺少 ID")
 
         return {
-            "apiKey": self.get_full_key(token_id),
+            "apiKey": self.get_full_key(token_id, group),
             "group": group,
             "model": model,
             "tokenName": token.get("name") or name,
@@ -1135,6 +1211,7 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
             )
             json_response(self, HTTPStatus.OK, {"success": True, "message": "", "data": result})
         except NewApiError as exc:
+            write_log("WARN", "newapi_login_failed", str(exc))
             json_response(self, HTTPStatus.OK, {"success": False, "message": str(exc)})
         except Exception:
             json_response(
