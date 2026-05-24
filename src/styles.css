@@ -1131,23 +1131,6 @@ select:disabled {
   gap: 8px;
 }
 
-.setup-state {
-  width: fit-content;
-  padding: 5px 9px;
-  color: var(--amber);
-  background: rgb(240 187 88 / 12%);
-  border: 1px solid rgb(240 187 88 / 36%);
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 850;
-}
-
-.setup-state.ready {
-  color: var(--green);
-  background: rgb(65 211 155 / 12%);
-  border-color: rgb(65 211 155 / 38%);
-}
-
 .launchpad h1,
 .workbench-head h1,
 .page-heading h1 {

@@ -1091,6 +1091,7 @@ export function App() {
   const [apiKey, setApiKey] = useState('')
   const [codexApiKey, setCodexApiKey] = useState('')
   const [persistApiKey, setPersistApiKey] = useState(false)
+  const [hasLoadedSettings, setHasLoadedSettings] = useState(false)
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false)
   const [loginUsername, setLoginUsername] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
@@ -1296,16 +1297,24 @@ export function App() {
   )
 
   useEffect(() => {
-    void getSettings().then((settings) => {
-      setBaseUrl(settings.baseUrl || DEFAULT_BASE_URL)
-      setPersistApiKey(Boolean(settings.persistApiKey))
-      setThemeMode(settings.themeMode || 'system')
-      setTextModel(settings.textModel || DEFAULT_TEXT_MODEL)
-      if (settings.persistApiKey && settings.apiKey) setApiKey(settings.apiKey)
-      if (settings.persistApiKey && settings.codexApiKey) setCodexApiKey(settings.codexApiKey)
-    })
+    void getSettings()
+      .then((settings) => {
+        setBaseUrl(settings.baseUrl || DEFAULT_BASE_URL)
+        setPersistApiKey(Boolean(settings.persistApiKey))
+        setThemeMode(settings.themeMode || 'system')
+        setTextModel(settings.textModel || DEFAULT_TEXT_MODEL)
+        if (settings.persistApiKey && settings.apiKey) setApiKey(settings.apiKey)
+        if (settings.persistApiKey && settings.codexApiKey) setCodexApiKey(settings.codexApiKey)
+      })
+      .finally(() => setHasLoadedSettings(true))
     void refreshImages()
   }, [])
+
+  useEffect(() => {
+    if (!hasLoadedSettings || isConfigured || currentView === 'console') return
+    setError('')
+    setCurrentView('console')
+  }, [currentView, hasLoadedSettings, isConfigured])
 
   useEffect(() => {
     let cancelled = false
@@ -2093,9 +2102,9 @@ export function App() {
   }
 
   function enterConfiguredView(view: AppView) {
-    if ((view === 'simple' || view === 'workflow') && !isConfigured) {
+    if (view !== 'console' && !isConfigured) {
+      setError('')
       setCurrentView('console')
-      setStatus('请先在控制台完成连接配置')
       return
     }
     setError('')
@@ -2105,9 +2114,8 @@ export function App() {
   async function handleSimpleGenerate() {
     const prompt = simplePrompt.trim()
     if (!isConfigured) {
+      setError('')
       setCurrentView('console')
-      setStatus('请先在控制台完成连接配置')
-      setError('缺少 Base URL、生图 API Key 或模型名称')
       return
     }
     if (!prompt) {
@@ -2942,9 +2950,6 @@ export function App() {
           <section className='app-workspace'>
             <header className='workspace-topbar'>
               <div className='workspace-title'>
-                <span className={`setup-state ${isConfigured ? 'ready' : ''}`}>
-                  {isConfigured ? '配置已就绪' : '需要先配置连接'}
-                </span>
                 <h1>{portalMeta.title}</h1>
                 <p>{portalMeta.description}</p>
               </div>
