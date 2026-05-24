@@ -2792,6 +2792,28 @@ export function App() {
     },
   }
   const portalMeta = portalViewMeta[activePortalView]
+  const commerceThemeMenu = (
+    <div className='sidebar-nav-group ecommerce-nav-group'>
+      <button
+        type='button'
+        className='sidebar-submenu-trigger'
+        aria-haspopup='menu'
+        aria-label='电商主题'
+        title='电商主题'
+      >
+        <ShoppingBag size={16} />
+        电商主题
+      </button>
+      <div className='sidebar-submenu ecommerce-submenu' role='menu' aria-label='电商主题制作类型'>
+        <button type='button' role='menuitem' disabled title='主图制作'>
+          主图制作
+        </button>
+        <button type='button' role='menuitem' disabled title='详情图制作'>
+          详情图制作
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className='app-shell portal-shell' data-theme={resolvedTheme}>
@@ -2842,15 +2864,7 @@ export function App() {
                 <Home size={16} />
                 快速生成
               </button>
-              <button
-                type='button'
-                disabled
-                aria-label='电商主题，功能即将开放'
-                title='电商主题'
-              >
-                <ShoppingBag size={16} />
-                电商主题
-              </button>
+              {commerceThemeMenu}
               <button
                 type='button'
                 className='active'
@@ -3136,15 +3150,7 @@ export function App() {
                 <Home size={16} />
                 快速生成
               </button>
-              <button
-                type='button'
-                disabled
-                aria-label='电商主题，功能即将开放'
-                title='电商主题'
-              >
-                <ShoppingBag size={16} />
-                电商主题
-              </button>
+              {commerceThemeMenu}
               <button
                 type='button'
                 onClick={() => enterSidebarView('workflow')}
