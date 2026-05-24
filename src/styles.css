@@ -2911,6 +2911,11 @@ select:disabled {
     border-radius: 8px;
   }
 
+  .app-sidebar.drawer-open .sidebar-drawer-toggle {
+    margin-right: 0;
+    margin-left: auto;
+  }
+
   .sidebar-drawer-toggle:hover,
   .sidebar-drawer-toggle:focus-visible {
     background: var(--field-hover);
