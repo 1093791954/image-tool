@@ -1157,6 +1157,7 @@ export function App() {
   const [notice, setNotice] = useState<{ id: number; message: string } | null>(null)
   const [paneMenu, setPaneMenu] = useState<PaneMenu>(null)
   const [isSidebarDrawerOpen, setIsSidebarDrawerOpen] = useState(false)
+  const [isCanvasDrawerOpen, setIsCanvasDrawerOpen] = useState(true)
   const [flowInstance, setFlowInstance] =
     useState<ReactFlowInstance<WorkflowNode, WorkflowEdge> | null>(null)
   const generationTaskIdsRef = useRef(new Set<string>())
@@ -2886,95 +2887,112 @@ export function App() {
 
           <section className='app-workspace workflow-workspace'>
           <main className='workflow-stage'>
-          <aside className='canvas-drawer workflow-canvas-panel' aria-label='画布列表'>
-        <div className='canvas-drawer-header'>
-          <div className='section-title'>
-            <Layers size={16} />
-            <span>画布</span>
-          </div>
-          <button
-            type='button'
-            className='icon-button'
-            onClick={handleCreateCanvas}
-            aria-label='新建画布'
-            title='新建画布'
+          <aside
+            className={`canvas-drawer workflow-canvas-panel ${isCanvasDrawerOpen ? 'drawer-open' : 'drawer-collapsed'}`}
+            aria-label='画布列表'
           >
-            <Plus size={17} />
-          </button>
-        </div>
-
-        <div className='canvas-list'>
-          {canvases.map((canvas) => (
-            <article
-              key={canvas.id}
-              className={`canvas-item ${canvas.id === activeCanvas?.id ? 'active' : ''}`}
+            <button
+              type='button'
+              className='workflow-canvas-drawer-toggle'
+              onClick={() => setIsCanvasDrawerOpen((current) => !current)}
+              aria-expanded={isCanvasDrawerOpen}
+              title={isCanvasDrawerOpen ? '收起画布' : '展开画布'}
             >
-              <div
-                className='canvas-switch'
-                onClick={() => {
-                  setActiveCanvasId(canvas.id)
-                  setPaneMenu(null)
-                  setStatus(`已切换到 ${canvas.name}`)
-                }}
-              >
-                <label className='canvas-name-field'>
-                  <span>画布名称</span>
+              {isCanvasDrawerOpen ? <X size={17} /> : <Layers size={17} />}
+              <span>画布</span>
+            </button>
+            <div className='workflow-canvas-drawer-content'>
+              <div className='canvas-drawer-header'>
+                <div className='section-title'>
+                  <Layers size={16} />
+                  <span>画布</span>
+                </div>
+                <button
+                  type='button'
+                  className='icon-button'
+                  onClick={handleCreateCanvas}
+                  aria-label='新建画布'
+                  title='新建画布'
+                >
+                  <Plus size={17} />
+                </button>
+              </div>
+
+              {activeCanvas ? (
+                <label className='canvas-title-bar'>
+                  <Edit3 size={15} />
                   <input
-                    value={canvas.name}
-                    onChange={(event) => handleRenameCanvas(canvas.id, event.target.value)}
-                    onBlur={() => handleCommitCanvasName(canvas.id)}
-                    onClick={(event) => event.stopPropagation()}
+                    value={activeCanvas.name}
+                    onChange={(event) => handleRenameCanvas(activeCanvas.id, event.target.value)}
+                    onBlur={() => handleCommitCanvasName(activeCanvas.id)}
                     onKeyDown={stopCanvasNameShortcut}
-                    aria-label={`修改 ${canvas.name || '画布'} 名称`}
+                    aria-label='当前画布名称'
                     placeholder='未命名画布'
                   />
                 </label>
-                <div className='canvas-switch-meta'>
-                  <span>
-                  {canvas.nodes.length} 节点 · {canvas.edges.length} 连接
-                  </span>
-                  {isCanvasGenerating(canvas) ? (
-                    <span className='canvas-generation-state'>
-                      <Loader2 className='spin' size={12} />
-                      生成中
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-              <div className='canvas-actions'>
-                <button
-                  type='button'
-                  onClick={() => handleDuplicateCanvas(canvas.id)}
-                  aria-label={`复制 ${canvas.name}`}
-                  title='复制画布'
-                >
-                  <Copy size={14} />
-                </button>
-                <button
-                  type='button'
-                  onClick={() => handleDeleteCanvas(canvas.id)}
-                  disabled={canvases.length <= 1}
-                  aria-label={`删除 ${canvas.name}`}
-                  title='删除画布'
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+              ) : null}
 
-        <a
-          className='github-repo-link'
-          href={GITHUB_REPO_URL}
-          target='_blank'
-          rel='noreferrer'
-          aria-label='打开 GitHub 开源仓库'
-        >
-          <Github size={16} />
-          <span>Open Source</span>
-          <ExternalLink size={13} />
-        </a>
+              <div className='canvas-list'>
+                {canvases.map((canvas) => (
+                  <article
+                    key={canvas.id}
+                    className={`canvas-item ${canvas.id === activeCanvas?.id ? 'active' : ''}`}
+                  >
+                    <div
+                      className='canvas-switch'
+                      onClick={() => {
+                        setActiveCanvasId(canvas.id)
+                        setPaneMenu(null)
+                        setStatus(`已切换到 ${canvas.name}`)
+                      }}
+                    >
+                      <label className='canvas-name-field'>
+                        <span>画布名称</span>
+                        <input
+                          value={canvas.name}
+                          onChange={(event) => handleRenameCanvas(canvas.id, event.target.value)}
+                          onBlur={() => handleCommitCanvasName(canvas.id)}
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={stopCanvasNameShortcut}
+                          aria-label={`修改 ${canvas.name || '画布'} 名称`}
+                          placeholder='未命名画布'
+                        />
+                      </label>
+                      <div className='canvas-switch-meta'>
+                        <span>
+                        {canvas.nodes.length} 节点 · {canvas.edges.length} 连接
+                        </span>
+                        {isCanvasGenerating(canvas) ? (
+                          <span className='canvas-generation-state'>
+                            <Loader2 className='spin' size={12} />
+                            生成中
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className='canvas-actions'>
+                      <button
+                        type='button'
+                        onClick={() => handleDuplicateCanvas(canvas.id)}
+                        aria-label={`复制 ${canvas.name}`}
+                        title='复制画布'
+                      >
+                        <Copy size={14} />
+                      </button>
+                      <button
+                        type='button'
+                        onClick={() => handleDeleteCanvas(canvas.id)}
+                        disabled={canvases.length <= 1}
+                        aria-label={`删除 ${canvas.name}`}
+                        title='删除画布'
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
           </aside>
         <ReactFlow
           key={activeCanvas?.id}
@@ -3039,20 +3057,6 @@ export function App() {
             <span>{status}</span>
           </div>
         </header>
-
-        {activeCanvas ? (
-          <label className='canvas-title-bar'>
-            <Edit3 size={15} />
-            <input
-              value={activeCanvas.name}
-              onChange={(event) => handleRenameCanvas(activeCanvas.id, event.target.value)}
-              onBlur={() => handleCommitCanvasName(activeCanvas.id)}
-              onKeyDown={stopCanvasNameShortcut}
-              aria-label='当前画布名称'
-              placeholder='未命名画布'
-            />
-          </label>
-        ) : null}
 
         {error ? (
           <div className='error-toast' role='alert'>

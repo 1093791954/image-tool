@@ -281,23 +281,103 @@ select:disabled {
 
 .workflow-canvas-panel {
   position: absolute;
-  top: 144px;
-  bottom: 14px;
-  right: 14px;
+  top: 0;
+  right: 0;
+  bottom: 0;
   left: auto;
   z-index: 7;
-  width: min(270px, calc(100% - 28px));
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  width: 320px;
+  padding: 12px;
+  overflow: hidden;
+  border-right: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  transition:
+    width 180ms ease,
+    padding 180ms ease,
+    box-shadow 180ms ease;
 }
 
-.app-workspace.workflow-workspace .canvas-title-bar {
-  top: 86px;
-  right: 14px;
-  left: auto;
-  width: min(270px, calc(100% - 28px));
+.workflow-canvas-panel.drawer-collapsed {
+  align-items: center;
+  width: 64px;
+  padding: 12px 8px;
+}
+
+.workflow-canvas-drawer-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 42px;
+  min-height: 42px;
+  color: var(--text);
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.workflow-canvas-drawer-toggle:hover,
+.workflow-canvas-drawer-toggle:focus-visible {
+  background: var(--field-hover);
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--focus);
+  outline: none;
+}
+
+.workflow-canvas-panel.drawer-open .workflow-canvas-drawer-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.workflow-canvas-panel.drawer-open .workflow-canvas-drawer-toggle span {
+  display: none;
+}
+
+.workflow-canvas-panel.drawer-collapsed .workflow-canvas-drawer-toggle {
+  flex-direction: column;
+  height: 58px;
+  margin: 0 auto;
+  font-size: 10px;
+}
+
+.workflow-canvas-drawer-content {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.workflow-canvas-panel.drawer-collapsed .workflow-canvas-drawer-content {
+  display: none;
+}
+
+.workflow-canvas-panel .canvas-drawer-header {
+  min-height: 42px;
+  padding-right: 50px;
+}
+
+.workflow-canvas-panel .canvas-title-bar {
+  position: static;
+  width: 100%;
   min-width: 0;
   transform: none;
+}
+
+.workflow-canvas-panel .canvas-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.workflow-canvas-panel .canvas-item {
+  min-height: 74px;
+  align-items: center;
 }
 
 .react-flow {
@@ -2743,14 +2823,23 @@ select:disabled {
   }
 
   .workflow-canvas-panel {
-    top: 144px;
-    bottom: 12px;
-    right: 12px;
+    top: 0;
+    right: 0;
+    bottom: 0;
     left: auto;
     max-height: none;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    box-shadow: 0 18px 42px rgb(0 0 0 / 22%);
+    border: 0;
+    border-left: 1px solid var(--border);
+    border-radius: 0;
+    box-shadow: -18px 0 42px rgb(0 0 0 / 22%);
+  }
+
+  .workflow-canvas-panel.drawer-open {
+    width: min(300px, calc(100vw - 88px));
+  }
+
+  .workflow-canvas-panel.drawer-collapsed {
+    width: 64px;
   }
 
   .control-dock {
