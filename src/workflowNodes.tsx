@@ -81,7 +81,7 @@ export type GenerateNodeData = {
   setModel: Dispatch<SetStateAction<string>>
   size: string
   sizes: string[]
-  setSize: Dispatch<SetStateAction<string>>
+  setSize: (value: string) => void
   quality: string
   qualities: string[]
   setQuality: Dispatch<SetStateAction<string>>

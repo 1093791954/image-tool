@@ -91,7 +91,21 @@ const GITHUB_REPO_URL = 'https://github.com/1093791954/image-tool'
 const CONFIGURATION_NOTICE_MESSAGE =
   '请先在控制台补全生图 API Key 和模型，配置完成后再继续使用其他页面。'
 
-const sizes = ['1024x1024', '1024x1536', '1536x1024', '1024x1792', '1792x1024']
+const CUSTOM_SIZE_VALUE = 'custom'
+const sizeOptions = [
+  { ratio: '1:1', value: '1024x1024', label: '方图' },
+  { ratio: '3:4', value: '1024x1365', label: '竖版海报' },
+  { ratio: '4:3', value: '1365x1024', label: '横版构图' },
+  { ratio: '16:9', value: '1536x864', label: '宽屏封面' },
+  { ratio: '9:16', value: '864x1536', label: '手机竖屏' },
+  { ratio: '2:3', value: '1024x1536', label: '竖版生成' },
+  { ratio: '3:2', value: '1536x1024', label: '横版生成' },
+  { ratio: '4:5', value: '1024x1280', label: '社媒竖图' },
+  { ratio: '5:4', value: '1280x1024', label: '产品横图' },
+  { ratio: '4:7', value: '1024x1792', label: '长竖图' },
+  { ratio: '7:4', value: '1792x1024', label: '超宽图' },
+]
+const sizes = sizeOptions.map((item) => item.value)
 const qualities = ['auto', 'standard', 'hd', 'low', 'medium', 'high']
 const counts = [1, 2, 3, 4]
 const inputFidelities = ['low', 'high'] as const
@@ -108,6 +122,19 @@ const promptOptimizationPresets: Array<{ value: PromptOptimizationPreset; label:
   { value: 'character', label: 'IP/角色' },
   { value: 'general', label: '通用增强' },
 ]
+
+function parseSizeValue(value: string) {
+  const match = value.trim().match(/^(\d{2,5})x(\d{2,5})$/)
+  if (!match) return null
+  return {
+    width: Number(match[1]),
+    height: Number(match[2]),
+  }
+}
+
+function sizeOptionLabel(option: (typeof sizeOptions)[number]) {
+  return `${option.ratio} · ${option.value} · ${option.label}`
+}
 
 type WorkflowNode = Node<
   Record<string, unknown>,
@@ -1108,6 +1135,9 @@ export function App() {
   const [model, setModel] = useState(DEFAULT_MODEL)
   const [textModel, setTextModel] = useState(DEFAULT_TEXT_MODEL)
   const [size, setSize] = useState('1024x1024')
+  const [sizeMode, setSizeMode] = useState<'preset' | 'custom'>('preset')
+  const [customSizeWidth, setCustomSizeWidth] = useState('1024')
+  const [customSizeHeight, setCustomSizeHeight] = useState('1024')
   const [quality, setQuality] = useState('auto')
   const [count, setCount] = useState(1)
   const [responseFormat, setResponseFormat] = useState<'url' | 'b64_json'>('b64_json')
@@ -1956,6 +1986,11 @@ export function App() {
       setStatus('请先修改重复的图片名称')
       return
     }
+    const generationSize = selectedGenerationSize()
+    if (!generationSize) {
+      setError('请输入 64 到 4096 之间的自定义宽高')
+      return
+    }
     setError('')
     setIsGenerating(true)
     const generatedRecordsByNode = new Map<string, LocalImageRecord[]>()
@@ -2054,7 +2089,7 @@ export function App() {
         const generationContext = {
           prompt: submittedPrompt,
           model,
-          size,
+          size: generationSize,
           quality,
           mode: effectiveGenerationMode,
           referenceImageNames,
@@ -2076,7 +2111,7 @@ export function App() {
           mode: effectiveGenerationMode,
           model,
           prompt: submittedPrompt,
-          size,
+          size: generationSize,
           quality,
           count,
           responseFormat,
@@ -2147,11 +2182,90 @@ export function App() {
     setIsSidebarDrawerOpen(false)
   }
 
+  function selectedGenerationSize() {
+    if (sizeMode === 'preset') return size
+
+    const width = Number(customSizeWidth)
+    const height = Number(customSizeHeight)
+    if (!Number.isInteger(width) || !Number.isInteger(height)) return ''
+    if (width < 64 || height < 64 || width > 4096 || height > 4096) return ''
+    return `${width}x${height}`
+  }
+
+  function handleSizeSelect(nextValue: string) {
+    if (nextValue === CUSTOM_SIZE_VALUE) {
+      const parsedSize = parseSizeValue(size)
+      if (parsedSize) {
+        setCustomSizeWidth(String(parsedSize.width))
+        setCustomSizeHeight(String(parsedSize.height))
+      }
+      setSizeMode('custom')
+      return
+    }
+
+    setSizeMode('preset')
+    setSize(nextValue)
+  }
+
+  function renderSizeField() {
+    return (
+      <div className='field size-field'>
+        <label className='size-select-label'>
+          <span>尺寸</span>
+          <select
+            value={sizeMode === 'custom' ? CUSTOM_SIZE_VALUE : size}
+            onChange={(event) => handleSizeSelect(event.target.value)}
+          >
+            {sizeOptions.map((item) => (
+              <option key={item.value} value={item.value}>
+                {sizeOptionLabel(item)}
+              </option>
+            ))}
+            <option value={CUSTOM_SIZE_VALUE}>自定义比例 · 手动输入</option>
+          </select>
+        </label>
+        {sizeMode === 'custom' ? (
+          <div className='custom-size-grid'>
+            <label>
+              <span>宽</span>
+              <input
+                type='number'
+                min='64'
+                max='4096'
+                step='1'
+                value={customSizeWidth}
+                onChange={(event) => setCustomSizeWidth(event.target.value)}
+                aria-label='自定义宽度'
+              />
+            </label>
+            <label>
+              <span>高</span>
+              <input
+                type='number'
+                min='64'
+                max='4096'
+                step='1'
+                value={customSizeHeight}
+                onChange={(event) => setCustomSizeHeight(event.target.value)}
+                aria-label='自定义高度'
+              />
+            </label>
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
   async function handleSimpleGenerate() {
     const prompt = simplePrompt.trim()
     if (!isConfigured) {
       setError('')
       setCurrentView('console')
+      return
+    }
+    const generationSize = selectedGenerationSize()
+    if (!generationSize) {
+      setError('请输入 64 到 4096 之间的自定义宽高')
       return
     }
     if (!prompt) {
@@ -2170,7 +2284,7 @@ export function App() {
         mode: 'text',
         model,
         prompt,
-        size,
+        size: generationSize,
         quality,
         count,
         responseFormat,
@@ -2179,7 +2293,7 @@ export function App() {
       const records = buildLocalImageRecords(result.images, {
         prompt,
         model,
-        size,
+        size: generationSize,
         quality,
         mode: 'text',
       })
@@ -2368,15 +2482,20 @@ export function App() {
       const canGenerateNode =
         !activeCanvasGenerating &&
         Boolean(apiKey && baseUrl && model && getWorkflowNodePrompt(promptNode).trim())
+      const activeSize = selectedGenerationSize() || size
+      const workflowSizes = sizes.includes(activeSize) ? sizes : [activeSize, ...sizes]
 
       return {
         onDeleteNode: deleteWorkflowNode,
         model,
         sortedModels,
         setModel,
-        size,
-        sizes,
-        setSize,
+        size: activeSize,
+        sizes: workflowSizes,
+        setSize: (nextSize: string) => {
+          setSizeMode('preset')
+          setSize(nextSize)
+        },
         quality,
         qualities,
         setQuality,
@@ -2431,6 +2550,9 @@ export function App() {
       model,
       sortedModels,
       size,
+      sizeMode,
+      customSizeWidth,
+      customSizeHeight,
       quality,
       count,
       responseFormat,
@@ -3094,16 +3216,7 @@ export function App() {
                         )}
                       </select>
                     </label>
-                    <label className='field'>
-                      <span>尺寸</span>
-                      <select value={size} onChange={(event) => setSize(event.target.value)}>
-                        {sizes.map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    {renderSizeField()}
                     <label className='field'>
                       <span>质量</span>
                       <select value={quality} onChange={(event) => setQuality(event.target.value)}>
@@ -3385,16 +3498,7 @@ export function App() {
                         )}
                       </select>
                     </label>
-                    <label className='field'>
-                      <span>尺寸</span>
-                      <select value={size} onChange={(event) => setSize(event.target.value)}>
-                        {sizes.map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    {renderSizeField()}
                     <label className='field'>
                       <span>质量</span>
                       <select value={quality} onChange={(event) => setQuality(event.target.value)}>

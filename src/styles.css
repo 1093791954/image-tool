@@ -1469,6 +1469,38 @@ select:disabled {
   gap: 10px;
 }
 
+.size-field {
+  min-width: 0;
+}
+
+.size-select-label {
+  display: contents;
+}
+
+.custom-size-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.custom-size-grid label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.custom-size-grid span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.custom-size-grid input {
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+}
+
 .simple-actions {
   display: flex;
   justify-content: flex-end;
