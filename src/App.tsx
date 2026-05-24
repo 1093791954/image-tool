@@ -3035,16 +3035,6 @@ export function App() {
               <p>右键创建节点 · 拖动端口连线</p>
             </div>
           </div>
-          <div className='workflow-nav'>
-            <button type='button' className='top-link' onClick={() => enterConfiguredView('home')}>
-              <Home size={15} />
-              工作台
-            </button>
-            <button type='button' className='top-link' onClick={() => enterConfiguredView('console')}>
-              <Terminal size={15} />
-              控制台
-            </button>
-          </div>
           <div className='status-pill'>
             <span>{status}</span>
           </div>
