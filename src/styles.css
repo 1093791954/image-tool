@@ -2895,7 +2895,7 @@ select:disabled {
   .app-sidebar.drawer-open {
     position: fixed;
     inset: 0 auto 0 0;
-    width: min(196px, calc(100vw - 52px));
+    width: min(232px, calc(100vw - 44px));
     box-shadow: 24px 0 58px rgb(0 0 0 / 36%);
   }
 
@@ -2942,7 +2942,7 @@ select:disabled {
   .app-sidebar.drawer-open .app-sidebar-brand {
     grid-template-columns: 42px minmax(0, 1fr);
     justify-items: start;
-    gap: 10px;
+    gap: 12px;
     padding-right: 8px;
   }
 
@@ -2951,7 +2951,11 @@ select:disabled {
   }
 
   .app-sidebar.drawer-open .app-sidebar-brand small {
-    display: block;
+    display: none;
+  }
+
+  .app-sidebar.drawer-open .app-sidebar-brand strong {
+    font-size: 16px;
   }
 
   .portal-nav.app-sidebar-nav {
