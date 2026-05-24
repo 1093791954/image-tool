@@ -87,6 +87,8 @@ const DEFAULT_TEXT_MODEL = 'gpt-5.5'
 const DEFAULT_PROMPT_OPTIMIZATION_PRESET: PromptOptimizationPreset = 'ecommerce'
 const CONSOLE_URL = 'https://cc.api-corp.top/'
 const GITHUB_REPO_URL = 'https://github.com/1093791954/image-tool'
+const CONFIGURATION_NOTICE_MESSAGE =
+  '请先在控制台补全生图 API Key 和模型，配置完成后再继续使用其他页面。'
 
 const sizes = ['1024x1024', '1024x1536', '1536x1024', '1024x1792', '1792x1024']
 const qualities = ['auto', 'standard', 'hd', 'low', 'medium', 'high']
@@ -1122,6 +1124,7 @@ export function App() {
   const [previewImage, setPreviewImage] = useState<LocalImageRecord | null>(null)
   const [status, setStatus] = useState('未连接')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState<{ id: number; message: string } | null>(null)
   const [paneMenu, setPaneMenu] = useState<PaneMenu>(null)
   const [flowInstance, setFlowInstance] =
     useState<ReactFlowInstance<WorkflowNode, WorkflowEdge> | null>(null)
@@ -1315,6 +1318,16 @@ export function App() {
     setError('')
     setCurrentView('console')
   }, [currentView, hasLoadedSettings, isConfigured])
+
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(null), 7000)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+
+  useEffect(() => {
+    if (isConfigured) setNotice(null)
+  }, [isConfigured])
 
   useEffect(() => {
     let cancelled = false
@@ -2104,10 +2117,15 @@ export function App() {
   function enterConfiguredView(view: AppView) {
     if (view !== 'console' && !isConfigured) {
       setError('')
+      setNotice({
+        id: window.performance.now(),
+        message: CONFIGURATION_NOTICE_MESSAGE,
+      })
       setCurrentView('console')
       return
     }
     setError('')
+    setNotice(null)
     setCurrentView(view)
   }
 
@@ -2650,6 +2668,19 @@ export function App() {
       className={`app-shell ${currentView === 'workflow' ? 'flow-shell workflow-only' : 'portal-shell'}`}
       data-theme={resolvedTheme}
     >
+      {notice ? (
+        <div className='app-notice' role='status' aria-live='polite'>
+          <KeyRound size={16} aria-hidden='true' />
+          <div>
+            <strong>需要先完成连接配置</strong>
+            <span>{notice.message}</span>
+          </div>
+          <button type='button' onClick={() => setNotice(null)} aria-label='关闭配置提示'>
+            <X size={14} />
+          </button>
+        </div>
+      ) : null}
+
       {currentView === 'workflow' ? (
         <>
           <aside className='canvas-drawer' aria-label='画布列表'>

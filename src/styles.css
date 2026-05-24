@@ -717,6 +717,94 @@ select:disabled {
   overflow: hidden;
 }
 
+.app-notice {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: min(560px, calc(100vw - 32px));
+  min-height: 48px;
+  padding: 10px 12px;
+  color: var(--text);
+  background: rgb(15 18 26 / 92%);
+  border: 1px solid rgb(240 187 88 / 34%);
+  border-radius: 10px;
+  box-shadow: 0 18px 46px var(--shadow);
+  transform: translateX(-50%);
+  animation: notice-enter 180ms ease-out;
+  backdrop-filter: blur(18px);
+}
+
+:root[data-theme='light'] .app-notice {
+  background: rgb(255 255 255 / 94%);
+}
+
+.app-notice > svg {
+  color: var(--amber);
+}
+
+.app-notice div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.app-notice strong,
+.app-notice span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-notice strong {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.app-notice span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.app-notice button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.app-notice button:hover,
+.app-notice button:focus-visible {
+  color: var(--text);
+  background: var(--field-hover);
+  border-color: var(--border-strong);
+  outline: none;
+}
+
+@keyframes notice-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 .app-sidebar {
   z-index: 14;
   display: flex;
