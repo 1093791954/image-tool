@@ -39,7 +39,6 @@ import {
   Plus,
   RefreshCw,
   Save,
-  ShoppingBag,
   Sparkles,
   Sun,
   Terminal,
@@ -86,7 +85,6 @@ const DEFAULT_BASE_URL = 'https://cc.api-corp.top'
 const DEFAULT_MODEL = 'gpt-image-2'
 const DEFAULT_TEXT_MODEL = 'gpt-5.5'
 const DEFAULT_PROMPT_OPTIMIZATION_PRESET: PromptOptimizationPreset = 'ecommerce'
-const SHOP_URL = 'https://pay.ldxp.cn/shop/LY6AR08H'
 const CONSOLE_URL = 'https://cc.api-corp.top/'
 const GITHUB_REPO_URL = 'https://github.com/1093791954/image-tool'
 
@@ -1684,10 +1682,6 @@ export function App() {
     setStatus('主题已切换')
   }
 
-  async function handleOpenShop() {
-    await bridge.openExternal(SHOP_URL)
-  }
-
   async function handleOpenConsole() {
     await bridge.openExternal(CONSOLE_URL)
   }
@@ -2622,6 +2616,27 @@ export function App() {
     addWorkflowNodeAt(type, getWorkflowViewportCenter())
   }
 
+  const activePortalView = currentView === 'workflow' ? 'home' : currentView
+  const portalViewMeta: Record<Exclude<AppView, 'workflow'>, { title: string; description: string }> = {
+    home: {
+      title: '图像生成工作台',
+      description: '提示词、参数和连接状态同步可见，生成结果集中进入图库管理。',
+    },
+    console: {
+      title: '控制台',
+      description: '管理连接、模型和本地数据导入导出。',
+    },
+    simple: {
+      title: '简单文生图',
+      description: '专注输入描述和基础参数，不需要搭建节点。',
+    },
+    gallery: {
+      title: '图库',
+      description: '集中管理本地生成结果，预览、下载和删除都在这里完成。',
+    },
+  }
+  const portalMeta = portalViewMeta[activePortalView]
+
   return (
     <div
       className={`app-shell ${currentView === 'workflow' ? 'flow-shell workflow-only' : 'portal-shell'}`}
@@ -2840,9 +2855,9 @@ export function App() {
           </main>
         </>
       ) : (
-        <main className='portal-stage'>
-          <header className='portal-topbar'>
-            <button type='button' className='portal-brand' onClick={() => enterConfiguredView('home')}>
+        <main className='portal-stage app-workspace-shell'>
+          <aside className='app-sidebar' aria-label='主工具栏'>
+            <button type='button' className='portal-brand app-sidebar-brand' onClick={() => enterConfiguredView('home')}>
               <span className='brand-mark'>
                 <Sparkles size={21} />
               </span>
@@ -2851,13 +2866,7 @@ export function App() {
                 <small>{isConfigured ? `已配置 ${model}` : '先完成控制台配置'}</small>
               </span>
             </button>
-            <div className='top-status-bar' aria-label='连接状态'>
-              <span className={baseUrl.trim() ? 'ready' : ''}>Base URL</span>
-              <span className={apiKey.trim() ? 'ready' : ''}>生图 Key</span>
-              <span className={model.trim() ? 'ready' : ''}>模型</span>
-              <span className={codexApiKey.trim() ? 'ready' : ''}>提示词优化</span>
-            </div>
-            <nav className='portal-nav' aria-label='主导航'>
+            <nav className='portal-nav app-sidebar-nav' aria-label='主导航'>
               <button
                 type='button'
                 className={currentView === 'home' ? 'active' : ''}
@@ -2898,46 +2907,89 @@ export function App() {
                 工作流
               </button>
             </nav>
-          </header>
+            <div className='app-sidebar-footer'>
+              <div className='sidebar-theme-switcher' aria-label='主题切换'>
+                {themeOptions.map((option) => {
+                  const Icon = option.icon
+                  return (
+                    <button
+                      key={option.value}
+                      type='button'
+                      className={themeMode === option.value ? 'active' : ''}
+                      onClick={() => void handleThemeChange(option.value)}
+                      aria-pressed={themeMode === option.value}
+                      title={option.label}
+                    >
+                      <Icon size={15} />
+                    </button>
+                  )
+                })}
+              </div>
+              <a
+                className='sidebar-github-link'
+                href={GITHUB_REPO_URL}
+                target='_blank'
+                rel='noreferrer'
+                aria-label='打开 GitHub 开源仓库'
+                title='GitHub'
+              >
+                <Github size={16} />
+                <ExternalLink size={12} />
+              </a>
+            </div>
+          </aside>
 
-          {currentView === 'home' ? (
-            <section className='launchpad'>
-              <div className='workbench-head'>
-                <div>
-                  <span className={`setup-state ${isConfigured ? 'ready' : ''}`}>
-                    {isConfigured ? '配置已就绪' : '需要先配置连接'}
-                  </span>
-                  <h1>图像生成工作台</h1>
-                  <p>提示词、参数和连接状态同步可见，生成结果集中进入图库管理。</p>
+          <section className='app-workspace'>
+            <header className='workspace-topbar'>
+              <div className='workspace-title'>
+                <span className={`setup-state ${isConfigured ? 'ready' : ''}`}>
+                  {isConfigured ? '配置已就绪' : '需要先配置连接'}
+                </span>
+                <h1>{portalMeta.title}</h1>
+                <p>{portalMeta.description}</p>
+              </div>
+              <div className='workspace-topbar-side'>
+                <div className='top-status-bar' aria-label='连接状态'>
+                  <span className={baseUrl.trim() ? 'ready' : ''}>Base URL</span>
+                  <span className={apiKey.trim() ? 'ready' : ''}>生图 Key</span>
+                  <span className={model.trim() ? 'ready' : ''}>模型</span>
+                  <span className={codexApiKey.trim() ? 'ready' : ''}>提示词优化</span>
                 </div>
-                <div className='workbench-actions'>
-                  <button
-                    type='button'
-                    className='secondary'
-                    onClick={() => enterConfiguredView('console')}
-                  >
-                    <KeyRound size={16} />
-                    配置
-                  </button>
-                  <button
-                    type='button'
-                    className='secondary'
-                    onClick={() => enterConfiguredView('gallery')}
-                  >
-                    <Layers size={16} />
-                    图库
-                  </button>
-                  <button
-                    type='button'
-                    className='secondary'
-                    onClick={() => enterConfiguredView('workflow')}
-                  >
+                <div className='workspace-actions'>
+                  {activePortalView === 'home' ? (
+                    <>
+                      <button type='button' className='secondary' onClick={() => enterConfiguredView('console')}>
+                        <KeyRound size={16} />
+                        配置
+                      </button>
+                      <button type='button' className='secondary' onClick={() => enterConfiguredView('gallery')}>
+                        <Layers size={16} />
+                        图库
+                      </button>
+                    </>
+                  ) : null}
+                  {activePortalView === 'gallery' ? (
+                    <button type='button' className='secondary' onClick={() => enterConfiguredView('simple')}>
+                      <ImageIcon size={16} />
+                      继续生成
+                    </button>
+                  ) : null}
+                  {activePortalView === 'simple' ? (
+                    <button type='button' className='secondary' onClick={() => enterConfiguredView('console')}>
+                      <KeyRound size={16} />
+                      检查配置
+                    </button>
+                  ) : null}
+                  <button type='button' className='secondary' onClick={() => enterConfiguredView('workflow')}>
                     <Workflow size={16} />
                     工作流
                   </button>
                 </div>
               </div>
+            </header>
 
+          {currentView === 'home' ? (
+            <section className='launchpad'>
               <div className='workbench-grid'>
                 <section className='portal-panel workbench-composer'>
                   <div className='section-title'>
@@ -3041,31 +3093,6 @@ export function App() {
 
           {currentView === 'gallery' ? (
             <section className='gallery-page'>
-              <div className='page-heading gallery-page-heading'>
-                <div>
-                  <h1>图库</h1>
-                  <p>集中管理本地生成结果，预览、下载和删除都在这里完成。</p>
-                </div>
-                <div className='workbench-actions'>
-                  <button
-                    type='button'
-                    className='secondary'
-                    onClick={() => enterConfiguredView('simple')}
-                  >
-                    <ImageIcon size={16} />
-                    继续生成
-                  </button>
-                  <button
-                    type='button'
-                    className='secondary'
-                    onClick={() => enterConfiguredView('workflow')}
-                  >
-                    <Workflow size={16} />
-                    工作流
-                  </button>
-                </div>
-              </div>
-
               <section className='portal-panel gallery-page-panel'>
                 <div className='gallery-dock-header'>
                   <div>
@@ -3100,10 +3127,6 @@ export function App() {
 
           {currentView === 'console' ? (
             <section className='console-page'>
-              <div className='page-heading'>
-                <h1>控制台</h1>
-                <p>先完成连接配置，再进入文生图或工作流。</p>
-              </div>
               <div className='console-layout'>
                 <section className='portal-panel'>
                   <div className='section-title'>
@@ -3220,44 +3243,6 @@ export function App() {
                   </div>
                 </section>
 
-                <div className='console-side'>
-                  <section className='portal-panel compact-panel'>
-                    <div className='section-title'>
-                      <Sun size={16} />
-                      <span>界面</span>
-                    </div>
-                    <div className='theme-switcher' aria-label='主题切换'>
-                      {themeOptions.map((option) => {
-                        const Icon = option.icon
-                        return (
-                          <button
-                            key={option.value}
-                            type='button'
-                            className={themeMode === option.value ? 'active' : ''}
-                            onClick={() => void handleThemeChange(option.value)}
-                            aria-pressed={themeMode === option.value}
-                            title={option.label}
-                          >
-                            <Icon size={15} />
-                            <span>{option.label}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <div className='dock-action-bar'>
-                      <button className='top-link' onClick={() => void handleOpenConsole()}>
-                        <Terminal size={16} />
-                        中转站
-                        <ExternalLink size={14} />
-                      </button>
-                      <button className='top-link shop-link' onClick={() => void handleOpenShop()}>
-                        <ShoppingBag size={16} />
-                        小店
-                        <ExternalLink size={14} />
-                      </button>
-                    </div>
-                  </section>
-
                   <section className='portal-panel compact-panel'>
                     <div className='section-title'>
                       <Download size={16} />
@@ -3294,36 +3279,12 @@ export function App() {
                       图片和设置保存在当前浏览器 IndexedDB。生成任务先提交到服务器后台，结果会短暂缓存在服务器再同步到本地图库；备份文件不包含 API Key。
                     </p>
                   </section>
-
-                  <section className='portal-panel gallery-dock'>
-                    <div className='gallery-dock-header'>
-                      <div>
-                        <h2>本地图库</h2>
-                        <p>{images.length} 张图片</p>
-                      </div>
-                    </div>
-                    {images.length === 0 ? (
-                      <div className='gallery-empty'>生成结果会出现在这里</div>
-                    ) : (
-                      <GalleryStrip
-                        images={images}
-                        onPreview={setPreviewImage}
-                        onDownload={handleDownloadImage}
-                        onDelete={(id) => void handleDeleteImage(id)}
-                      />
-                    )}
-                  </section>
-                </div>
               </div>
             </section>
           ) : null}
 
           {currentView === 'simple' ? (
             <section className='simple-page'>
-              <div className='page-heading'>
-                <h1>简单文生图</h1>
-                <p>不需要搭建节点，输入描述后直接生成图片。</p>
-              </div>
               <div className='simple-layout'>
                 <section className='portal-panel simple-composer'>
                   <label className='field'>
@@ -3433,6 +3394,7 @@ export function App() {
               </button>
             </div>
           ) : null}
+          </section>
         </main>
       )}
 
