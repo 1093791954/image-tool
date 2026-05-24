@@ -1269,6 +1269,7 @@ select:disabled {
 }
 
 .launchpad,
+.commerce-page,
 .console-page,
 .gallery-page {
   display: grid;
@@ -1339,8 +1340,131 @@ select:disabled {
   gap: 16px;
 }
 
+.commerce-composer {
+  gap: 16px;
+}
+
 .workbench-composer .simple-prompt {
   min-height: clamp(220px, 34vh, 300px);
+}
+
+.commerce-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.commerce-upload {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  min-height: 212px;
+  padding: 14px;
+  background: var(--field);
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+}
+
+.commerce-upload.filled {
+  background: var(--panel-soft);
+  border-style: solid;
+}
+
+.commerce-upload-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.commerce-upload-copy strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.commerce-upload-copy span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.commerce-upload-preview {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.commerce-upload-preview img {
+  width: 82px;
+  height: 64px;
+  object-fit: cover;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.commerce-upload-preview div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.commerce-upload-preview strong,
+.commerce-upload-preview span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commerce-upload-preview strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.commerce-upload-preview span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.commerce-upload-preview .ghost {
+  width: 32px;
+  height: 32px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.commerce-file-action {
+  justify-self: start;
+  cursor: pointer;
+}
+
+.commerce-file-action input {
+  display: none;
+}
+
+.commerce-description {
+  min-height: 118px;
+  padding: 14px;
+  color: var(--text);
+  background: var(--field);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  outline: none;
+  resize: vertical;
+  line-height: 1.65;
+}
+
+.commerce-description:focus {
+  background: var(--panel);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--focus);
 }
 
 .workbench-rail {
@@ -3164,6 +3288,10 @@ select:disabled {
     align-items: stretch;
   }
 
+  .commerce-upload-grid {
+    grid-template-columns: 1fr;
+  }
+
   .workbench-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3216,6 +3344,7 @@ select:disabled {
   }
 
   .launchpad-grid,
+  .commerce-upload-grid,
   .simple-param-grid,
   .simple-actions,
   .gallery-page-heading,

@@ -137,6 +137,17 @@ function sizeOptionLabel(option: (typeof sizeOptions)[number]) {
   return `${option.ratio} · ${option.value} · ${option.label}`
 }
 
+function buildCommerceMainPrompt(description: string) {
+  return [
+    '你是一名资深电商视觉设计师，请基于参考图生成一张电商商品主图。',
+    '参考图中的商品白底图是商品主体依据，必须保持商品外观、结构、颜色、材质和关键细节真实一致，不要改变商品本身。',
+    '目标风格图只用于迁移构图节奏、光线氛围、背景质感、色彩倾向和视觉高级感，不要复制风格图中的商品或品牌元素。',
+    `商品信息和主图诉求：${description}`,
+    '画面要求：主体清晰醒目，构图稳定，适合电商列表首图；背景干净但有质感，光影自然，边缘干净，产品比例合理。',
+    '不要生成无关文字、水印、Logo、价格、二维码或平台界面元素。输出应像真实商业摄影和精修后的电商主图。',
+  ].join('\n')
+}
+
 type WorkflowNode = Node<
   Record<string, unknown>,
   WorkflowNodeType
@@ -151,7 +162,7 @@ type PaneMenu = {
   position: { x: number; y: number }
 } | null
 
-type AppView = 'home' | 'console' | 'gallery' | 'workflow'
+type AppView = 'home' | 'commerce-main' | 'console' | 'gallery' | 'workflow'
 
 type WorkflowCanvas = {
   id: string
@@ -1145,6 +1156,9 @@ export function App() {
   const [responseFormat, setResponseFormat] = useState<'url' | 'b64_json'>('b64_json')
   const [inputFidelity, setInputFidelity] = useState<'low' | 'high'>('high')
   const [simplePrompt, setSimplePrompt] = useState('')
+  const [commerceProductImage, setCommerceProductImage] = useState<ReferenceImage | null>(null)
+  const [commerceStyleImage, setCommerceStyleImage] = useState<ReferenceImage | null>(null)
+  const [commerceDescription, setCommerceDescription] = useState('')
   const [canvases, setCanvases] = useState<WorkflowCanvas[]>(loadWorkflowCanvases)
   const [activeCanvasId, setActiveCanvasId] = useState(loadActiveCanvasId)
   const [isLoadingModels, setIsLoadingModels] = useState(false)
@@ -2319,6 +2333,96 @@ export function App() {
     }
   }
 
+  async function handleCommerceImageFile(kind: 'product' | 'style', file?: File | null) {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setError('请上传图片文件')
+      return
+    }
+
+    const image: ReferenceImage = {
+      id: createLocalId(`commerce-${kind}`),
+      name: file.name,
+      title: kind === 'product' ? '商品白底图' : '目标风格图',
+      type: file.type,
+      dataUrl: await fileToDataUrl(file),
+    }
+
+    setError('')
+    if (kind === 'product') {
+      setCommerceProductImage(image)
+    } else {
+      setCommerceStyleImage(image)
+    }
+  }
+
+  async function handleCommerceMainGenerate() {
+    if (!isConfigured) {
+      setError('')
+      setCurrentView('console')
+      return
+    }
+    const generationSize = selectedGenerationSize()
+    if (!generationSize) {
+      setError('请输入 64 到 4096 之间的自定义宽高')
+      return
+    }
+    if (!commerceProductImage) {
+      setError('请先上传商品白底图')
+      return
+    }
+    if (!commerceStyleImage) {
+      setError('请先上传目标风格图')
+      return
+    }
+    const description = commerceDescription.trim()
+    if (!description) {
+      setError('请补充商品描述或主图诉求')
+      return
+    }
+
+    const prompt = buildCommerceMainPrompt(description)
+    const referenceImages = [commerceProductImage, commerceStyleImage]
+
+    setError('')
+    setIsGenerating(true)
+    setStatus('正在生成电商主图...')
+
+    try {
+      const result = await bridge.generateImages({
+        baseUrl,
+        apiKey,
+        mode: 'image',
+        model,
+        prompt,
+        size: generationSize,
+        quality,
+        count,
+        responseFormat,
+        inputFidelity,
+        referenceImages,
+        onTaskUpdate: (task) => setStatus(taskStatusLabel(task.status)),
+      })
+      const records = buildLocalImageRecords(result.images, {
+        prompt,
+        model,
+        size: generationSize,
+        quality,
+        mode: 'image',
+        referenceImageNames: referenceImages.map((image) => image.title || image.name),
+      })
+      await saveImages(records)
+      await refreshImages()
+      setStatus(`已生成 ${records.length} 张电商主图`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setError(message)
+      setStatus('生成失败')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   async function handleDeleteImage(id: string) {
     await deleteImage(id)
     await refreshImages()
@@ -2782,6 +2886,10 @@ export function App() {
       title: '快速生成',
       description: '用提示词和参数快速完成生图，结果自动进入图库管理。',
     },
+    'commerce-main': {
+      title: '主图制作',
+      description: '上传商品白底图和目标风格图，用少量描述生成电商主图。',
+    },
     console: {
       title: '控制台',
       description: '管理连接、模型和本地数据导入导出。',
@@ -2796,7 +2904,7 @@ export function App() {
     <div className='sidebar-nav-group ecommerce-nav-group'>
       <button
         type='button'
-        className='sidebar-submenu-trigger'
+        className={`sidebar-submenu-trigger ${currentView === 'commerce-main' ? 'active' : ''}`}
         aria-haspopup='menu'
         aria-label='电商主题'
         title='电商主题'
@@ -2805,13 +2913,73 @@ export function App() {
         电商主题
       </button>
       <div className='sidebar-submenu ecommerce-submenu' role='menu' aria-label='电商主题制作类型'>
-        <button type='button' role='menuitem' disabled title='主图制作'>
+        <button
+          type='button'
+          role='menuitem'
+          className={currentView === 'commerce-main' ? 'active' : ''}
+          onClick={() => enterSidebarView('commerce-main')}
+          title='主图制作'
+        >
           主图制作
         </button>
         <button type='button' role='menuitem' disabled title='详情图制作'>
           详情图制作
         </button>
       </div>
+    </div>
+  )
+  const commerceCanGenerate =
+    isConfigured &&
+    Boolean(commerceProductImage) &&
+    Boolean(commerceStyleImage) &&
+    Boolean(commerceDescription.trim())
+  const renderCommerceUpload = (
+    kind: 'product' | 'style',
+    label: string,
+    hint: string,
+    image: ReferenceImage | null
+  ) => (
+    <div className={`commerce-upload ${image ? 'filled' : ''}`}>
+      <div className='commerce-upload-copy'>
+        <strong>{label}</strong>
+        <span>{hint}</span>
+      </div>
+      {image ? (
+        <div className='commerce-upload-preview'>
+          <img src={image.dataUrl} alt={label} />
+          <div>
+            <strong>{image.name}</strong>
+            <span>{image.type || '图片文件'}</span>
+          </div>
+          <button
+            type='button'
+            className='ghost'
+            onClick={() => {
+              if (kind === 'product') {
+                setCommerceProductImage(null)
+              } else {
+                setCommerceStyleImage(null)
+              }
+            }}
+            aria-label={`移除${label}`}
+          >
+            <X size={15} />
+          </button>
+        </div>
+      ) : null}
+      <label className='secondary commerce-file-action'>
+        <Upload size={15} />
+        {image ? '替换图片' : '上传图片'}
+        <input
+          type='file'
+          accept='image/*'
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) void handleCommerceImageFile(kind, file)
+            event.target.value = ''
+          }}
+        />
+      </label>
     </div>
   )
 
@@ -3233,6 +3401,12 @@ export function App() {
                       </button>
                     </>
                   ) : null}
+                  {activePortalView === 'commerce-main' ? (
+                    <button type='button' className='secondary' onClick={() => enterConfiguredView('gallery')}>
+                      <Layers size={16} />
+                      图库
+                    </button>
+                  ) : null}
                   {activePortalView === 'gallery' ? (
                     <button type='button' className='secondary' onClick={() => enterConfiguredView('home')}>
                       <Home size={16} />
@@ -3328,6 +3502,103 @@ export function App() {
                 >
                   <Workflow size={16} />
                   打开工作流
+                </button>
+              </section>
+            </section>
+          ) : null}
+
+          {currentView === 'commerce-main' ? (
+            <section className='commerce-page'>
+              <section className='portal-panel commerce-composer'>
+                <div className='section-title'>
+                  <ShoppingBag size={16} />
+                  <span>主图制作</span>
+                </div>
+                <div className='commerce-upload-grid'>
+                  {renderCommerceUpload(
+                    'product',
+                    '商品白底图',
+                    '上传清晰白底商品图，系统会尽量保持商品本身一致。',
+                    commerceProductImage
+                  )}
+                  {renderCommerceUpload(
+                    'style',
+                    '目标风格图',
+                    '上传你喜欢的主图风格，用于参考光线、背景和构图。',
+                    commerceStyleImage
+                  )}
+                </div>
+                <label className='field'>
+                  <span>文字描述</span>
+                  <textarea
+                    className='commerce-description'
+                    value={commerceDescription}
+                    onChange={(event) => setCommerceDescription(event.target.value)}
+                    placeholder='例如：一款 316 不锈钢保温杯，强调高端商务、保温持久、适合办公室和通勤场景'
+                  />
+                </label>
+                <div className='simple-param-grid commerce-param-grid'>
+                  <label className='field'>
+                    <span>模型</span>
+                    <select value={model} onChange={(event) => setModel(event.target.value)}>
+                      {sortedModels.length === 0 ? (
+                        <option value={model}>{model}</option>
+                      ) : (
+                        sortedModels.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.id}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </label>
+                  {renderSizeField()}
+                  <label className='field'>
+                    <span>质量</span>
+                    <select value={quality} onChange={(event) => setQuality(event.target.value)}>
+                      {qualities.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className='field'>
+                    <span>数量</span>
+                    <select value={count} onChange={(event) => setCount(Number(event.target.value))}>
+                      {counts.map((item) => (
+                        <option key={item} value={item}>
+                          {item}x
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className='simple-actions'>
+                  <button
+                    type='button'
+                    className='primary-action'
+                    onClick={() => void handleCommerceMainGenerate()}
+                    disabled={isGenerating || !commerceCanGenerate}
+                  >
+                    {isGenerating ? <Loader2 className='spin' size={16} /> : <Sparkles size={16} />}
+                    {isConfigured ? (isGenerating ? '生成中' : '生成主图') : '先完成配置'}
+                  </button>
+                </div>
+              </section>
+
+              <section className='workflow-strip'>
+                <div>
+                  <strong>不需要手写复杂提示词</strong>
+                  <span>你只提供商品、参考风格和简单诉求，系统会在后台补齐主图生成提示词。</span>
+                </div>
+                <button
+                  type='button'
+                  className='secondary'
+                  onClick={() => enterConfiguredView('gallery')}
+                >
+                  <Layers size={16} />
+                  查看图库
                 </button>
               </section>
             </section>
