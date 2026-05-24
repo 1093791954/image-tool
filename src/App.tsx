@@ -150,7 +150,7 @@ type PaneMenu = {
   position: { x: number; y: number }
 } | null
 
-type AppView = 'home' | 'console' | 'simple' | 'gallery' | 'workflow'
+type AppView = 'home' | 'console' | 'gallery' | 'workflow'
 
 type WorkflowCanvas = {
   id: string
@@ -1143,7 +1143,6 @@ export function App() {
   const [responseFormat, setResponseFormat] = useState<'url' | 'b64_json'>('b64_json')
   const [inputFidelity, setInputFidelity] = useState<'low' | 'high'>('high')
   const [simplePrompt, setSimplePrompt] = useState('')
-  const [simpleGeneratedImageIds, setSimpleGeneratedImageIds] = useState<string[]>([])
   const [canvases, setCanvases] = useState<WorkflowCanvas[]>(loadWorkflowCanvases)
   const [activeCanvasId, setActiveCanvasId] = useState(loadActiveCanvasId)
   const [isLoadingModels, setIsLoadingModels] = useState(false)
@@ -1181,14 +1180,6 @@ export function App() {
     [referenceImageBlobs]
   )
   const isConfigured = Boolean(baseUrl.trim() && apiKey.trim() && model.trim())
-  const simpleGeneratedImages = useMemo(
-    () =>
-      simpleGeneratedImageIds
-        .map((id) => images.find((image) => image.id === id))
-        .filter((image): image is LocalImageRecord => Boolean(image)),
-    [images, simpleGeneratedImageIds]
-  )
-
   const updateActiveCanvas = useCallback(
     (updater: (canvas: WorkflowCanvas) => WorkflowCanvas) => {
       setCanvases((currentCanvases) =>
@@ -2299,7 +2290,6 @@ export function App() {
       })
       await saveImages(records)
       await refreshImages()
-      setSimpleGeneratedImageIds(records.map((record) => record.id))
       setStatus(`已生成 ${records.length} 张图片`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -2786,15 +2776,11 @@ export function App() {
   const portalViewMeta: Record<Exclude<AppView, 'workflow'>, { title: string; description: string }> = {
     home: {
       title: '图像生成工作台',
-      description: '提示词、参数和连接状态同步可见，生成结果集中进入图库管理。',
+      description: '提示词、参数和生成结果集中进入图库管理。',
     },
     console: {
       title: '控制台',
       description: '管理连接、模型和本地数据导入导出。',
-    },
-    simple: {
-      title: '简单文生图',
-      description: '专注输入描述和基础参数，不需要搭建节点。',
     },
     gallery: {
       title: '图库',
@@ -3078,14 +3064,6 @@ export function App() {
               </button>
               <button
                 type='button'
-                className={currentView === 'simple' ? 'active' : ''}
-                onClick={() => enterSidebarView('simple')}
-              >
-                <ImageIcon size={16} />
-                文生图
-              </button>
-              <button
-                type='button'
                 className={currentView === 'gallery' ? 'active' : ''}
                 onClick={() => enterSidebarView('gallery')}
               >
@@ -3145,12 +3123,6 @@ export function App() {
                 <p>{portalMeta.description}</p>
               </div>
               <div className='workspace-topbar-side'>
-                <div className='top-status-bar' aria-label='连接状态'>
-                  <span className={baseUrl.trim() ? 'ready' : ''}>Base URL</span>
-                  <span className={apiKey.trim() ? 'ready' : ''}>生图 Key</span>
-                  <span className={model.trim() ? 'ready' : ''}>模型</span>
-                  <span className={codexApiKey.trim() ? 'ready' : ''}>提示词优化</span>
-                </div>
                 <div className='workspace-actions'>
                   {activePortalView === 'home' ? (
                     <>
@@ -3165,15 +3137,9 @@ export function App() {
                     </>
                   ) : null}
                   {activePortalView === 'gallery' ? (
-                    <button type='button' className='secondary' onClick={() => enterConfiguredView('simple')}>
-                      <ImageIcon size={16} />
-                      继续生成
-                    </button>
-                  ) : null}
-                  {activePortalView === 'simple' ? (
-                    <button type='button' className='secondary' onClick={() => enterConfiguredView('console')}>
-                      <KeyRound size={16} />
-                      检查配置
+                    <button type='button' className='secondary' onClick={() => enterConfiguredView('home')}>
+                      <Home size={16} />
+                      工作台
                     </button>
                   ) : null}
                   <button type='button' className='secondary' onClick={() => enterConfiguredView('workflow')}>
@@ -3241,14 +3207,6 @@ export function App() {
                   <div className='simple-actions'>
                     <button
                       type='button'
-                      className='secondary'
-                      onClick={() => enterConfiguredView('simple')}
-                    >
-                      <ImageIcon size={16} />
-                      专注模式
-                    </button>
-                    <button
-                      type='button'
                       className='primary-action'
                       onClick={() => void handleSimpleGenerate()}
                       disabled={isGenerating || !isConfigured || !simplePrompt.trim()}
@@ -3293,10 +3251,10 @@ export function App() {
                     <button
                       type='button'
                       className='secondary'
-                      onClick={() => enterConfiguredView('simple')}
+                      onClick={() => enterConfiguredView('home')}
                     >
-                      <ImageIcon size={16} />
-                      去生成图片
+                      <Home size={16} />
+                      回到工作台
                     </button>
                   </div>
                 ) : (
@@ -3466,99 +3424,6 @@ export function App() {
                       图片和设置保存在当前浏览器 IndexedDB。生成任务先提交到服务器后台，结果会短暂缓存在服务器再同步到本地图库；备份文件不包含 API Key。
                     </p>
                   </section>
-              </div>
-            </section>
-          ) : null}
-
-          {currentView === 'simple' ? (
-            <section className='simple-page'>
-              <div className='simple-layout'>
-                <section className='portal-panel simple-composer'>
-                  <label className='field'>
-                    <span>图片描述</span>
-                    <textarea
-                      className='simple-prompt'
-                      value={simplePrompt}
-                      onChange={(event) => setSimplePrompt(event.target.value)}
-                      placeholder='例如：一张高级科技产品海报，干净背景，清晰主视觉，真实材质，高级棚拍光线'
-                    />
-                  </label>
-                  <div className='simple-param-grid'>
-                    <label className='field'>
-                      <span>模型</span>
-                      <select value={model} onChange={(event) => setModel(event.target.value)}>
-                        {sortedModels.length === 0 ? (
-                          <option value={model}>{model}</option>
-                        ) : (
-                          sortedModels.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.id}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                    </label>
-                    {renderSizeField()}
-                    <label className='field'>
-                      <span>质量</span>
-                      <select value={quality} onChange={(event) => setQuality(event.target.value)}>
-                        {qualities.map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className='field'>
-                      <span>数量</span>
-                      <select value={count} onChange={(event) => setCount(Number(event.target.value))}>
-                        {counts.map((item) => (
-                          <option key={item} value={item}>
-                            {item}x
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <div className='simple-actions'>
-                    <button
-                      type='button'
-                      className='secondary'
-                      onClick={() => enterConfiguredView('console')}
-                    >
-                      <KeyRound size={16} />
-                      检查配置
-                    </button>
-                    <button
-                      type='button'
-                      className='primary-action'
-                      onClick={() => void handleSimpleGenerate()}
-                      disabled={isGenerating || !isConfigured || !simplePrompt.trim()}
-                    >
-                      {isGenerating ? <Loader2 className='spin' size={16} /> : <Sparkles size={16} />}
-                      {isGenerating ? '生成中' : '立即生成'}
-                    </button>
-                  </div>
-                </section>
-
-                <section className='portal-panel simple-results'>
-                  <div className='gallery-dock-header'>
-                    <div>
-                      <h2>生成结果</h2>
-                      <p>{simpleGeneratedImages.length || images.length} 张图片</p>
-                    </div>
-                  </div>
-                  {(simpleGeneratedImages.length > 0 ? simpleGeneratedImages : images).length === 0 ? (
-                    <div className='gallery-empty'>生成结果会出现在这里</div>
-                  ) : (
-                    <GalleryStrip
-                      images={simpleGeneratedImages.length > 0 ? simpleGeneratedImages : images}
-                      onPreview={setPreviewImage}
-                      onDownload={handleDownloadImage}
-                      onDelete={(id) => void handleDeleteImage(id)}
-                    />
-                  )}
-                </section>
               </div>
             </section>
           ) : null}

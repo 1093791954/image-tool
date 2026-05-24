@@ -939,8 +939,8 @@ select:disabled {
   top: 0;
   z-index: 12;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, auto);
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 12px;
   width: min(var(--page-width), 100%);
   margin: 0 auto;
@@ -964,33 +964,47 @@ select:disabled {
 
 .workspace-title h1 {
   margin: 0;
+  overflow: hidden;
   color: var(--text);
   font-size: clamp(24px, 3vw, 34px);
   line-height: 1.08;
   letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-title p {
   max-width: 720px;
   margin: 0;
+  overflow: hidden;
   color: var(--text-muted);
   font-size: 14px;
   line-height: 1.55;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-topbar-side {
-  display: grid;
-  justify-items: end;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
+  width: 100%;
   min-width: 0;
 }
 
 .workspace-actions {
   display: flex;
+  flex: 0 0 auto;
   justify-content: flex-end;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   min-width: 0;
+}
+
+.workspace-actions .secondary {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .portal-topbar {
@@ -1081,8 +1095,7 @@ select:disabled {
   border-radius: 10px;
 }
 
-.portal-nav::-webkit-scrollbar,
-.top-status-bar::-webkit-scrollbar {
+.portal-nav::-webkit-scrollbar {
   display: none;
 }
 
@@ -1141,64 +1154,8 @@ select:disabled {
   white-space: normal;
 }
 
-.portal-topbar .top-status-bar {
-  grid-area: status;
-}
-
-.top-status-bar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 4px;
-  color: var(--text-muted);
-  background: var(--field);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-
-.top-status-bar span {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: 6px;
-  min-height: 30px;
-  padding: 0 8px;
-  overflow: hidden;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  font-size: 11px;
-  font-weight: 850;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.top-status-bar span::before {
-  flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
-  background: var(--amber);
-  border-radius: 999px;
-  content: "";
-}
-
-.top-status-bar span.ready {
-  color: var(--text);
-  background: rgb(65 211 155 / 8%);
-  border-color: rgb(65 211 155 / 20%);
-}
-
-.top-status-bar span.ready::before {
-  background: var(--green);
-}
-
 .launchpad,
 .console-page,
-.simple-page,
 .gallery-page {
   display: grid;
   align-content: start;
@@ -1432,17 +1389,6 @@ select:disabled {
   display: grid;
   gap: 14px;
   min-width: 0;
-}
-
-.simple-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 14px;
-  align-items: start;
-}
-
-.simple-composer {
-  gap: 16px;
 }
 
 .simple-prompt {
@@ -2790,8 +2736,7 @@ select:disabled {
   }
 
   .launchpad-grid,
-  .console-layout,
-  .simple-layout {
+  .console-layout {
     grid-template-columns: 1fr;
   }
 
@@ -2804,13 +2749,8 @@ select:disabled {
 @media (max-width: 1080px) {
   .portal-topbar {
     grid-template-areas:
-      "brand nav"
-      "status status";
+      "brand nav";
     grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .top-status-bar {
-    justify-content: start;
   }
 
   .portal-nav {
@@ -3047,18 +2987,13 @@ select:disabled {
     transform: none;
   }
 
-  .workspace-topbar {
-    grid-template-columns: 1fr;
-  }
-
   .workspace-topbar-side {
-    justify-items: stretch;
+    justify-content: flex-end;
   }
 
   .portal-topbar {
     grid-template-areas:
       "brand"
-      "status"
       "nav";
     grid-template-columns: 1fr;
     align-items: stretch;
@@ -3067,10 +3002,6 @@ select:disabled {
   .portal-nav {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-    width: 100%;
-  }
-
-  .top-status-bar {
     width: 100%;
   }
 
@@ -3106,6 +3037,14 @@ select:disabled {
 @media (max-width: 620px) {
   .control-dock {
     padding: 12px;
+  }
+
+  .workspace-title h1 {
+    font-size: 20px;
+  }
+
+  .workspace-title p {
+    display: none;
   }
 
   .button-grid,
