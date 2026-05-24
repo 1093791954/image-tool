@@ -281,9 +281,10 @@ select:disabled {
 
 .workflow-canvas-panel {
   position: absolute;
-  top: 86px;
+  top: 144px;
   bottom: 14px;
-  left: 14px;
+  right: 14px;
+  left: auto;
   z-index: 7;
   width: min(270px, calc(100% - 28px));
   border: 1px solid var(--border);
@@ -292,6 +293,11 @@ select:disabled {
 
 .app-workspace.workflow-workspace .canvas-title-bar {
   top: 86px;
+  right: 14px;
+  left: auto;
+  width: min(270px, calc(100% - 28px));
+  min-width: 0;
+  transform: none;
 }
 
 .react-flow {
@@ -2785,8 +2791,10 @@ select:disabled {
   }
 
   .workflow-canvas-panel {
-    top: 126px;
+    top: 144px;
     bottom: 12px;
+    right: 12px;
+    left: auto;
     max-height: none;
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -2979,6 +2987,13 @@ select:disabled {
     width: auto;
     animation: none;
     transform: none;
+  }
+
+  .app-workspace.workflow-workspace .canvas-title-bar {
+    top: 86px;
+    right: 12px;
+    left: auto;
+    width: min(270px, calc(100% - 24px));
   }
 
   .workspace-topbar-side {
