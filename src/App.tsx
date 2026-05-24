@@ -2882,7 +2882,7 @@ export function App() {
         ) : null}
 
         {error ? (
-          <div className='error-toast'>
+          <div className='error-toast' role='alert'>
             <strong>执行失败</strong>
             <span>{error}</span>
             <button type='button' onClick={() => setError('')} aria-label='关闭错误提示'>
@@ -3422,7 +3422,7 @@ export function App() {
           ) : null}
 
           {error ? (
-            <div className='error-toast portal-error'>
+            <div className='error-toast portal-error' role='alert'>
               <strong>执行失败</strong>
               <span>{error}</span>
               <button type='button' onClick={() => setError('')} aria-label='关闭错误提示'>

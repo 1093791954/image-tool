@@ -1481,10 +1481,6 @@ select:disabled {
   filter: brightness(1.04);
 }
 
-.portal-error {
-  position: fixed;
-}
-
 .control-dock {
   z-index: 8;
   display: flex;
@@ -2475,6 +2471,28 @@ select:disabled {
   box-shadow: 0 18px 44px var(--shadow);
 }
 
+.portal-error {
+  position: fixed;
+  top: 14px;
+  right: 22px;
+  bottom: auto;
+  left: auto;
+  z-index: 48;
+  width: min(560px, calc(100vw - 144px - 44px));
+  min-height: 50px;
+  color: var(--danger);
+  background: rgb(44 21 23 / 92%);
+  border-color: rgb(255 107 99 / 38%);
+  border-radius: 10px;
+  box-shadow: 0 18px 46px var(--shadow);
+  animation: notice-enter 180ms ease-out;
+  backdrop-filter: blur(18px);
+}
+
+:root[data-theme='light'] .portal-error {
+  background: rgb(255 240 239 / 94%);
+}
+
 .pane-menu {
   position: fixed;
   z-index: 20;
@@ -2825,6 +2843,16 @@ select:disabled {
 
   .status-pill {
     max-width: calc(100vw - 36px);
+  }
+
+  .app-notice,
+  .portal-error {
+    top: 76px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    animation: none;
+    transform: none;
   }
 
   .portal-shell {
