@@ -40,6 +40,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  ShoppingBag,
   Sparkles,
   Sun,
   Terminal,
@@ -2843,6 +2844,15 @@ export function App() {
               </button>
               <button
                 type='button'
+                disabled
+                aria-label='电商主题，功能即将开放'
+                title='电商主题'
+              >
+                <ShoppingBag size={16} />
+                电商主题
+              </button>
+              <button
+                type='button'
                 className='active'
                 onClick={() => enterSidebarView('workflow')}
               >
@@ -3125,6 +3135,15 @@ export function App() {
               >
                 <Home size={16} />
                 快速生成
+              </button>
+              <button
+                type='button'
+                disabled
+                aria-label='电商主题，功能即将开放'
+                title='电商主题'
+              >
+                <ShoppingBag size={16} />
+                电商主题
               </button>
               <button
                 type='button'
