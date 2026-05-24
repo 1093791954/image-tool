@@ -2790,10 +2790,7 @@ export function App() {
   const portalMeta = portalViewMeta[activePortalView]
 
   return (
-    <div
-      className={`app-shell ${currentView === 'workflow' ? 'flow-shell workflow-only' : 'portal-shell'}`}
-      data-theme={resolvedTheme}
-    >
+    <div className='app-shell portal-shell' data-theme={resolvedTheme}>
       {notice ? (
         <div className='app-notice' role='status' aria-live='polite'>
           <KeyRound size={16} aria-hidden='true' />
@@ -2808,8 +2805,103 @@ export function App() {
       ) : null}
 
       {currentView === 'workflow' ? (
-        <>
-          <aside className='canvas-drawer' aria-label='画布列表'>
+        <main className='portal-stage app-workspace-shell'>
+          <aside
+            className={`app-sidebar ${isSidebarDrawerOpen ? 'drawer-open' : ''}`}
+            aria-label='主工具栏'
+          >
+            <button
+              type='button'
+              className='sidebar-drawer-toggle'
+              onClick={() => setIsSidebarDrawerOpen((current) => !current)}
+              aria-label={isSidebarDrawerOpen ? '收起主工具栏' : '展开主工具栏'}
+              aria-controls='app-sidebar-nav'
+              aria-expanded={isSidebarDrawerOpen}
+              title={isSidebarDrawerOpen ? '收起' : '展开'}
+            >
+              {isSidebarDrawerOpen ? <X size={17} /> : <Menu size={17} />}
+            </button>
+            <button type='button' className='portal-brand app-sidebar-brand' onClick={() => enterSidebarView('home')}>
+              <span className='brand-mark'>
+                <Sparkles size={21} />
+              </span>
+              <span>
+                <strong>GPT Image Tools</strong>
+                <small>{isConfigured ? `已配置 ${model}` : '先完成控制台配置'}</small>
+              </span>
+            </button>
+            <nav id='app-sidebar-nav' className='portal-nav app-sidebar-nav' aria-label='主导航'>
+              <button
+                type='button'
+                onClick={() => enterSidebarView('home')}
+              >
+                <Home size={16} />
+                工作台
+              </button>
+              <button
+                type='button'
+                onClick={() => enterSidebarView('console')}
+              >
+                <Terminal size={16} />
+                控制台
+              </button>
+              <button
+                type='button'
+                onClick={() => enterSidebarView('gallery')}
+              >
+                <Layers size={16} />
+                图库
+              </button>
+              <button
+                type='button'
+                className='active'
+                onClick={() => enterSidebarView('workflow')}
+              >
+                <Workflow size={16} />
+                工作流
+              </button>
+            </nav>
+            <div className='app-sidebar-footer'>
+              <div className='sidebar-theme-switcher' aria-label='主题切换'>
+                {themeOptions.map((option) => {
+                  const Icon = option.icon
+                  return (
+                    <button
+                      key={option.value}
+                      type='button'
+                      className={themeMode === option.value ? 'active' : ''}
+                      onClick={() => void handleThemeChange(option.value)}
+                      aria-pressed={themeMode === option.value}
+                      title={option.label}
+                    >
+                      <Icon size={15} />
+                    </button>
+                  )
+                })}
+              </div>
+              <a
+                className='sidebar-github-link'
+                href={GITHUB_REPO_URL}
+                target='_blank'
+                rel='noreferrer'
+                aria-label='打开 GitHub 开源仓库'
+                title='GitHub'
+              >
+                <Github size={16} />
+                <ExternalLink size={12} />
+              </a>
+            </div>
+          </aside>
+          <button
+            type='button'
+            className={`sidebar-scrim ${isSidebarDrawerOpen ? 'visible' : ''}`}
+            onClick={() => setIsSidebarDrawerOpen(false)}
+            aria-label='关闭主工具栏'
+          />
+
+          <section className='app-workspace workflow-workspace'>
+          <main className='workflow-stage'>
+          <aside className='canvas-drawer workflow-canvas-panel' aria-label='画布列表'>
         <div className='canvas-drawer-header'>
           <div className='section-title'>
             <Layers size={16} />
@@ -2899,8 +2991,6 @@ export function App() {
           <ExternalLink size={13} />
         </a>
           </aside>
-
-          <main className='workflow-stage'>
         <ReactFlow
           key={activeCanvas?.id}
           nodes={workflowNodes}
@@ -3018,7 +3108,8 @@ export function App() {
         ) : null}
 
           </main>
-        </>
+          </section>
+        </main>
       ) : (
         <main className='portal-stage app-workspace-shell'>
           <aside
