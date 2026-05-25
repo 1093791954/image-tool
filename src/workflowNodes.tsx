@@ -901,25 +901,38 @@ export function GalleryStrip({
   onDownload: (image: LocalImageRecord, index: number) => void
   onDelete: (id: string) => void
 }) {
+  const tileClassNames = ['feature', 'tall', 'wide']
+
   return (
     <div className='gallery-strip'>
       {images.slice(0, limit).map((image, index) => (
-        <article key={image.id}>
-          <button type='button' onClick={() => onPreview(image)} aria-label='打开图片预览'>
+        <article
+          key={image.id}
+          className={`gallery-tile ${tileClassNames[index % tileClassNames.length]}`}
+        >
+          <button
+            type='button'
+            className='gallery-tile-preview'
+            onClick={() => onPreview(image)}
+            aria-label='打开图片预览'
+          >
             <img src={image.src} alt={image.revisedPrompt || image.prompt} />
           </button>
-          <div>
-            <strong>{image.mode === 'image' ? '图片引导' : '文生图'}</strong>
-            <span>{new Date(image.createdAt).toLocaleString()}</span>
+          <div className='gallery-tile-overlay'>
+            <div className='gallery-tile-copy'>
+              <strong>{image.mode === 'image' ? '图片引导' : '文生图'}</strong>
+              <span>{new Date(image.createdAt).toLocaleString()}</span>
+              <p>{image.revisedPrompt || image.prompt}</p>
+            </div>
+            <nav aria-label='图片操作'>
+              <button type='button' onClick={() => onDownload(image, index)} aria-label='下载图片'>
+                <Download size={14} />
+              </button>
+              <button type='button' onClick={() => onDelete(image.id)} aria-label='删除图片'>
+                <Trash2 size={14} />
+              </button>
+            </nav>
           </div>
-          <nav>
-            <button type='button' onClick={() => onDownload(image, index)} aria-label='下载图片'>
-              <Download size={14} />
-            </button>
-            <button type='button' onClick={() => onDelete(image.id)} aria-label='删除图片'>
-              <Trash2 size={14} />
-            </button>
-          </nav>
         </article>
       ))}
     </div>
