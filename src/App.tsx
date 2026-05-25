@@ -1325,6 +1325,7 @@ export function App() {
   const [commerceStyleImage, setCommerceStyleImage] = useState<ReferenceImage | null>(null)
   const [commerceDescription, setCommerceDescription] = useState('')
   const [commerceGenerateKind, setCommerceGenerateKind] = useState<'main' | 'detail'>('main')
+  const [commerceCategoryMode, setCommerceCategoryMode] = useState<'preset' | 'custom'>('preset')
   const [commerceCategoryLevel1, setCommerceCategoryLevel1] = useState('')
   const [commerceCategoryLevel2, setCommerceCategoryLevel2] = useState('')
   const [commerceCategoryLevel3, setCommerceCategoryLevel3] = useState('')
@@ -1361,7 +1362,8 @@ export function App() {
     commerceCategoryLevel2,
     commerceCategoryLevel3,
   ].filter(Boolean).join(' / ')
-  const effectiveCommerceCategoryPath = commerceCustomCategory.trim() || selectedCommerceCategoryPath
+  const effectiveCommerceCategoryPath =
+    commerceCategoryMode === 'custom' ? commerceCustomCategory.trim() : selectedCommerceCategoryPath
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) || canvases[0],
@@ -3243,13 +3245,40 @@ export function App() {
     <div className='commerce-category-field' aria-label='商品品类'>
       <div className='commerce-category-heading'>
         <strong>商品品类</strong>
-        <span>按真实类目选择，未收录时可直接填写自定义类目；生成时会作为提示词强约束</span>
+        <span>预设类目和自定义类目二选一，生成时会作为提示词强约束</span>
+      </div>
+      <div className='commerce-category-mode' role='group' aria-label='选择类目来源'>
+        <button
+          type='button'
+          className={commerceCategoryMode === 'preset' ? 'active' : ''}
+          onClick={() => {
+            setCommerceCategoryMode('preset')
+            setCommerceCustomCategory('')
+          }}
+          aria-pressed={commerceCategoryMode === 'preset'}
+        >
+          预设类目
+        </button>
+        <button
+          type='button'
+          className={commerceCategoryMode === 'custom' ? 'active' : ''}
+          onClick={() => {
+            setCommerceCategoryMode('custom')
+            setCommerceCategoryLevel1('')
+            setCommerceCategoryLevel2('')
+            setCommerceCategoryLevel3('')
+          }}
+          aria-pressed={commerceCategoryMode === 'custom'}
+        >
+          自定义类目
+        </button>
       </div>
       <div className='commerce-category-grid'>
         <label className='field'>
           <span>一级类目</span>
           <select
             value={commerceCategoryLevel1}
+            disabled={commerceCategoryMode === 'custom'}
             onChange={(event) => {
               setCommerceCategoryLevel1(event.target.value)
               setCommerceCategoryLevel2('')
@@ -3268,7 +3297,7 @@ export function App() {
           <span>二级类目</span>
           <select
             value={commerceCategoryLevel2}
-            disabled={!commerceCategoryLevel1}
+            disabled={commerceCategoryMode === 'custom' || !commerceCategoryLevel1}
             onChange={(event) => {
               setCommerceCategoryLevel2(event.target.value)
               setCommerceCategoryLevel3('')
@@ -3286,7 +3315,7 @@ export function App() {
           <span>三级类目</span>
           <select
             value={commerceCategoryLevel3}
-            disabled={!commerceCategoryLevel2}
+            disabled={commerceCategoryMode === 'custom' || !commerceCategoryLevel2}
             onChange={(event) => setCommerceCategoryLevel3(event.target.value)}
           >
             <option value=''>选择三级类目</option>
@@ -3299,9 +3328,10 @@ export function App() {
         </label>
       </div>
       <label className='field commerce-custom-category'>
-        <span>自定义类目（可选，优先使用）</span>
+        <span>自定义类目</span>
         <input
           value={commerceCustomCategory}
+          disabled={commerceCategoryMode === 'preset'}
           onChange={(event) => setCommerceCustomCategory(event.target.value)}
           placeholder='例如：食品饮料 / 地方特产 / 手工锅巴，或直接写“户外露营咖啡器具”'
         />

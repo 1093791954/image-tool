@@ -1504,6 +1504,35 @@ select:disabled {
   line-height: 1.55;
 }
 
+.commerce-category-mode {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(96px, 1fr));
+  gap: 6px;
+  justify-self: start;
+  min-width: 0;
+  padding: 4px;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.commerce-category-mode button {
+  min-height: 32px;
+  padding: 0 12px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.commerce-category-mode button.active {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--border-strong);
+}
+
 .commerce-category-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
