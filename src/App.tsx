@@ -1054,11 +1054,34 @@ function normalizeOptimizedPromptMentions(prompt: string, images: ReferenceImage
     .trim()
 }
 
+function blobFromDataUrl(src: string) {
+  const match = src.match(/^data:([^;,]+)?(;base64)?,(.*)$/)
+  if (!match) return null
+
+  const mimeType = match[1] || 'application/octet-stream'
+  const isBase64 = Boolean(match[2])
+  const payload = match[3] || ''
+  const binary = isBase64 ? atob(payload) : decodeURIComponent(payload)
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+  return new Blob([bytes], { type: mimeType })
+}
+
 function downloadDataUrl(src: string, filename: string) {
   const link = document.createElement('a')
-  link.href = src
+  const blob = blobFromDataUrl(src)
+  const url = blob ? URL.createObjectURL(blob) : src
+
+  link.href = url
   link.download = filename
+  link.rel = 'noopener'
+  link.style.display = 'none'
+  document.body.appendChild(link)
   link.click()
+  link.remove()
+
+  if (blob) {
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
 }
 
 function downloadJsonFile(data: unknown, filename: string) {
@@ -2472,7 +2495,8 @@ export function App() {
   }
 
   function handleDownloadImage(image: LocalImageRecord, index = 0) {
-    downloadDataUrl(image.src, `gpt-image-${index + 1}.png`)
+    downloadDataUrl(image.src, `${image.id || `gpt-image-${index + 1}`}.png`)
+    setStatus('已触发图片下载；Codex 内置浏览器可能不支持下载，请在系统浏览器中打开后保存')
   }
 
   function handleCreateCanvas() {
