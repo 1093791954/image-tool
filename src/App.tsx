@@ -89,6 +89,7 @@ const DEFAULT_TEXT_MODEL = 'gpt-5.5'
 const DEFAULT_PROMPT_OPTIMIZATION_PRESET: PromptOptimizationPreset = 'ecommerce'
 const CONSOLE_URL = 'https://cc.api-corp.top/'
 const GITHUB_REPO_URL = 'https://github.com/1093791954/image-tool'
+const MAX_COMMERCE_PRODUCT_IMAGES = 4
 const CONFIGURATION_NOTICE_MESSAGE =
   '请先在控制台补全生图 API Key 和模型，配置完成后再继续使用其他页面。'
 
@@ -1181,7 +1182,7 @@ export function App() {
   const [responseFormat, setResponseFormat] = useState<'url' | 'b64_json'>('b64_json')
   const [inputFidelity, setInputFidelity] = useState<'low' | 'high'>('high')
   const [simplePrompt, setSimplePrompt] = useState('')
-  const [commerceProductImage, setCommerceProductImage] = useState<ReferenceImage | null>(null)
+  const [commerceProductImages, setCommerceProductImages] = useState<ReferenceImage[]>([])
   const [commerceStyleImage, setCommerceStyleImage] = useState<ReferenceImage | null>(null)
   const [commerceDescription, setCommerceDescription] = useState('')
   const [canvases, setCanvases] = useState<WorkflowCanvas[]>(loadWorkflowCanvases)
@@ -2396,26 +2397,47 @@ export function App() {
     }
   }
 
-  async function handleCommerceImageFile(kind: 'product' | 'style', file?: File | null) {
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
+  async function handleCommerceImageFiles(kind: 'product' | 'style', files?: FileList | null) {
+    const selectedFiles = Array.from(files || [])
+    if (selectedFiles.length === 0) return
+    const invalidFile = selectedFiles.find((file) => !file.type.startsWith('image/'))
+    if (invalidFile) {
       setError('请上传图片文件')
       return
     }
 
-    const image: ReferenceImage = {
-      id: createLocalId(`commerce-${kind}`),
-      name: file.name,
-      title: kind === 'product' ? '商品白底图' : '目标风格图',
-      type: file.type,
-      dataUrl: await fileToDataUrl(file),
+    const limitedFiles =
+      kind === 'product'
+        ? selectedFiles.slice(0, Math.max(0, MAX_COMMERCE_PRODUCT_IMAGES - commerceProductImages.length))
+        : selectedFiles.slice(0, 1)
+    if (kind === 'product' && limitedFiles.length < selectedFiles.length) {
+      setStatus(`商品白底图最多上传 ${MAX_COMMERCE_PRODUCT_IMAGES} 张，已保留前 ${limitedFiles.length} 张`)
     }
+    if (limitedFiles.length === 0) return
+
+    const images: ReferenceImage[] = await Promise.all(
+      limitedFiles.map(async (file, index) => ({
+        id: createLocalId(`commerce-${kind}-${index}`),
+        name: file.name,
+        title:
+          kind === 'product'
+            ? `商品白底图 ${commerceProductImages.length + index + 1}`
+            : '目标风格图',
+        type: file.type,
+        dataUrl: await fileToDataUrl(file),
+      }))
+    )
 
     setError('')
     if (kind === 'product') {
-      setCommerceProductImage(image)
+      setCommerceProductImages((current) =>
+        [...current, ...images].slice(0, MAX_COMMERCE_PRODUCT_IMAGES).map((image, index) => ({
+          ...image,
+          title: `商品白底图 ${index + 1}`,
+        }))
+      )
     } else {
-      setCommerceStyleImage(image)
+      setCommerceStyleImage(images[0])
     }
   }
 
@@ -2430,8 +2452,8 @@ export function App() {
       setError('请输入 64 到 4096 之间的自定义宽高')
       return
     }
-    if (!commerceProductImage) {
-      setError('请先上传商品白底图')
+    if (commerceProductImages.length === 0) {
+      setError('请先上传至少 1 张商品白底图')
       return
     }
     if (!commerceStyleImage) {
@@ -2443,7 +2465,7 @@ export function App() {
       setStatus('缺少提示词预热秘钥')
       return
     }
-    const referenceImages = [commerceProductImage, commerceStyleImage]
+    const referenceImages = [...commerceProductImages, commerceStyleImage]
     const description = commerceDescription.trim()
 
     setError('')
@@ -2456,7 +2478,7 @@ export function App() {
         apiKey: codexApiKey,
         model: textModel.trim() || DEFAULT_TEXT_MODEL,
         description,
-        productImage: commerceProductImage,
+        productImages: commerceProductImages,
         styleImage: commerceStyleImage,
       })
       const prompt = preparedPrompt.trim() || buildCommerceMainPrompt(description)
@@ -3004,51 +3026,76 @@ export function App() {
   )
   const commerceCanGenerate =
     isConfigured &&
-    Boolean(commerceProductImage) &&
+    commerceProductImages.length > 0 &&
     Boolean(commerceStyleImage)
   const renderCommerceUpload = (
     kind: 'product' | 'style',
     label: string,
     hint: string,
-    image: ReferenceImage | null
+    images: ReferenceImage[]
   ) => (
-    <div className={`commerce-upload ${image ? 'filled' : ''}`}>
+    <div className={`commerce-upload ${images.length > 0 ? 'filled' : ''}`}>
       <div className='commerce-upload-copy'>
         <strong>{label}</strong>
         <span>{hint}</span>
       </div>
-      {image ? (
-        <div className='commerce-upload-preview'>
-          <img src={image.dataUrl} alt={label} />
-          <div>
-            <strong>{image.name}</strong>
-            <span>{image.type || '图片文件'}</span>
-          </div>
-          <button
-            type='button'
-            className='ghost'
-            onClick={() => {
-              if (kind === 'product') {
-                setCommerceProductImage(null)
-              } else {
-                setCommerceStyleImage(null)
-              }
-            }}
-            aria-label={`移除${label}`}
-          >
-            <X size={15} />
-          </button>
+      {images.length > 0 ? (
+        <div className='commerce-upload-preview-list'>
+          {images.map((image, index) => (
+            <div className='commerce-upload-preview' key={image.id}>
+              <img src={image.dataUrl} alt={kind === 'product' ? `${label} ${index + 1}` : label} />
+              <div>
+                <strong>{image.name}</strong>
+                <span>{kind === 'product' ? `角度 ${index + 1} · ` : ''}{image.type || '图片文件'}</span>
+              </div>
+              <button
+                type='button'
+                className='ghost'
+                onClick={() => {
+                  if (kind === 'product') {
+                    setCommerceProductImages((current) =>
+                      current
+                        .filter((item) => item.id !== image.id)
+                        .map((item, itemIndex) => ({
+                          ...item,
+                          title: `商品白底图 ${itemIndex + 1}`,
+                        }))
+                    )
+                  } else {
+                    setCommerceStyleImage(null)
+                  }
+                }}
+                aria-label={`移除${kind === 'product' ? `${label} ${index + 1}` : label}`}
+              >
+                <X size={15} />
+              </button>
+            </div>
+          ))}
         </div>
       ) : null}
-      <label className='secondary commerce-file-action'>
+      <label
+        className={`secondary commerce-file-action ${
+          kind === 'product' && images.length >= MAX_COMMERCE_PRODUCT_IMAGES ? 'disabled' : ''
+        }`}
+        aria-disabled={kind === 'product' && images.length >= MAX_COMMERCE_PRODUCT_IMAGES}
+      >
         <Upload size={15} />
-        {image ? '替换图片' : '上传图片'}
+        {kind === 'product'
+          ? images.length >= MAX_COMMERCE_PRODUCT_IMAGES
+            ? `已达上限（${MAX_COMMERCE_PRODUCT_IMAGES}/${MAX_COMMERCE_PRODUCT_IMAGES}）`
+            : images.length > 0
+            ? `继续上传（${images.length}/${MAX_COMMERCE_PRODUCT_IMAGES}）`
+            : `上传图片（最多 ${MAX_COMMERCE_PRODUCT_IMAGES} 张）`
+          : images.length > 0
+            ? '替换图片'
+            : '上传图片'}
         <input
           type='file'
           accept='image/*'
+          multiple={kind === 'product'}
+          disabled={kind === 'product' && images.length >= MAX_COMMERCE_PRODUCT_IMAGES}
           onChange={(event) => {
-            const file = event.target.files?.[0]
-            if (file) void handleCommerceImageFile(kind, file)
+            void handleCommerceImageFiles(kind, event.target.files)
             event.target.value = ''
           }}
         />
@@ -3560,14 +3607,14 @@ export function App() {
                   {renderCommerceUpload(
                     'product',
                     '商品白底图',
-                    '上传清晰白底商品图，系统会尽量保持商品本身一致。',
-                    commerceProductImage
+                    `上传同一个商品的白底图，可包含多个角度，最多 ${MAX_COMMERCE_PRODUCT_IMAGES} 张。`,
+                    commerceProductImages
                   )}
                   {renderCommerceUpload(
                     'style',
                     '目标风格图',
                     '上传你喜欢的主图风格，用于参考光线、背景和构图。',
-                    commerceStyleImage
+                    commerceStyleImage ? [commerceStyleImage] : []
                   )}
                 </div>
                 <label className='field'>

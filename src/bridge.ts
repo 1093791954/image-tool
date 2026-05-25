@@ -418,8 +418,8 @@ function commerceMainPromptUserText(payload: CommerceMainPromptPayload) {
   return `请完成电商主图提示词预处理：
 
 输入说明：
-1. 第一张图是【商品白底图】，是必须保留的商品主体依据。
-2. 第二张图是【目标风格图】，是构图、背景、光线、色彩、文字布局和商业氛围的参考图。
+1. 前 ${Math.max(1, payload.productImages.length)} 张图是【商品白底图】，可能包含同一个商品的多个角度，是必须保留的商品主体依据。
+2. 最后一张图是【目标风格图】，是构图、背景、光线、色彩、文字布局和商业氛围的参考图。
 3. 用户文字描述可能很少，也可能很多；请结合目标风格图进行修剪，只保留适合画面出现或影响视觉表达的信息。
 
 用户文字描述：
@@ -428,7 +428,7 @@ ${description}
 内部分析要求，不要输出分析过程：
 1. 识别目标风格图的构图、主体位置、背景层次、光线方向、材质质感、色彩倾向、摄影/设计风格。
 2. 识别目标风格图中可见的文字数量、位置、层级、排版方式和大致用途；如果用户文字描述里有适合替换到画面中的文案，则选择性替换目标风格图的文字；如果用户没有给明确可上图文字，则要求去除/弱化风格图文字，不要编造品牌、价格、参数、二维码。
-3. 最终提示词必须明确：用商品白底图中的商品替换目标风格图里的主商品/主物体，同时保留商品真实外观、结构、颜色、材质、比例和关键细节。
+3. 最终提示词必须明确：综合多张商品白底图理解同一商品的外观、结构和多角度细节，用该商品替换目标风格图里的主商品/主物体，同时保留商品真实外观、结构、颜色、材质、比例和关键细节。
 4. 目标风格图只迁移构图、背景、光线、色彩、视觉层级、文字版式和商业质感，不复制风格图中的商品品牌或无关元素。
 5. 输出提示词应适合图像编辑模型，强调“参考两张图完成商品替换和风格迁移”。
 
@@ -457,10 +457,10 @@ function commerceMainPromptMessages(payload: CommerceMainPromptPayload) {
           type: 'text',
           text: commerceMainPromptUserText(payload),
         },
-        {
+        ...payload.productImages.map((image) => ({
           type: 'image_url',
-          image_url: { url: payload.productImage.dataUrl },
-        },
+          image_url: { url: image.dataUrl },
+        })),
         {
           type: 'image_url',
           image_url: { url: payload.styleImage.dataUrl },
@@ -491,10 +491,10 @@ function commerceMainPromptResponsesRequestBody(payload: CommerceMainPromptPaylo
             type: 'input_text',
             text: commerceMainPromptUserText(payload),
           },
-          {
+          ...payload.productImages.map((image) => ({
             type: 'input_image',
-            image_url: payload.productImage.dataUrl,
-          },
+            image_url: image.dataUrl,
+          })),
           {
             type: 'input_image',
             image_url: payload.styleImage.dataUrl,

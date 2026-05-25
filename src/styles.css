@@ -1377,6 +1377,12 @@ select:disabled {
   border-radius: 8px;
 }
 
+.commerce-upload-preview-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
 .commerce-upload-preview img {
   width: 82px;
   height: 64px;
@@ -1420,6 +1426,12 @@ select:disabled {
 .commerce-file-action {
   justify-self: start;
   cursor: pointer;
+}
+
+.commerce-file-action.disabled {
+  cursor: default;
+  opacity: 0.68;
+  pointer-events: none;
 }
 
 .commerce-file-action input {
