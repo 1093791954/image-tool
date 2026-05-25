@@ -1019,29 +1019,6 @@ select:disabled {
   white-space: nowrap;
 }
 
-.workspace-topbar-side {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-}
-
-.workspace-actions {
-  display: flex;
-  flex: 0 0 auto;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
-  gap: 8px;
-  min-width: 0;
-}
-
-.workspace-actions .secondary {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
 .portal-topbar {
   position: sticky;
   top: 0;
@@ -3367,10 +3344,6 @@ select:disabled {
     right: 12px;
     left: auto;
     width: min(270px, calc(100% - 24px));
-  }
-
-  .workspace-topbar-side {
-    justify-content: flex-end;
   }
 
   .portal-topbar {
