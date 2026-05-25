@@ -3658,7 +3658,7 @@ export function App() {
                   <div className='gallery-hero-copy'>
                     <span>Local inspiration wall</span>
                     <h2>本地图库</h2>
-                    <p>把刚生成的作品铺成灵感墙，快速预览、下载、删除，也可以在底部继续写下一张图。</p>
+                    <p>把刚生成的作品铺成灵感墙，快速预览、下载和删除，集中整理本地生成结果。</p>
                   </div>
                   <div className='gallery-hero-stats' aria-label='图库统计'>
                     <div>
@@ -3673,7 +3673,7 @@ export function App() {
                 </div>
                 {images.length === 0 ? (
                   <div className='gallery-empty gallery-page-empty'>
-                    <span>生成结果会出现在这里，底部输入一句描述就能开始铺图。</span>
+                    <span>生成结果会出现在这里。</span>
                     <button
                       type='button'
                       className='secondary'
@@ -3692,38 +3692,6 @@ export function App() {
                     onDelete={(id) => void handleDeleteImage(id)}
                   />
                 )}
-                <div className='gallery-prompt-dock' aria-label='图库快捷生成'>
-                  <textarea
-                    value={simplePrompt}
-                    onChange={(event) => setSimplePrompt(event.target.value)}
-                    placeholder='描述你下一张想生成的图片，例如：未来感机械产品，棚拍硬光，强反光金属材质，夸张低机位透视'
-                    rows={2}
-                  />
-                  <div className='gallery-prompt-actions'>
-                    <button
-                      type='button'
-                      className='secondary'
-                      onClick={() => void handleOptimizeSimplePrompt()}
-                      disabled={isGenerating || isOptimizingSimplePrompt || !simplePrompt.trim()}
-                    >
-                      {isOptimizingSimplePrompt ? (
-                        <Loader2 className='spin' size={16} />
-                      ) : (
-                        <Edit3 size={16} />
-                      )}
-                      {isOptimizingSimplePrompt ? '优化中' : '优化'}
-                    </button>
-                    <button
-                      type='button'
-                      className='primary-action'
-                      onClick={() => void handleSimpleGenerate()}
-                      disabled={isGenerating || !isConfigured || !simplePrompt.trim()}
-                    >
-                      {isGenerating ? <Loader2 className='spin' size={16} /> : <Sparkles size={16} />}
-                      {isConfigured ? (isGenerating ? '生成中' : '生成') : '先配置'}
-                    </button>
-                  </div>
-                </div>
               </section>
             </section>
           ) : null}

@@ -1484,7 +1484,7 @@ select:disabled {
 
 .gallery-page {
   width: min(1480px, 100%);
-  padding-bottom: 112px;
+  padding-bottom: 24px;
 }
 
 .gallery-page-panel {
@@ -1588,50 +1588,6 @@ select:disabled {
   min-height: 380px;
   background: var(--field);
   border-color: var(--border-strong);
-}
-
-.gallery-prompt-dock {
-  position: sticky;
-  bottom: 14px;
-  z-index: 8;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 10px;
-  width: min(900px, calc(100% - 20px));
-  margin: 8px auto 0;
-  padding: 10px;
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
-  border: 1px solid var(--border-strong);
-  border-radius: 12px;
-  box-shadow: 0 22px 60px var(--shadow);
-  backdrop-filter: blur(18px);
-}
-
-.gallery-prompt-dock textarea {
-  width: 100%;
-  min-width: 0;
-  min-height: 54px;
-  max-height: 138px;
-  padding: 11px 12px;
-  color: var(--text);
-  background: var(--field);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  outline: none;
-  resize: vertical;
-  line-height: 1.55;
-}
-
-.gallery-prompt-dock textarea:focus {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px var(--focus);
-}
-
-.gallery-prompt-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .launchpad-grid {
@@ -3510,10 +3466,6 @@ select:disabled {
     font-size: 16px;
   }
 
-  .gallery-page {
-    padding-bottom: 126px;
-  }
-
   .gallery-page .gallery-strip {
     grid-template-columns: 1fr;
     grid-auto-rows: auto;
@@ -3533,17 +3485,6 @@ select:disabled {
 
   .gallery-strip p {
     display: none;
-  }
-
-  .gallery-prompt-dock {
-    grid-template-columns: 1fr;
-    width: 100%;
-    bottom: 8px;
-  }
-
-  .gallery-prompt-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
   }
 
   .launchpad-grid,
