@@ -199,7 +199,7 @@ type PaneMenu = {
   position: { x: number; y: number }
 } | null
 
-type AppView = 'home' | 'commerce-main' | 'commerce-detail' | 'console' | 'gallery' | 'workflow'
+type AppView = 'home' | 'commerce' | 'console' | 'gallery' | 'workflow'
 
 type WorkflowCanvas = {
   id: string
@@ -1324,6 +1324,7 @@ export function App() {
   const [commerceProductImages, setCommerceProductImages] = useState<ReferenceImage[]>([])
   const [commerceStyleImage, setCommerceStyleImage] = useState<ReferenceImage | null>(null)
   const [commerceDescription, setCommerceDescription] = useState('')
+  const [commerceGenerateKind, setCommerceGenerateKind] = useState<'main' | 'detail'>('main')
   const [commerceCategoryLevel1, setCommerceCategoryLevel1] = useState('')
   const [commerceCategoryLevel2, setCommerceCategoryLevel2] = useState('')
   const [commerceCategoryLevel3, setCommerceCategoryLevel3] = useState('')
@@ -3157,13 +3158,9 @@ export function App() {
       title: '快速生成',
       description: '用提示词和参数快速完成生图，结果自动进入图库管理。',
     },
-    'commerce-main': {
-      title: '主图制作',
-      description: '上传商品白底图和目标风格图，用少量描述生成电商主图。',
-    },
-    'commerce-detail': {
-      title: '详情图制作',
-      description: '上传商品白底图和详情风格图，用少量卖点生成电商详情图。',
+    commerce: {
+      title: '电商主题',
+      description: '上传商品白底图和目标风格图，选择主图或详情图后生成。',
     },
     console: {
       title: '控制台',
@@ -3179,34 +3176,14 @@ export function App() {
     <div className='sidebar-nav-group ecommerce-nav-group'>
       <button
         type='button'
-        className={`sidebar-submenu-trigger ${currentView === 'commerce-main' || currentView === 'commerce-detail' ? 'active' : ''}`}
-        aria-haspopup='menu'
+        className={currentView === 'commerce' ? 'active' : ''}
+        onClick={() => enterSidebarView('commerce')}
         aria-label='电商主题'
         title='电商主题'
       >
         <ShoppingBag size={16} />
         电商主题
       </button>
-      <div className='sidebar-submenu ecommerce-submenu' role='menu' aria-label='电商主题制作类型'>
-        <button
-          type='button'
-          role='menuitem'
-          className={currentView === 'commerce-main' ? 'active' : ''}
-          onClick={() => enterSidebarView('commerce-main')}
-          title='主图制作'
-        >
-          主图制作
-        </button>
-        <button
-          type='button'
-          role='menuitem'
-          className={currentView === 'commerce-detail' ? 'active' : ''}
-          onClick={() => enterSidebarView('commerce-detail')}
-          title='详情图制作'
-        >
-          详情图制作
-        </button>
-      </div>
     </div>
   )
   const commerceCanGenerate =
@@ -3214,8 +3191,7 @@ export function App() {
     commerceProductImages.length > 0 &&
     Boolean(commerceStyleImage) &&
     Boolean(commerceCategoryLevel3)
-  const isCommerceView = currentView === 'commerce-main' || currentView === 'commerce-detail'
-  const commerceGenerateKind = currentView === 'commerce-detail' ? 'detail' : 'main'
+  const isCommerceView = currentView === 'commerce'
   const commerceCopy = commerceGenerateKind === 'detail'
     ? {
         title: '详情图制作',
@@ -3233,6 +3209,34 @@ export function App() {
         descriptionPlaceholder: '可简单写卖点、文案或替换文字；留空时会根据目标风格图自动生成主图提示词',
         action: '生成主图',
       }
+  const renderCommerceKindField = () => (
+    <div className='commerce-kind-field' aria-label='生成类型'>
+      <div className='commerce-kind-copy'>
+        <strong>生成类型</strong>
+        <span>同一套素材和品类信息，在生成前选择主图或详情图</span>
+      </div>
+      <div className='commerce-kind-toggle' role='group' aria-label='选择生成类型'>
+        <button
+          type='button'
+          className={commerceGenerateKind === 'main' ? 'active' : ''}
+          onClick={() => setCommerceGenerateKind('main')}
+          aria-pressed={commerceGenerateKind === 'main'}
+        >
+          <ImageIcon size={15} />
+          主图
+        </button>
+        <button
+          type='button'
+          className={commerceGenerateKind === 'detail' ? 'active' : ''}
+          onClick={() => setCommerceGenerateKind('detail')}
+          aria-pressed={commerceGenerateKind === 'detail'}
+        >
+          <Layers size={15} />
+          详情图
+        </button>
+      </div>
+    </div>
+  )
   const renderCommerceCategoryField = () => (
     <div className='commerce-category-field' aria-label='商品品类'>
       <div className='commerce-category-heading'>
@@ -3867,8 +3871,9 @@ export function App() {
               <section className='portal-panel commerce-composer'>
                 <div className='section-title'>
                   <ShoppingBag size={16} />
-                  <span>{commerceCopy.title}</span>
+                  <span>电商主题</span>
                 </div>
+                {renderCommerceKindField()}
                 <div className='commerce-upload-grid'>
                   {renderCommerceUpload(
                     'product',

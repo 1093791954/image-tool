@@ -1348,6 +1348,68 @@ select:disabled {
   border-style: solid;
 }
 
+.commerce-kind-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.commerce-kind-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.commerce-kind-copy strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.commerce-kind-copy span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.commerce-kind-toggle {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(86px, 1fr));
+  gap: 6px;
+  min-width: 0;
+  padding: 4px;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.commerce-kind-toggle button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.commerce-kind-toggle button.active {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-soft);
+}
+
 .commerce-upload-copy {
   display: grid;
   gap: 4px;
@@ -3437,6 +3499,7 @@ select:disabled {
   }
 
   .commerce-upload-grid,
+  .commerce-kind-field,
   .commerce-category-grid {
     grid-template-columns: 1fr;
   }
@@ -3502,6 +3565,7 @@ select:disabled {
 
   .launchpad-grid,
   .commerce-upload-grid,
+  .commerce-kind-field,
   .commerce-category-grid,
   .simple-param-grid,
   .simple-actions,
