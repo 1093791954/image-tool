@@ -1,4 +1,5 @@
 import type {
+  CommerceMainPromptPayload,
   ImageApiClient,
   ImageGenerationPayload,
   ImageGenerationResult,
@@ -408,6 +409,104 @@ function promptOptimizationMessages(payload: PromptOptimizationPayload) {
   ]
 }
 
+function commerceMainPromptSystemInstruction() {
+  return '你是资深电商主图视觉导演、商业修图提示词工程师和多模态图像分析师。你的任务是分析商品白底图和目标风格图，然后输出一段可直接用于图像编辑/图像参考生成模型的中文提示词。最终只输出提示词正文，不解释过程，不写 Markdown，不使用代码块。'
+}
+
+function commerceMainPromptUserText(payload: CommerceMainPromptPayload) {
+  const description = payload.description.trim() || '用户未填写额外文字描述。'
+  return `请完成电商主图提示词预处理：
+
+输入说明：
+1. 第一张图是【商品白底图】，是必须保留的商品主体依据。
+2. 第二张图是【目标风格图】，是构图、背景、光线、色彩、文字布局和商业氛围的参考图。
+3. 用户文字描述可能很少，也可能很多；请结合目标风格图进行修剪，只保留适合画面出现或影响视觉表达的信息。
+
+用户文字描述：
+${description}
+
+内部分析要求，不要输出分析过程：
+1. 识别目标风格图的构图、主体位置、背景层次、光线方向、材质质感、色彩倾向、摄影/设计风格。
+2. 识别目标风格图中可见的文字数量、位置、层级、排版方式和大致用途；如果用户文字描述里有适合替换到画面中的文案，则选择性替换目标风格图的文字；如果用户没有给明确可上图文字，则要求去除/弱化风格图文字，不要编造品牌、价格、参数、二维码。
+3. 最终提示词必须明确：用商品白底图中的商品替换目标风格图里的主商品/主物体，同时保留商品真实外观、结构、颜色、材质、比例和关键细节。
+4. 目标风格图只迁移构图、背景、光线、色彩、视觉层级、文字版式和商业质感，不复制风格图中的商品品牌或无关元素。
+5. 输出提示词应适合图像编辑模型，强调“参考两张图完成商品替换和风格迁移”。
+
+输出结构必须包含这些段落标题：
+【核心任务】
+【商品保持】
+【风格迁移】
+【文字处理】
+【构图光线】
+【画质要求】
+【负面约束】
+
+总体控制在 450 到 900 个中文字符。`
+}
+
+function commerceMainPromptMessages(payload: CommerceMainPromptPayload) {
+  return [
+    {
+      role: 'system',
+      content: commerceMainPromptSystemInstruction(),
+    },
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: commerceMainPromptUserText(payload),
+        },
+        {
+          type: 'image_url',
+          image_url: { url: payload.productImage.dataUrl },
+        },
+        {
+          type: 'image_url',
+          image_url: { url: payload.styleImage.dataUrl },
+        },
+      ],
+    },
+  ]
+}
+
+function commerceMainPromptRequestBody(payload: CommerceMainPromptPayload) {
+  return {
+    model: payload.model,
+    messages: commerceMainPromptMessages(payload),
+    temperature: 0.4,
+    stream: false,
+  }
+}
+
+function commerceMainPromptResponsesRequestBody(payload: CommerceMainPromptPayload) {
+  return {
+    model: payload.model,
+    instructions: commerceMainPromptSystemInstruction(),
+    input: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text: commerceMainPromptUserText(payload),
+          },
+          {
+            type: 'input_image',
+            image_url: payload.productImage.dataUrl,
+          },
+          {
+            type: 'input_image',
+            image_url: payload.styleImage.dataUrl,
+          },
+        ],
+      },
+    ],
+    temperature: 0.4,
+    stream: false,
+  }
+}
+
 export const bridge: ImageApiClient = {
   async openExternal(url) {
     window.open(url, '_blank', 'noopener,noreferrer')
@@ -467,6 +566,51 @@ export const bridge: ImageApiClient = {
         content?: unknown
         text?: unknown
       }>(fallbackResponse, 'Prompt optimization fallback failed')
+      try {
+        return await parsePromptOptimizationResult(fallbackBody)
+      } catch (fallbackError) {
+        if (isEmptyPromptOptimizationError(fallbackError)) {
+          throw new Error(
+            `${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}；chat/completions 也返回空结果：${chatErrorMessage}`
+          )
+        }
+        throw fallbackError
+      }
+    }
+  },
+
+  async prepareCommerceMainPrompt(payload) {
+    const baseUrl = normalizeBaseUrl(payload.baseUrl)
+    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: headers(payload.apiKey),
+      body: JSON.stringify(commerceMainPromptRequestBody(payload)),
+    })
+    const body = await parseJsonResponse<{
+      choices?: Array<{ message?: { content?: string }; text?: string }>
+      output_text?: unknown
+      output?: unknown
+      content?: unknown
+      text?: unknown
+    }>(response, 'Commerce prompt preparation failed')
+    try {
+      return await parsePromptOptimizationResult(body)
+    } catch (error) {
+      if (!isEmptyPromptOptimizationError(error)) throw error
+      const chatErrorMessage = error instanceof Error ? error.message : String(error)
+
+      const fallbackResponse = await fetch(`${baseUrl}/v1/responses`, {
+        method: 'POST',
+        headers: headers(payload.apiKey),
+        body: JSON.stringify(commerceMainPromptResponsesRequestBody(payload)),
+      })
+      const fallbackBody = await parseJsonResponse<{
+        choices?: Array<{ message?: { content?: string }; text?: string }>
+        output_text?: unknown
+        output?: unknown
+        content?: unknown
+        text?: unknown
+      }>(fallbackResponse, 'Commerce prompt preparation fallback failed')
       try {
         return await parsePromptOptimizationResult(fallbackBody)
       } catch (fallbackError) {

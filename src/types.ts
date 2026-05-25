@@ -118,6 +118,15 @@ export type PromptOptimizationPayload = {
   optimizationPreset: PromptOptimizationPreset
 }
 
+export type CommerceMainPromptPayload = {
+  baseUrl: string
+  apiKey: string
+  model: string
+  description: string
+  productImage: ReferenceImage
+  styleImage: ReferenceImage
+}
+
 export type LocalImageRecord = {
   id: string
   src: string
@@ -144,6 +153,7 @@ export type ImageApiClient = {
     payload: ManagedNewApiLoginPayload
   ) => Promise<ManagedNewApiLoginResult>
   optimizePrompt: (payload: PromptOptimizationPayload) => Promise<string>
+  prepareCommerceMainPrompt: (payload: CommerceMainPromptPayload) => Promise<string>
   listStyles: () => Promise<StyleLibraryResult>
   generateImages: (
     payload: ImageGenerationPayload

@@ -138,11 +138,13 @@ function sizeOptionLabel(option: (typeof sizeOptions)[number]) {
 }
 
 function buildCommerceMainPrompt(description: string) {
+  const trimmedDescription = description.trim() || '用户未填写额外文字描述。'
   return [
     '你是一名资深电商视觉设计师，请基于参考图生成一张电商商品主图。',
     '参考图中的商品白底图是商品主体依据，必须保持商品外观、结构、颜色、材质和关键细节真实一致，不要改变商品本身。',
     '目标风格图只用于迁移构图节奏、光线氛围、背景质感、色彩倾向和视觉高级感，不要复制风格图中的商品或品牌元素。',
-    `商品信息和主图诉求：${description}`,
+    '根据目标风格图完成商品替换；如果风格图中有文字，只在用户描述提供明确文案时选择性替换，否则去除或弱化原图文字。',
+    `商品信息和主图诉求：${trimmedDescription}`,
     '画面要求：主体清晰醒目，构图稳定，适合电商列表首图；背景干净但有质感，光影自然，边缘干净，产品比例合理。',
     '不要生成无关文字、水印、Logo、价格、二维码或平台界面元素。输出应像真实商业摄影和精修后的电商主图。',
   ].join('\n')
@@ -2436,20 +2438,30 @@ export function App() {
       setError('请先上传目标风格图')
       return
     }
-    const description = commerceDescription.trim()
-    if (!description) {
-      setError('请补充商品描述或主图诉求')
+    if (!codexApiKey) {
+      setError('请先点击连接配置里的登录，获取用于主图提示词预热的文本模型秘钥')
+      setStatus('缺少提示词预热秘钥')
       return
     }
-
-    const prompt = buildCommerceMainPrompt(description)
     const referenceImages = [commerceProductImage, commerceStyleImage]
+    const description = commerceDescription.trim()
 
     setError('')
     setIsGenerating(true)
-    setStatus('正在生成电商主图...')
+    setStatus('正在分析目标风格图...')
 
     try {
+      const preparedPrompt = await bridge.prepareCommerceMainPrompt({
+        baseUrl,
+        apiKey: codexApiKey,
+        model: textModel.trim() || DEFAULT_TEXT_MODEL,
+        description,
+        productImage: commerceProductImage,
+        styleImage: commerceStyleImage,
+      })
+      const prompt = preparedPrompt.trim() || buildCommerceMainPrompt(description)
+      setStatus('提示词预热完成，正在生成电商主图...')
+
       const result = await bridge.generateImages({
         baseUrl,
         apiKey,
@@ -2993,8 +3005,7 @@ export function App() {
   const commerceCanGenerate =
     isConfigured &&
     Boolean(commerceProductImage) &&
-    Boolean(commerceStyleImage) &&
-    Boolean(commerceDescription.trim())
+    Boolean(commerceStyleImage)
   const renderCommerceUpload = (
     kind: 'product' | 'style',
     label: string,
@@ -3560,12 +3571,12 @@ export function App() {
                   )}
                 </div>
                 <label className='field'>
-                  <span>文字描述</span>
+                  <span>文字描述（可选）</span>
                   <textarea
                     className='commerce-description'
                     value={commerceDescription}
                     onChange={(event) => setCommerceDescription(event.target.value)}
-                    placeholder='例如：一款 316 不锈钢保温杯，强调高端商务、保温持久、适合办公室和通勤场景'
+                    placeholder='可简单写卖点、文案或替换文字；留空时会根据目标风格图自动生成主图提示词'
                   />
                 </label>
                 <div className='simple-param-grid commerce-param-grid'>
