@@ -3444,44 +3444,40 @@ export function App() {
           />
 
           <section className={`app-workspace ${currentView === 'gallery' ? 'gallery-workspace' : ''}`}>
-            <header className='workspace-topbar'>
-              <div className='workspace-title'>
-                <h1>{portalMeta.title}</h1>
-                <p>{portalMeta.description}</p>
-              </div>
-              <div className='workspace-topbar-side'>
-                <div className='workspace-actions'>
-                  {activePortalView === 'home' ? (
-                    <>
-                      <button type='button' className='secondary' onClick={() => enterConfiguredView('console')}>
-                        <KeyRound size={16} />
-                        配置
-                      </button>
+            {currentView !== 'gallery' ? (
+              <header className='workspace-topbar'>
+                <div className='workspace-title'>
+                  <h1>{portalMeta.title}</h1>
+                  <p>{portalMeta.description}</p>
+                </div>
+                <div className='workspace-topbar-side'>
+                  <div className='workspace-actions'>
+                    {activePortalView === 'home' ? (
+                      <>
+                        <button type='button' className='secondary' onClick={() => enterConfiguredView('console')}>
+                          <KeyRound size={16} />
+                          配置
+                        </button>
+                        <button type='button' className='secondary' onClick={() => enterConfiguredView('gallery')}>
+                          <Layers size={16} />
+                          图库
+                        </button>
+                      </>
+                    ) : null}
+                    {activePortalView === 'commerce-main' ? (
                       <button type='button' className='secondary' onClick={() => enterConfiguredView('gallery')}>
                         <Layers size={16} />
                         图库
                       </button>
-                    </>
-                  ) : null}
-                  {activePortalView === 'commerce-main' ? (
-                    <button type='button' className='secondary' onClick={() => enterConfiguredView('gallery')}>
-                      <Layers size={16} />
-                      图库
+                    ) : null}
+                    <button type='button' className='secondary' onClick={() => enterConfiguredView('workflow')}>
+                      <Workflow size={16} />
+                      工作流
                     </button>
-                  ) : null}
-                  {activePortalView === 'gallery' ? (
-                    <button type='button' className='secondary' onClick={() => enterConfiguredView('home')}>
-                      <Home size={16} />
-                      快速生成
-                    </button>
-                  ) : null}
-                  <button type='button' className='secondary' onClick={() => enterConfiguredView('workflow')}>
-                    <Workflow size={16} />
-                    工作流
-                  </button>
+                  </div>
                 </div>
-              </div>
-            </header>
+              </header>
+            ) : null}
 
           {currentView === 'home' ? (
             <section className='launchpad'>

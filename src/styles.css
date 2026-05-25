@@ -1479,6 +1479,7 @@ select:disabled {
 }
 
 .gallery-workspace {
+  grid-template-rows: minmax(0, 1fr);
   background: transparent;
 }
 
