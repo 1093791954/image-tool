@@ -213,16 +213,89 @@ async function parseImageResult(
   return { images }
 }
 
+function extractTextContent(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === 'string') return item
+        if (!item || typeof item !== 'object') return ''
+        const record = item as Record<string, unknown>
+        return (
+          extractTextContent(record.text) ||
+          extractTextContent(record.content) ||
+          extractTextContent(record.value)
+        )
+      })
+      .filter(Boolean)
+      .join('\n')
+  }
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return (
+      extractTextContent(record.text) ||
+      extractTextContent(record.content) ||
+      extractTextContent(record.value)
+    )
+  }
+  return ''
+}
+
+function summarizePromptOptimizationResponse(body: unknown) {
+  if (!body || typeof body !== 'object') return '空对象'
+  const record = body as Record<string, unknown>
+  const choices = Array.isArray(record.choices) ? record.choices : []
+  const firstChoice = choices[0] as Record<string, unknown> | undefined
+  const message =
+    firstChoice?.message && typeof firstChoice.message === 'object'
+      ? (firstChoice.message as Record<string, unknown>)
+      : null
+  const messageKeys = message ? Object.keys(message).join(',') || '无' : '无 message'
+  const outputCount = Array.isArray(record.output) ? record.output.length : 0
+  return `choices=${choices.length}, finish_reason=${String(firstChoice?.finish_reason || '无')}, message_keys=${messageKeys}, output=${outputCount}`
+}
+
 async function parsePromptOptimizationResult(body: {
-  choices?: Array<{ message?: { content?: string }; text?: string }>
+  choices?: Array<{
+    message?: {
+      content?: unknown
+      text?: unknown
+      refusal?: unknown
+      reasoning_content?: unknown
+    }
+    delta?: { content?: unknown }
+    text?: unknown
+    finish_reason?: string
+  }>
+  output_text?: unknown
+  output?: unknown
+  content?: unknown
+  text?: unknown
 }) {
-  const content = body.choices?.[0]?.message?.content || body.choices?.[0]?.text || ''
+  const firstChoice = body.choices?.[0]
+  const content =
+    extractTextContent(firstChoice?.message?.content) ||
+    extractTextContent(firstChoice?.message?.text) ||
+    extractTextContent(firstChoice?.delta?.content) ||
+    extractTextContent(firstChoice?.text) ||
+    extractTextContent(body.output_text) ||
+    extractTextContent(body.output) ||
+    extractTextContent(body.content) ||
+    extractTextContent(body.text)
   const optimizedPrompt = content
     .trim()
     .replace(/^```(?:[\w-]+)?\s*/i, '')
     .replace(/\s*```$/i, '')
     .trim()
-  if (!optimizedPrompt) throw new Error('模型没有返回优化后的提示词')
+  if (!optimizedPrompt) {
+    const refusal = extractTextContent(firstChoice?.message?.refusal)
+    if (refusal) throw new Error(`模型拒绝返回优化后的提示词：${refusal}`)
+    const reasoning = extractTextContent(firstChoice?.message?.reasoning_content)
+    if (reasoning) {
+      throw new Error('模型只返回了推理内容，没有返回最终提示词。请重试，或在控制台换一个普通聊天模型。')
+    }
+    throw new Error(`模型没有返回优化后的提示词（${summarizePromptOptimizationResponse(body)}）`)
+  }
   return optimizedPrompt
 }
 
