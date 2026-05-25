@@ -652,7 +652,7 @@ export const bridge: ImageApiClient = {
         form.set('input_fidelity', payload.inputFidelity)
       }
       references.forEach((image) => {
-        form.append('image[]', blobFromDataUrl(image.dataUrl), image.name)
+        form.append('image', blobFromDataUrl(image.dataUrl), image.name)
       })
 
       const response = await fetch(openAiImageProxyUrl('edits', payload.baseUrl), {

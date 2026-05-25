@@ -92,6 +92,7 @@ const GITHUB_REPO_URL = 'https://github.com/1093791954/image-tool'
 const MAX_COMMERCE_PRODUCT_IMAGES = 4
 const COMMERCE_REFERENCE_MAX_SIDE = 1600
 const COMMERCE_REFERENCE_JPEG_QUALITY = 0.86
+const COMMERCE_PRODUCT_SHEET_SIZE = 1600
 const CONFIGURATION_NOTICE_MESSAGE =
   '请先在控制台补全生图 API Key 和模型，配置完成后再继续使用其他页面。'
 
@@ -150,6 +151,18 @@ function buildCommerceMainPrompt(description: string) {
     `商品信息和主图诉求：${trimmedDescription}`,
     '画面要求：主体清晰醒目，构图稳定，适合电商列表首图；背景干净但有质感，光影自然，边缘干净，产品比例合理。',
     '不要生成无关文字、水印、Logo、价格、二维码或平台界面元素。输出应像真实商业摄影和精修后的电商主图。',
+  ].join('\n')
+}
+
+function buildCommerceEditPrompt(prompt: string, productImageCount: number) {
+  if (productImageCount <= 1) return prompt
+  return [
+    '【参考图输入说明】',
+    `第一张参考图是同一商品的 ${productImageCount} 个白底角度合成参考板，用于理解商品真实外观、结构、包装文字、材质和细节。`,
+    '第二张参考图是目标风格图，用于迁移构图、背景、光影、色彩和画面氛围。',
+    '生成时不要保留参考板的拼图排版、边框或分隔线，只提取商品主体并替换到目标风格图对应位置。',
+    '',
+    prompt,
   ].join('\n')
 }
 
@@ -1147,6 +1160,75 @@ async function fileToCommerceReferenceDataUrl(file: File) {
     return fileToDataUrl(file)
   } finally {
     URL.revokeObjectURL(url)
+  }
+}
+
+function drawImageContained(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+) {
+  const imageRatio = image.naturalWidth / image.naturalHeight
+  const frameRatio = width / height
+  const drawWidth = imageRatio > frameRatio ? width : height * imageRatio
+  const drawHeight = imageRatio > frameRatio ? width / imageRatio : height
+  const drawX = x + (width - drawWidth) / 2
+  const drawY = y + (height - drawHeight) / 2
+  context.drawImage(image, drawX, drawY, drawWidth, drawHeight)
+}
+
+async function buildCommerceProductReferenceImage(images: ReferenceImage[]) {
+  if (images.length <= 1) return images[0]
+
+  const loadedImages = await Promise.all(images.map((image) => loadLocalImage(image.dataUrl)))
+  const canvas = document.createElement('canvas')
+  canvas.width = COMMERCE_PRODUCT_SHEET_SIZE
+  canvas.height = COMMERCE_PRODUCT_SHEET_SIZE
+
+  const context = canvas.getContext('2d')
+  if (!context) return images[0]
+
+  context.fillStyle = '#ffffff'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+
+  const columns = images.length <= 2 ? images.length : 2
+  const rows = Math.ceil(images.length / columns)
+  const padding = 44
+  const gap = 28
+  const labelHeight = 48
+  const cellWidth = (canvas.width - padding * 2 - gap * (columns - 1)) / columns
+  const cellHeight = (canvas.height - padding * 2 - gap * (rows - 1)) / rows
+
+  context.font = '26px Arial, sans-serif'
+  context.textAlign = 'left'
+  context.textBaseline = 'middle'
+
+  loadedImages.forEach((image, index) => {
+    const column = index % columns
+    const row = Math.floor(index / columns)
+    const x = padding + column * (cellWidth + gap)
+    const y = padding + row * (cellHeight + gap)
+
+    context.fillStyle = '#f7f8fb'
+    context.fillRect(x, y, cellWidth, cellHeight)
+    context.strokeStyle = '#d7dbe5'
+    context.lineWidth = 2
+    context.strokeRect(x, y, cellWidth, cellHeight)
+
+    context.fillStyle = '#3d4557'
+    context.fillText(`product angle ${index + 1}`, x + 18, y + labelHeight / 2)
+    drawImageContained(context, image, x + 18, y + labelHeight, cellWidth - 36, cellHeight - labelHeight - 18)
+  })
+
+  return {
+    id: createLocalId('commerce-product-sheet'),
+    name: 'commerce-product-reference-sheet.jpg',
+    title: `商品多角度参考图（${images.length} 张）`,
+    type: 'image/jpeg',
+    dataUrl: canvas.toDataURL('image/jpeg', COMMERCE_REFERENCE_JPEG_QUALITY),
   }
 }
 
@@ -2503,7 +2585,6 @@ export function App() {
       setStatus('缺少提示词预热秘钥')
       return
     }
-    const referenceImages = [...commerceProductImages, commerceStyleImage]
     const description = commerceDescription.trim()
 
     setError('')
@@ -2519,8 +2600,16 @@ export function App() {
         productImages: commerceProductImages,
         styleImage: commerceStyleImage,
       })
-      const prompt = preparedPrompt.trim() || buildCommerceMainPrompt(description)
-      setStatus('提示词预热完成，正在生成电商主图...')
+      const basePrompt = preparedPrompt.trim() || buildCommerceMainPrompt(description)
+      const prompt = buildCommerceEditPrompt(basePrompt, commerceProductImages.length)
+      setStatus(
+        commerceProductImages.length > 1
+          ? '提示词预热完成，正在合成商品多角度参考图...'
+          : '提示词预热完成，正在生成电商主图...'
+      )
+      const productReferenceImage = await buildCommerceProductReferenceImage(commerceProductImages)
+      const referenceImages = [productReferenceImage, commerceStyleImage]
+      setStatus('正在生成电商主图...')
 
       const result = await bridge.generateImages({
         baseUrl,
