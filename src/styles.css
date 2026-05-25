@@ -380,19 +380,6 @@ select:disabled {
   align-items: center;
 }
 
-.workflow-stage > .react-flow {
-  height: 100%;
-  transition: width 180ms ease;
-}
-
-.workflow-canvas-panel.drawer-open + .react-flow {
-  width: calc(100% - 320px) !important;
-}
-
-.workflow-canvas-panel.drawer-collapsed + .react-flow {
-  width: calc(100% - 64px) !important;
-}
-
 .react-flow {
   background:
     linear-gradient(rgb(255 255 255 / 3%) 1px, transparent 1px),
@@ -3271,10 +3258,6 @@ select:disabled {
 
   .workflow-canvas-panel.drawer-open {
     width: min(300px, calc(100vw - 88px));
-  }
-
-  .workflow-canvas-panel.drawer-open + .react-flow {
-    width: max(88px, calc(100% - min(300px, calc(100vw - 88px)))) !important;
   }
 
   .workflow-canvas-panel.drawer-collapsed {
