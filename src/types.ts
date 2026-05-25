@@ -127,6 +127,8 @@ export type CommerceMainPromptPayload = {
   styleImage: ReferenceImage
 }
 
+export type CommerceDetailPromptPayload = CommerceMainPromptPayload
+
 export type LocalImageRecord = {
   id: string
   src: string
@@ -154,6 +156,7 @@ export type ImageApiClient = {
   ) => Promise<ManagedNewApiLoginResult>
   optimizePrompt: (payload: PromptOptimizationPayload) => Promise<string>
   prepareCommerceMainPrompt: (payload: CommerceMainPromptPayload) => Promise<string>
+  prepareCommerceDetailPrompt: (payload: CommerceDetailPromptPayload) => Promise<string>
   listStyles: () => Promise<StyleLibraryResult>
   generateImages: (
     payload: ImageGenerationPayload

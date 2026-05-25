@@ -154,12 +154,26 @@ function buildCommerceMainPrompt(description: string) {
   ].join('\n')
 }
 
-function buildCommerceEditPrompt(prompt: string, productImageCount: number) {
+function buildCommerceDetailPrompt(description: string) {
+  const trimmedDescription = description.trim() || '用户未填写额外文字描述。'
+  return [
+    '你是一名资深电商详情页视觉设计师，请基于参考图生成一张商品详情图。',
+    '参考图中的商品白底图是商品主体依据，必须保持商品外观、结构、包装、颜色、材质和关键细节真实一致，不要改变商品本身。',
+    '目标详情风格图只用于迁移详情页版式、分区节奏、背景质感、光线氛围、色彩倾向、道具关系和文字排版，不要复制风格图中的商品或品牌元素。',
+    '画面应像电商详情页中的一屏核心卖点图：有清晰主视觉、短卖点文案、局部细节或场景辅助展示，层级清楚，适合用户继续向下浏览。',
+    `商品信息和详情图诉求：${trimmedDescription}`,
+    '文字只使用用户明确提供的短句，按目标风格图的文字区域选择性排版；没有足够文案时减少文字，不要编造品牌、功效、认证、价格、二维码或平台界面元素。',
+    '输出应像真实商业精修后的电商详情图，干净、高级、信息明确，避免长段文字、低清、错字、水印和无关 Logo。',
+  ].join('\n')
+}
+
+function buildCommerceEditPrompt(prompt: string, productImageCount: number, kind: 'main' | 'detail') {
   if (productImageCount <= 1) return prompt
+  const styleLabel = kind === 'detail' ? '目标详情风格图' : '目标风格图'
   return [
     '【参考图输入说明】',
     `第一张参考图是同一商品的 ${productImageCount} 个白底角度合成参考板，用于理解商品真实外观、结构、包装文字、材质和细节。`,
-    '第二张参考图是目标风格图，用于迁移构图、背景、光影、色彩和画面氛围。',
+    `第二张参考图是${styleLabel}，用于迁移构图、背景、光影、色彩、版式层级和画面氛围。`,
     '生成时不要保留参考板的拼图排版、边框或分隔线，只提取商品主体并替换到目标风格图对应位置。',
     '',
     prompt,
@@ -180,7 +194,7 @@ type PaneMenu = {
   position: { x: number; y: number }
 } | null
 
-type AppView = 'home' | 'commerce-main' | 'console' | 'gallery' | 'workflow'
+type AppView = 'home' | 'commerce-main' | 'commerce-detail' | 'console' | 'gallery' | 'workflow'
 
 type WorkflowCanvas = {
   id: string
@@ -2561,7 +2575,9 @@ export function App() {
     }
   }
 
-  async function handleCommerceMainGenerate() {
+  async function handleCommerceGenerate(kind: 'main' | 'detail') {
+    const isDetail = kind === 'detail'
+    const outputLabel = isDetail ? '电商详情图' : '电商主图'
     if (!isConfigured) {
       setError('')
       setCurrentView('console')
@@ -2581,7 +2597,7 @@ export function App() {
       return
     }
     if (!codexApiKey) {
-      setError('请先点击连接配置里的登录，获取用于主图提示词预热的文本模型秘钥')
+      setError(`请先点击连接配置里的登录，获取用于${isDetail ? '详情图' : '主图'}提示词预热的文本模型秘钥`)
       setStatus('缺少提示词预热秘钥')
       return
     }
@@ -2589,34 +2605,37 @@ export function App() {
 
     setError('')
     setIsGenerating(true)
-    setStatus('正在分析目标风格图...')
+    setStatus(`正在分析目标${isDetail ? '详情' : ''}风格图...`)
 
     try {
       let preparedPrompt = ''
       try {
-        preparedPrompt = await bridge.prepareCommerceMainPrompt({
+        const promptPayload = {
           baseUrl,
           apiKey: codexApiKey,
           model: textModel.trim() || DEFAULT_TEXT_MODEL,
           description,
           productImages: commerceProductImages,
           styleImage: commerceStyleImage,
-        })
+        }
+        preparedPrompt = isDetail
+          ? await bridge.prepareCommerceDetailPrompt(promptPayload)
+          : await bridge.prepareCommerceMainPrompt(promptPayload)
       } catch (promptError) {
         const promptMessage = promptError instanceof Error ? promptError.message : String(promptError)
         console.warn('Commerce prompt preparation failed, falling back to local prompt:', promptMessage)
         setStatus('提示词预热失败，正在使用本地结构化提示词继续生成...')
       }
-      const basePrompt = preparedPrompt.trim() || buildCommerceMainPrompt(description)
-      const prompt = buildCommerceEditPrompt(basePrompt, commerceProductImages.length)
+      const basePrompt = preparedPrompt.trim() || (isDetail ? buildCommerceDetailPrompt(description) : buildCommerceMainPrompt(description))
+      const prompt = buildCommerceEditPrompt(basePrompt, commerceProductImages.length, kind)
       setStatus(
         commerceProductImages.length > 1
           ? '提示词预热完成，正在合成商品多角度参考图...'
-          : '提示词预热完成，正在生成电商主图...'
+          : `提示词预热完成，正在生成${outputLabel}...`
       )
       const productReferenceImage = await buildCommerceProductReferenceImage(commerceProductImages)
       const referenceImages = [productReferenceImage, commerceStyleImage]
-      setStatus('正在生成电商主图...')
+      setStatus(`正在生成${outputLabel}...`)
 
       const result = await bridge.generateImages({
         baseUrl,
@@ -2642,7 +2661,7 @@ export function App() {
       })
       await saveImages(records)
       await refreshImages()
-      setStatus(`已生成 ${records.length} 张电商主图`)
+      setStatus(`已生成 ${records.length} 张${outputLabel}`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
@@ -3120,6 +3139,10 @@ export function App() {
       title: '主图制作',
       description: '上传商品白底图和目标风格图，用少量描述生成电商主图。',
     },
+    'commerce-detail': {
+      title: '详情图制作',
+      description: '上传商品白底图和详情风格图，用少量卖点生成电商详情图。',
+    },
     console: {
       title: '控制台',
       description: '管理连接、模型和本地数据导入导出。',
@@ -3134,7 +3157,7 @@ export function App() {
     <div className='sidebar-nav-group ecommerce-nav-group'>
       <button
         type='button'
-        className={`sidebar-submenu-trigger ${currentView === 'commerce-main' ? 'active' : ''}`}
+        className={`sidebar-submenu-trigger ${currentView === 'commerce-main' || currentView === 'commerce-detail' ? 'active' : ''}`}
         aria-haspopup='menu'
         aria-label='电商主题'
         title='电商主题'
@@ -3152,7 +3175,13 @@ export function App() {
         >
           主图制作
         </button>
-        <button type='button' role='menuitem' disabled title='详情图制作'>
+        <button
+          type='button'
+          role='menuitem'
+          className={currentView === 'commerce-detail' ? 'active' : ''}
+          onClick={() => enterSidebarView('commerce-detail')}
+          title='详情图制作'
+        >
           详情图制作
         </button>
       </div>
@@ -3162,6 +3191,25 @@ export function App() {
     isConfigured &&
     commerceProductImages.length > 0 &&
     Boolean(commerceStyleImage)
+  const isCommerceView = currentView === 'commerce-main' || currentView === 'commerce-detail'
+  const commerceGenerateKind = currentView === 'commerce-detail' ? 'detail' : 'main'
+  const commerceCopy = commerceGenerateKind === 'detail'
+    ? {
+        title: '详情图制作',
+        styleLabel: '详情风格图',
+        styleHint: '上传你喜欢的详情页风格，用于参考版式、分区、背景、光线和文字排版。',
+        descriptionLabel: '卖点描述（可选）',
+        descriptionPlaceholder: '可简单写商品卖点、详情页短文案或需要替换的文字；留空时会根据详情风格图自动生成提示词',
+        action: '生成详情图',
+      }
+    : {
+        title: '主图制作',
+        styleLabel: '目标风格图',
+        styleHint: '上传你喜欢的主图风格，用于参考光线、背景和构图。',
+        descriptionLabel: '文字描述（可选）',
+        descriptionPlaceholder: '可简单写卖点、文案或替换文字；留空时会根据目标风格图自动生成主图提示词',
+        action: '生成主图',
+      }
   const renderCommerceUpload = (
     kind: 'product' | 'style',
     label: string,
@@ -3730,12 +3778,12 @@ export function App() {
             </section>
           ) : null}
 
-          {currentView === 'commerce-main' ? (
+          {isCommerceView ? (
             <section className='commerce-page'>
               <section className='portal-panel commerce-composer'>
                 <div className='section-title'>
                   <ShoppingBag size={16} />
-                  <span>主图制作</span>
+                  <span>{commerceCopy.title}</span>
                 </div>
                 <div className='commerce-upload-grid'>
                   {renderCommerceUpload(
@@ -3746,18 +3794,18 @@ export function App() {
                   )}
                   {renderCommerceUpload(
                     'style',
-                    '目标风格图',
-                    '上传你喜欢的主图风格，用于参考光线、背景和构图。',
+                    commerceCopy.styleLabel,
+                    commerceCopy.styleHint,
                     commerceStyleImage ? [commerceStyleImage] : []
                   )}
                 </div>
                 <label className='field'>
-                  <span>文字描述（可选）</span>
+                  <span>{commerceCopy.descriptionLabel}</span>
                   <textarea
                     className='commerce-description'
                     value={commerceDescription}
                     onChange={(event) => setCommerceDescription(event.target.value)}
-                    placeholder='可简单写卖点、文案或替换文字；留空时会根据目标风格图自动生成主图提示词'
+                    placeholder={commerceCopy.descriptionPlaceholder}
                   />
                 </label>
                 <div className='simple-param-grid commerce-param-grid'>
@@ -3801,11 +3849,11 @@ export function App() {
                   <button
                     type='button'
                     className='primary-action'
-                    onClick={() => void handleCommerceMainGenerate()}
+                    onClick={() => void handleCommerceGenerate(commerceGenerateKind)}
                     disabled={isGenerating || !commerceCanGenerate}
                   >
                     {isGenerating ? <Loader2 className='spin' size={16} /> : <Sparkles size={16} />}
-                    {isConfigured ? (isGenerating ? '生成中' : '生成主图') : '先完成配置'}
+                    {isConfigured ? (isGenerating ? '生成中' : commerceCopy.action) : '先完成配置'}
                   </button>
                 </div>
               </section>
