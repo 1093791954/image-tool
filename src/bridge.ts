@@ -645,7 +645,9 @@ export const bridge: ImageApiClient = {
       form.set('model', payload.model)
       form.set('prompt', payload.prompt)
       form.set('size', payload.size)
-      form.set('quality', payload.quality)
+      if (payload.quality !== 'auto') {
+        form.set('quality', payload.quality)
+      }
       form.set('n', String(payload.count))
       form.set('response_format', payload.responseFormat)
       if (payload.inputFidelity && payload.model.trim().toLowerCase() !== 'gpt-image-2') {

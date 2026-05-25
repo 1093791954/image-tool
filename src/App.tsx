@@ -2592,14 +2592,21 @@ export function App() {
     setStatus('正在分析目标风格图...')
 
     try {
-      const preparedPrompt = await bridge.prepareCommerceMainPrompt({
-        baseUrl,
-        apiKey: codexApiKey,
-        model: textModel.trim() || DEFAULT_TEXT_MODEL,
-        description,
-        productImages: commerceProductImages,
-        styleImage: commerceStyleImage,
-      })
+      let preparedPrompt = ''
+      try {
+        preparedPrompt = await bridge.prepareCommerceMainPrompt({
+          baseUrl,
+          apiKey: codexApiKey,
+          model: textModel.trim() || DEFAULT_TEXT_MODEL,
+          description,
+          productImages: commerceProductImages,
+          styleImage: commerceStyleImage,
+        })
+      } catch (promptError) {
+        const promptMessage = promptError instanceof Error ? promptError.message : String(promptError)
+        console.warn('Commerce prompt preparation failed, falling back to local prompt:', promptMessage)
+        setStatus('提示词预热失败，正在使用本地结构化提示词继续生成...')
+      }
       const basePrompt = preparedPrompt.trim() || buildCommerceMainPrompt(description)
       const prompt = buildCommerceEditPrompt(basePrompt, commerceProductImages.length)
       setStatus(

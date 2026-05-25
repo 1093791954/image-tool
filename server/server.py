@@ -268,8 +268,11 @@ def parse_generation_metadata(content_type: str, body: bytes) -> dict[str, Any]:
             "prompt": None,
             "image_count": 0,
             "image_bytes": 0,
+            "image_fields": [],
+            "field_names": [],
             "size": None,
             "quality": None,
+            "input_fidelity": None,
         }
         boundary_match = re.search(r'boundary="?([^";]+)"?', content_type)
         if not boundary_match:
@@ -294,14 +297,18 @@ def parse_generation_metadata(content_type: str, body: bytes) -> dict[str, Any]:
             if not name_match:
                 continue
             name = name_match.group(1)
+            if name not in metadata["field_names"]:
+                metadata["field_names"].append(name)
             has_filename = bool(re.search(r'filename="[^"]*"', headers_text))
 
             if has_filename or name.startswith("image"):
                 metadata["image_count"] += 1
                 metadata["image_bytes"] += len(payload)
+                if name not in metadata["image_fields"]:
+                    metadata["image_fields"].append(name)
                 continue
 
-            if name in {"model", "prompt", "size", "quality"}:
+            if name in {"model", "prompt", "size", "quality", "input_fidelity"}:
                 value = payload.decode("utf-8", errors="replace").strip()
                 limit = 2000 if name == "prompt" else 200
                 metadata[name] = value[:limit] or None
@@ -863,8 +870,11 @@ def create_generation_task(
             "model": metadata["model"],
             "image_count": metadata.get("image_count"),
             "image_bytes": metadata.get("image_bytes"),
+            "image_fields": metadata.get("image_fields"),
+            "field_names": metadata.get("field_names"),
             "size": metadata.get("size"),
             "quality": metadata.get("quality"),
+            "input_fidelity": metadata.get("input_fidelity"),
         },
     )
     return task_id
