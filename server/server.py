@@ -10,6 +10,7 @@ import logging
 import mimetypes
 import os
 import posixpath
+import re
 import socket
 import sqlite3
 import threading
@@ -260,7 +261,53 @@ def write_log(
     compact_db_if_needed()
 
 
-def parse_generation_metadata(content_type: str, body: bytes) -> dict[str, str | None]:
+def parse_generation_metadata(content_type: str, body: bytes) -> dict[str, Any]:
+    if content_type.startswith("multipart/form-data"):
+        metadata: dict[str, Any] = {
+            "model": None,
+            "prompt": None,
+            "image_count": 0,
+            "image_bytes": 0,
+            "size": None,
+            "quality": None,
+        }
+        boundary_match = re.search(r'boundary="?([^";]+)"?', content_type)
+        if not boundary_match:
+            return metadata
+
+        delimiter = f"--{boundary_match.group(1)}".encode("utf-8")
+        for raw_part in body.split(delimiter):
+            part = raw_part.strip(b"\r\n")
+            if not part or part == b"--":
+                continue
+            if part.endswith(b"--"):
+                part = part[:-2].rstrip(b"\r\n")
+
+            headers_blob, separator, payload = part.partition(b"\r\n\r\n")
+            if not separator:
+                continue
+            if payload.endswith(b"\r\n"):
+                payload = payload[:-2]
+
+            headers_text = headers_blob.decode("utf-8", errors="replace")
+            name_match = re.search(r'name="([^"]+)"', headers_text)
+            if not name_match:
+                continue
+            name = name_match.group(1)
+            has_filename = bool(re.search(r'filename="[^"]*"', headers_text))
+
+            if has_filename or name.startswith("image"):
+                metadata["image_count"] += 1
+                metadata["image_bytes"] += len(payload)
+                continue
+
+            if name in {"model", "prompt", "size", "quality"}:
+                value = payload.decode("utf-8", errors="replace").strip()
+                limit = 2000 if name == "prompt" else 200
+                metadata[name] = value[:limit] or None
+
+        return metadata
+
     if not content_type.startswith("application/json"):
         return {"model": None, "prompt": None}
     try:
@@ -810,7 +857,15 @@ def create_generation_task(
         "task_created",
         "生图任务已投递到服务器后台",
         task_id,
-        {"upstream_path": upstream_path, "request_size": len(body), "model": metadata["model"]},
+        {
+            "upstream_path": upstream_path,
+            "request_size": len(body),
+            "model": metadata["model"],
+            "image_count": metadata.get("image_count"),
+            "image_bytes": metadata.get("image_bytes"),
+            "size": metadata.get("size"),
+            "quality": metadata.get("quality"),
+        },
     )
     return task_id
 

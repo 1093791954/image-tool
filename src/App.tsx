@@ -90,6 +90,8 @@ const DEFAULT_PROMPT_OPTIMIZATION_PRESET: PromptOptimizationPreset = 'ecommerce'
 const CONSOLE_URL = 'https://cc.api-corp.top/'
 const GITHUB_REPO_URL = 'https://github.com/1093791954/image-tool'
 const MAX_COMMERCE_PRODUCT_IMAGES = 4
+const COMMERCE_REFERENCE_MAX_SIDE = 1600
+const COMMERCE_REFERENCE_JPEG_QUALITY = 0.86
 const CONFIGURATION_NOTICE_MESSAGE =
   '请先在控制台补全生图 API Key 和模型，配置完成后再继续使用其他页面。'
 
@@ -1110,6 +1112,42 @@ function fileToDataUrl(file: File) {
     reader.onerror = () => reject(reader.error)
     reader.readAsDataURL(file)
   })
+}
+
+function loadLocalImage(url: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('图片读取失败'))
+    image.src = url
+  })
+}
+
+async function fileToCommerceReferenceDataUrl(file: File) {
+  if (!file.type.startsWith('image/')) return fileToDataUrl(file)
+
+  const url = URL.createObjectURL(file)
+  try {
+    const image = await loadLocalImage(url)
+    const maxSide = Math.max(image.naturalWidth, image.naturalHeight)
+    const scale = maxSide > COMMERCE_REFERENCE_MAX_SIDE ? COMMERCE_REFERENCE_MAX_SIDE / maxSide : 1
+    const width = Math.max(1, Math.round(image.naturalWidth * scale))
+    const height = Math.max(1, Math.round(image.naturalHeight * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) return fileToDataUrl(file)
+
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, width, height)
+    context.drawImage(image, 0, 0, width, height)
+    return canvas.toDataURL('image/jpeg', COMMERCE_REFERENCE_JPEG_QUALITY)
+  } catch {
+    return fileToDataUrl(file)
+  } finally {
+    URL.revokeObjectURL(url)
+  }
 }
 
 function taskStatusLabel(status: ImageGenerationTask['status']) {
@@ -2423,8 +2461,8 @@ export function App() {
           kind === 'product'
             ? `商品白底图 ${commerceProductImages.length + index + 1}`
             : '目标风格图',
-        type: file.type,
-        dataUrl: await fileToDataUrl(file),
+        type: 'image/jpeg',
+        dataUrl: await fileToCommerceReferenceDataUrl(file),
       }))
     )
 
