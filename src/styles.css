@@ -2253,10 +2253,18 @@ select:disabled {
   border-radius: 7px;
 }
 
+.gallery-strip nav button {
+  color: oklch(0.2 0.018 255);
+  background: rgb(248 251 255 / 92%);
+  border-color: rgb(255 255 255 / 70%);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 32%);
+}
+
 .gallery-strip nav button:hover,
 .gallery-strip nav button:focus-visible {
-  background: rgb(78 167 255 / 24%);
-  border-color: rgb(78 167 255 / 48%);
+  color: oklch(0.98 0.012 250);
+  background: var(--blue);
+  border-color: rgb(255 255 255 / 56%);
   outline: none;
 }
 
