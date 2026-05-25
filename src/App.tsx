@@ -3652,7 +3652,6 @@ export function App() {
               <section className='gallery-page-panel'>
                 <div className='gallery-hero'>
                   <div className='gallery-hero-copy'>
-                    <span>Local inspiration wall</span>
                     <h2>本地图库</h2>
                     <p>把刚生成的作品铺成灵感墙，快速预览、下载和删除，集中整理本地生成结果。</p>
                   </div>

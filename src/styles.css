@@ -1510,22 +1510,6 @@ select:disabled {
   min-width: 0;
 }
 
-.gallery-hero-copy > span {
-  width: max-content;
-  max-width: 100%;
-  padding: 5px 9px;
-  overflow: hidden;
-  color: var(--green);
-  background: rgb(65 211 155 / 10%);
-  border: 1px solid rgb(65 211 155 / 22%);
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 850;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
 .gallery-hero h2 {
   margin: 0;
   color: var(--text);
