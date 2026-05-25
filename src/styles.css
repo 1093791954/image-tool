@@ -970,25 +970,13 @@ select:disabled {
 }
 
 .workspace-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 12;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   width: min(var(--page-width), 100%);
   margin: 0 auto;
-  padding: 12px;
-  background: rgb(10 12 18 / 78%);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 16px 42px var(--shadow);
-  backdrop-filter: blur(18px);
-}
-
-:root[data-theme='light'] .workspace-topbar {
-  background: rgb(255 255 255 / 82%);
+  padding: 8px 0 4px;
 }
 
 .workspace-title {
