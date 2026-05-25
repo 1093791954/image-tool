@@ -1500,6 +1500,7 @@ select:disabled {
   align-items: end;
   gap: 18px;
   min-width: 0;
+  margin-bottom: 22px;
   padding: 10px 2px 0;
 }
 
