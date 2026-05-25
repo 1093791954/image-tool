@@ -1328,6 +1328,7 @@ export function App() {
   const [commerceCategoryLevel1, setCommerceCategoryLevel1] = useState('')
   const [commerceCategoryLevel2, setCommerceCategoryLevel2] = useState('')
   const [commerceCategoryLevel3, setCommerceCategoryLevel3] = useState('')
+  const [commerceCustomCategory, setCommerceCustomCategory] = useState('')
   const [canvases, setCanvases] = useState<WorkflowCanvas[]>(loadWorkflowCanvases)
   const [activeCanvasId, setActiveCanvasId] = useState(loadActiveCanvasId)
   const [isLoadingModels, setIsLoadingModels] = useState(false)
@@ -1360,6 +1361,7 @@ export function App() {
     commerceCategoryLevel2,
     commerceCategoryLevel3,
   ].filter(Boolean).join(' / ')
+  const effectiveCommerceCategoryPath = commerceCustomCategory.trim() || selectedCommerceCategoryPath
 
   const activeCanvas = useMemo(
     () => canvases.find((canvas) => canvas.id === activeCanvasId) || canvases[0],
@@ -2614,8 +2616,8 @@ export function App() {
       setError('请先上传目标风格图')
       return
     }
-    if (!commerceCategoryLevel3) {
-      setError('请先选择完整的商品品类')
+    if (!effectiveCommerceCategoryPath) {
+      setError('请先选择完整的商品品类，或填写自定义商品品类')
       return
     }
     if (!codexApiKey) {
@@ -2637,7 +2639,7 @@ export function App() {
           apiKey: codexApiKey,
           model: textModel.trim() || DEFAULT_TEXT_MODEL,
           description,
-          categoryPath: selectedCommerceCategoryPath,
+          categoryPath: effectiveCommerceCategoryPath,
           productImages: commerceProductImages,
           styleImage: commerceStyleImage,
         }
@@ -2649,7 +2651,7 @@ export function App() {
         console.warn('Commerce prompt preparation failed, falling back to local prompt:', promptMessage)
         setStatus('提示词预热失败，正在使用本地结构化提示词继续生成...')
       }
-      const basePrompt = preparedPrompt.trim() || (isDetail ? buildCommerceDetailPrompt(description, selectedCommerceCategoryPath) : buildCommerceMainPrompt(description, selectedCommerceCategoryPath))
+      const basePrompt = preparedPrompt.trim() || (isDetail ? buildCommerceDetailPrompt(description, effectiveCommerceCategoryPath) : buildCommerceMainPrompt(description, effectiveCommerceCategoryPath))
       const prompt = buildCommerceEditPrompt(basePrompt, commerceProductImages.length, kind)
       setStatus(
         commerceProductImages.length > 1
@@ -3190,7 +3192,7 @@ export function App() {
     isConfigured &&
     commerceProductImages.length > 0 &&
     Boolean(commerceStyleImage) &&
-    Boolean(commerceCategoryLevel3)
+    Boolean(effectiveCommerceCategoryPath)
   const isCommerceView = currentView === 'commerce'
   const commerceCopy = commerceGenerateKind === 'detail'
     ? {
@@ -3241,7 +3243,7 @@ export function App() {
     <div className='commerce-category-field' aria-label='商品品类'>
       <div className='commerce-category-heading'>
         <strong>商品品类</strong>
-        <span>按真实类目选择，生成时会作为提示词强约束</span>
+        <span>按真实类目选择，未收录时可直接填写自定义类目；生成时会作为提示词强约束</span>
       </div>
       <div className='commerce-category-grid'>
         <label className='field'>
@@ -3296,6 +3298,14 @@ export function App() {
           </select>
         </label>
       </div>
+      <label className='field commerce-custom-category'>
+        <span>自定义类目（可选，优先使用）</span>
+        <input
+          value={commerceCustomCategory}
+          onChange={(event) => setCommerceCustomCategory(event.target.value)}
+          placeholder='例如：食品饮料 / 地方特产 / 手工锅巴，或直接写“户外露营咖啡器具”'
+        />
+      </label>
     </div>
   )
   const renderCommerceUpload = (
