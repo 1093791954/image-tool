@@ -901,15 +901,10 @@ export function GalleryStrip({
   onDownload: (image: LocalImageRecord, index: number) => void
   onDelete: (id: string) => void
 }) {
-  const tileClassNames = ['feature', 'tall', 'wide']
-
   return (
     <div className='gallery-strip'>
       {images.slice(0, limit).map((image, index) => (
-        <article
-          key={image.id}
-          className={`gallery-tile ${tileClassNames[index % tileClassNames.length]}`}
-        >
+        <article key={image.id} className='gallery-tile'>
           <button
             type='button'
             className='gallery-tile-preview'
