@@ -3398,11 +3398,13 @@ select:disabled {
 
 .preview-dialog {
   display: grid;
-  gap: 12px;
-  width: min(760px, 100%);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  width: min(920px, 100%);
   max-height: calc(100vh - 48px);
+  min-height: min(720px, calc(100vh - 48px));
   padding: 14px;
-  overflow: auto;
+  overflow: hidden;
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--border);
@@ -3430,7 +3432,7 @@ select:disabled {
 }
 
 .preview-header span,
-.preview-dialog p {
+.preview-caption p {
   margin: 0;
   color: var(--text-muted);
   font-size: 12px;
@@ -3440,8 +3442,7 @@ select:disabled {
 .preview-frame {
   display: grid;
   place-items: center;
-  aspect-ratio: 1;
-  max-height: min(62vh, 640px);
+  min-height: 0;
   overflow: hidden;
   background: var(--field);
   border: 1px solid var(--border);
@@ -3449,9 +3450,24 @@ select:disabled {
 }
 
 .preview-frame img {
-  width: 100%;
-  height: 100%;
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
+}
+
+.preview-caption {
+  max-height: min(22vh, 170px);
+  min-height: 52px;
+  overflow: auto;
+  padding: 10px 2px 0;
+  border-top: 1px solid var(--border);
+}
+
+.preview-caption p {
+  overflow-wrap: anywhere;
 }
 
 .spin {
@@ -3871,6 +3887,24 @@ select:disabled {
 
   .gallery-strip p {
     display: none;
+  }
+
+  .preview-overlay {
+    padding: 12px;
+  }
+
+  .preview-dialog {
+    max-height: calc(100vh - 24px);
+    min-height: calc(100vh - 24px);
+    padding: 12px;
+  }
+
+  .preview-header {
+    align-items: flex-start;
+  }
+
+  .preview-caption {
+    max-height: 28vh;
   }
 
   .launchpad-grid,

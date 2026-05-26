@@ -5236,7 +5236,9 @@ ${description}`
                 alt={previewImage.revisedPrompt || previewImage.prompt}
               />
             </div>
-            <p>{previewImage.revisedPrompt || previewImage.prompt}</p>
+            <div className='preview-caption'>
+              <p>{previewImage.revisedPrompt || previewImage.prompt}</p>
+            </div>
           </div>
         </div>
       ) : null}
