@@ -1250,6 +1250,7 @@ select:disabled {
 }
 
 .launchpad,
+.advanced-page,
 .commerce-page,
 .console-page,
 .gallery-page {
@@ -1321,12 +1322,20 @@ select:disabled {
   gap: 16px;
 }
 
+.advanced-composer {
+  gap: 16px;
+}
+
 .commerce-composer {
   gap: 16px;
 }
 
 .workbench-composer .simple-prompt {
   min-height: clamp(220px, 34vh, 300px);
+}
+
+.advanced-composer .simple-prompt {
+  min-height: clamp(240px, 32vh, 320px);
 }
 
 .commerce-upload-grid {
@@ -1816,6 +1825,12 @@ select:disabled {
 .simple-param-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.advanced-param-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -3557,7 +3572,8 @@ select:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .simple-param-grid {
+  .simple-param-grid,
+  .advanced-param-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -3608,6 +3624,7 @@ select:disabled {
   .commerce-kind-field,
   .commerce-category-grid,
   .simple-param-grid,
+  .advanced-param-grid,
   .simple-actions,
   .gallery-page-heading,
   .workbench-actions,

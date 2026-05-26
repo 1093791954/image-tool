@@ -42,6 +42,7 @@ import {
   RefreshCw,
   Save,
   ShoppingBag,
+  SlidersHorizontal,
   Sparkles,
   Sun,
   Terminal,
@@ -200,7 +201,7 @@ type PaneMenu = {
   position: { x: number; y: number }
 } | null
 
-type AppView = 'home' | 'commerce' | 'console' | 'gallery' | 'workflow'
+type AppView = 'home' | 'advanced' | 'commerce' | 'console' | 'gallery' | 'workflow'
 
 type WorkflowCanvas = {
   id: string
@@ -1322,6 +1323,8 @@ export function App() {
   const [responseFormat, setResponseFormat] = useState<'url' | 'b64_json'>('b64_json')
   const [inputFidelity, setInputFidelity] = useState<'low' | 'high'>('high')
   const [simplePrompt, setSimplePrompt] = useState('')
+  const [simplePromptOptimizationPreset, setSimplePromptOptimizationPreset] =
+    useState<PromptOptimizationPreset>(DEFAULT_PROMPT_OPTIMIZATION_PRESET)
   const [commerceProductImages, setCommerceProductImages] = useState<ReferenceImage[]>([])
   const [commerceStyleImage, setCommerceStyleImage] = useState<ReferenceImage | null>(null)
   const [commerceDescription, setCommerceDescription] = useState('')
@@ -2241,7 +2244,7 @@ export function App() {
         model: textModel.trim() || DEFAULT_TEXT_MODEL,
         prompt: currentPrompt,
         mode: 'text',
-        optimizationPreset: DEFAULT_PROMPT_OPTIMIZATION_PRESET,
+        optimizationPreset: simplePromptOptimizationPreset,
       })
       setSimplePrompt(optimizedPrompt)
       setStatus('提示词已优化')
@@ -3231,6 +3234,10 @@ export function App() {
       title: '快速生成',
       description: '用提示词和参数快速完成生图，结果自动进入图库管理。',
     },
+    advanced: {
+      title: '高级生成',
+      description: '完整控制生图模型、尺寸、质量、数量和返回参数。',
+    },
     commerce: {
       title: '电商主题',
       description: '上传商品白底图和目标风格图，选择主图或详情图后生成。',
@@ -3530,6 +3537,13 @@ export function App() {
               >
                 <Home size={16} />
                 快速生成
+              </button>
+              <button
+                type='button'
+                onClick={() => enterSidebarView('advanced')}
+              >
+                <SlidersHorizontal size={16} />
+                高级生成
               </button>
               {commerceThemeMenu}
               <button
@@ -3836,6 +3850,14 @@ export function App() {
                 <Home size={16} />
                 快速生成
               </button>
+              <button
+                type='button'
+                className={currentView === 'advanced' ? 'active' : ''}
+                onClick={() => enterSidebarView('advanced')}
+              >
+                <SlidersHorizontal size={16} />
+                高级生成
+              </button>
               {commerceThemeMenu}
               <button
                 type='button'
@@ -3991,6 +4013,122 @@ export function App() {
 
               </div>
 
+            </section>
+          ) : null}
+
+          {currentView === 'advanced' ? (
+            <section className='advanced-page'>
+              <section className='portal-panel advanced-composer'>
+                <div className='section-title'>
+                  <SlidersHorizontal size={16} />
+                  <span>高级生成</span>
+                </div>
+                <label className='field'>
+                  <span>图片描述</span>
+                  <textarea
+                    className='simple-prompt advanced-prompt'
+                    value={simplePrompt}
+                    onChange={(event) => setSimplePrompt(event.target.value)}
+                    placeholder='例如：一张高级科技产品海报，干净背景，清晰主视觉，真实材质，高级棚拍光线'
+                  />
+                </label>
+                <div className='advanced-param-grid'>
+                  <label className='field'>
+                    <span>模型</span>
+                    <select value={model} onChange={(event) => setModel(event.target.value)}>
+                      {sortedModels.length === 0 ? (
+                        <option value={model}>{model}</option>
+                      ) : (
+                        sortedModels.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.id}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </label>
+                  {renderSizeField()}
+                  <label className='field'>
+                    <span>质量</span>
+                    <select value={quality} onChange={(event) => setQuality(event.target.value)}>
+                      {qualities.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className='field'>
+                    <span>数量</span>
+                    <select value={count} onChange={(event) => setCount(Number(event.target.value))}>
+                      {counts.map((item) => (
+                        <option key={item} value={item}>
+                          {item}x
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className='field'>
+                    <span>返回格式</span>
+                    <select
+                      value={responseFormat}
+                      onChange={(event) => setResponseFormat(event.target.value as 'url' | 'b64_json')}
+                    >
+                      <option value='b64_json'>b64_json</option>
+                      <option value='url'>url</option>
+                    </select>
+                  </label>
+                  <label className='field'>
+                    <span>输入保真度</span>
+                    <select
+                      value={inputFidelity}
+                      onChange={(event) => setInputFidelity(event.target.value as 'low' | 'high')}
+                    >
+                      <option value='high'>high</option>
+                      <option value='low'>low</option>
+                    </select>
+                  </label>
+                  <label className='field'>
+                    <span>提示词优化方向</span>
+                    <select
+                      value={simplePromptOptimizationPreset}
+                      onChange={(event) =>
+                        setSimplePromptOptimizationPreset(event.target.value as PromptOptimizationPreset)
+                      }
+                    >
+                      {promptOptimizationPresets.map((preset) => (
+                        <option key={preset.value} value={preset.value}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className='simple-actions'>
+                  <button
+                    type='button'
+                    className='secondary simple-optimize-action'
+                    onClick={() => void handleOptimizeSimplePrompt()}
+                    disabled={isGenerating || isOptimizingSimplePrompt || !simplePrompt.trim()}
+                  >
+                    {isOptimizingSimplePrompt ? (
+                      <Loader2 className='spin' size={16} />
+                    ) : (
+                      <Edit3 size={16} />
+                    )}
+                    {isOptimizingSimplePrompt ? '优化中' : '优化提示词'}
+                  </button>
+                  <button
+                    type='button'
+                    className='primary-action'
+                    onClick={() => void handleSimpleGenerate()}
+                    disabled={isGenerating || !isConfigured || !simplePrompt.trim()}
+                  >
+                    {isGenerating ? <Loader2 className='spin' size={16} /> : <Sparkles size={16} />}
+                    {isConfigured ? (isGenerating ? '生成中' : '立即生成') : '先完成配置'}
+                  </button>
+                </div>
+              </section>
             </section>
           ) : null}
 
