@@ -1905,20 +1905,8 @@ select:disabled {
 
 .gallery-page .gallery-strip {
   display: block;
-  column-count: 3;
+  column-width: 260px;
   column-gap: 12px;
-}
-
-@media (min-width: 1500px) {
-  .gallery-page .gallery-strip {
-    column-count: 4;
-  }
-}
-
-@media (min-width: 1900px) {
-  .gallery-page .gallery-strip {
-    column-count: 5;
-  }
 }
 
 .gallery-page-empty {
@@ -3814,7 +3802,7 @@ select:disabled {
   }
 
   .gallery-page .gallery-strip {
-    column-count: 2;
+    column-width: 240px;
   }
 
   .commerce-upload-grid,
@@ -3861,7 +3849,7 @@ select:disabled {
   }
 
   .gallery-page .gallery-strip {
-    column-count: 1;
+    column-width: 220px;
   }
 
   .gallery-tile-overlay {
