@@ -91,6 +91,10 @@ class OpenAIProxyError(Exception):
     pass
 
 
+class PromptOptimizerError(Exception):
+    pass
+
+
 class ImageTaskError(Exception):
     pass
 
@@ -450,6 +454,168 @@ def json_response(handler: SimpleHTTPRequestHandler, status: int, payload: dict[
     handler.wfile.write(body)
 
 
+def parse_mcp_json_response(raw: bytes) -> dict[str, Any]:
+    text = raw.decode("utf-8", errors="replace").strip()
+    if not text:
+        return {}
+    if text.startswith("data:"):
+        payloads: list[dict[str, Any]] = []
+        for line in text.splitlines():
+            line = line.strip()
+            if not line.startswith("data:"):
+                continue
+            data = line.replace("data:", "", 1).strip()
+            if not data or data == "[DONE]":
+                continue
+            try:
+                parsed = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict):
+                payloads.append(parsed)
+        if payloads:
+            return payloads[-1]
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise PromptOptimizerError("Prompt Optimizer 返回了无法解析的数据") from exc
+    if not isinstance(parsed, dict):
+        raise PromptOptimizerError("Prompt Optimizer 返回格式不正确")
+    return parsed
+
+
+def extract_mcp_text_result(body: dict[str, Any]) -> str:
+    error = body.get("error")
+    if isinstance(error, dict):
+        raise PromptOptimizerError(str(error.get("message") or "Prompt Optimizer 调用失败"))
+
+    result = body.get("result")
+    if not isinstance(result, dict):
+        raise PromptOptimizerError("Prompt Optimizer 没有返回优化结果")
+    if result.get("isError"):
+        content = result.get("content")
+        if isinstance(content, list) and content:
+            first = content[0]
+            if isinstance(first, dict) and first.get("text"):
+                raise PromptOptimizerError(str(first["text"]))
+        raise PromptOptimizerError("Prompt Optimizer 工具执行失败")
+
+    content = result.get("content")
+    if not isinstance(content, list):
+        raise PromptOptimizerError("Prompt Optimizer 返回内容为空")
+    text_parts: list[str] = []
+    for item in content:
+        if isinstance(item, dict) and item.get("type") == "text":
+            value = item.get("text")
+            if isinstance(value, str):
+                text_parts.append(value)
+    optimized = "\n".join(part.strip() for part in text_parts if part.strip()).strip()
+    if not optimized:
+        raise PromptOptimizerError("Prompt Optimizer 没有返回优化后的提示词")
+    return optimized
+
+
+def prompt_optimizer_headers(
+    username: str = "",
+    password: str = "",
+    session_id: str | None = None,
+) -> dict[str, str]:
+    headers = {
+        "Accept": "application/json, text/event-stream",
+        "Content-Type": "application/json",
+        "User-Agent": "GPT-Image-Tools/1.0",
+    }
+    if username or password:
+        token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
+        headers["Authorization"] = f"Basic {token}"
+    if session_id:
+        headers["mcp-session-id"] = session_id
+    return headers
+
+
+def post_mcp_json(
+    mcp_url: str,
+    payload: dict[str, Any],
+    username: str,
+    password: str,
+    session_id: str | None = None,
+) -> tuple[dict[str, Any], str | None]:
+    request = urllib.request.Request(
+        mcp_url,
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers=prompt_optimizer_headers(username, password, session_id),
+    )
+    try:
+        with open_url(request, timeout=REQUEST_TIMEOUT) as response:
+            body = parse_mcp_json_response(response.read())
+            next_session_id = response.headers.get("mcp-session-id") or session_id
+            return body, next_session_id
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        raise PromptOptimizerError(
+            f"Prompt Optimizer 请求失败：HTTP {exc.code} {raw[:200]}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise PromptOptimizerError(f"无法连接 Prompt Optimizer：{exc.reason}") from exc
+
+
+def optimize_with_prompt_optimizer(
+    service_url: str,
+    username: str,
+    password: str,
+    prompt: str,
+) -> str:
+    if not prompt.strip():
+        raise PromptOptimizerError("待优化提示词不能为空")
+
+    mcp_url = normalize_prompt_optimizer_mcp_url(service_url)
+    initialize_body, session_id = post_mcp_json(
+        mcp_url,
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "gpt-image-tools", "version": "1.0.0"},
+            },
+        },
+        username,
+        password,
+    )
+    if initialize_body.get("error"):
+        message = initialize_body["error"].get("message") if isinstance(initialize_body["error"], dict) else ""
+        raise PromptOptimizerError(str(message or "Prompt Optimizer 初始化失败"))
+    if not session_id:
+        raise PromptOptimizerError("Prompt Optimizer 没有返回 MCP 会话")
+
+    post_mcp_json(
+        mcp_url,
+        {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}},
+        username,
+        password,
+        session_id,
+    )
+    call_body, _ = post_mcp_json(
+        mcp_url,
+        {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "optimize-user-prompt",
+                "arguments": {"prompt": prompt},
+            },
+        },
+        username,
+        password,
+        session_id,
+    )
+    return extract_mcp_text_result(call_body)
+
+
 def normalize_new_api_base_url(value: str) -> str:
     raw = (value or DEFAULT_BASE_URL).strip().rstrip("/")
     parsed = urllib.parse.urlparse(raw)
@@ -468,6 +634,25 @@ def normalize_public_base_url(value: str) -> str:
     if not is_public_hostname(parsed.hostname):
         raise OpenAIProxyError("Base URL 不是可公开访问地址")
     return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def normalize_prompt_optimizer_mcp_url(value: str) -> str:
+    raw = (value or "").strip().rstrip("/")
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise PromptOptimizerError("Prompt Optimizer 服务地址必须是 http 或 https 地址")
+    if parsed.username or parsed.password:
+        raise PromptOptimizerError("Prompt Optimizer 服务地址不允许包含账号密码")
+    if not is_public_hostname(parsed.hostname):
+        raise PromptOptimizerError("Prompt Optimizer 服务地址不是可公开访问地址")
+
+    path = parsed.path.rstrip("/")
+    if not path.endswith("/mcp"):
+        path = f"{path}/mcp" if path else "/mcp"
+
+    return urllib.parse.urlunparse(
+        (parsed.scheme, parsed.netloc, path, "", "", "")
+    )
 
 
 def split_model_limits(value: str | None) -> set[str]:
@@ -1269,6 +1454,10 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
             self.handle_image_url_to_data_url()
             return
 
+        if parsed_path.path == "/api/prompt-optimizer/optimize":
+            self.handle_prompt_optimizer_optimize()
+            return
+
         if parsed_path.path != "/api/newapi/login-key":
             json_response(self, HTTPStatus.NOT_FOUND, {"success": False, "message": "Not found"})
             return
@@ -1301,6 +1490,48 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 self,
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 {"success": False, "message": "登录中转站失败，请稍后重试"},
+            )
+
+    def handle_prompt_optimizer_optimize(self) -> None:
+        try:
+            body_length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            body_length = 0
+        if body_length <= 0 or body_length > MAX_JSON_BODY:
+            json_response(
+                self,
+                HTTPStatus.BAD_REQUEST,
+                {"success": False, "message": "请求体为空或过大"},
+            )
+            return
+
+        try:
+            payload = json.loads(self.rfile.read(body_length).decode("utf-8"))
+            optimized_prompt = optimize_with_prompt_optimizer(
+                str(payload.get("serviceUrl") or ""),
+                str(payload.get("username") or ""),
+                str(payload.get("password") or ""),
+                str(payload.get("prompt") or ""),
+            )
+            json_response(
+                self,
+                HTTPStatus.OK,
+                {"success": True, "message": "", "data": {"prompt": optimized_prompt}},
+            )
+        except PromptOptimizerError as exc:
+            write_log("WARN", "prompt_optimizer_failed", str(exc))
+            json_response(self, HTTPStatus.OK, {"success": False, "message": str(exc)})
+        except Exception:
+            write_log(
+                "ERROR",
+                "prompt_optimizer_failed",
+                "Prompt Optimizer 调用失败",
+                details=traceback.format_exc(limit=8),
+            )
+            json_response(
+                self,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"success": False, "message": "Prompt Optimizer 调用失败，请稍后重试"},
             )
 
     def handle_image_url_to_data_url(self) -> None:

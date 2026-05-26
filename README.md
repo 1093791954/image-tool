@@ -20,6 +20,12 @@
 - 服务端会先接收生成任务并后台处理，结果会短暂写入服务器缓存，再同步到浏览器图库
 - 支持 URL 和 `b64_json` 两种图片返回格式
 
+## Prompt Optimizer 集成边界
+
+本项目可以在控制台配置外部 Prompt Optimizer 服务地址，用于提示词优化。
+Prompt Optimizer 作为独立部署的外部服务通过网络接口连接，本仓库不把
+`linshenkx/prompt-optimizer` 作为子模块、依赖源码或内置组件分发。
+
 ## 开发运行
 
 ```bash
@@ -59,3 +65,15 @@ npm run preview
 - Base URL: `https://hotapi.top`
 - 推荐模型: `gpt-image-2`
 - 默认价格不会在工具内计费，实际扣费由 API 站点处理。
+
+## 开源协议
+
+本项目采用 GNU Affero General Public License v3.0 or later
+（`AGPL-3.0-or-later`）开源，完整协议见 [LICENSE](./LICENSE)。
+
+如果你修改本项目并发布修改版，或将修改版作为网络服务提供给用户使用，
+你需要按照 AGPLv3 的要求向这些用户提供对应的完整源代码，并让衍生作品继续
+在兼容的 AGPL 条款下开放。
+
+本项目允许连接用户自行部署的外部服务，例如 Prompt Optimizer；该外部服务的
+源码、部署和协议义务由对应项目自身的许可证约束。

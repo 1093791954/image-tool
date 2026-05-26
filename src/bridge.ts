@@ -162,6 +162,32 @@ async function waitForImageTask(
   return task.result
 }
 
+async function optimizePromptWithPromptOptimizer(payload: PromptOptimizationPayload) {
+  const response = await fetch('/api/prompt-optimizer/optimize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      serviceUrl: payload.promptOptimizerUrl,
+      username: payload.promptOptimizerUsername,
+      password: payload.promptOptimizerPassword,
+      prompt: payload.prompt,
+      mode: payload.mode,
+      optimizationPreset: payload.optimizationPreset,
+    }),
+  })
+  const body = await parseJsonResponse<{
+    success?: boolean
+    message?: string
+    data?: { prompt?: string }
+  }>(response, 'Prompt Optimizer failed')
+  const result = assertApiSuccess(body, 'Prompt Optimizer 优化失败')
+  const optimizedPrompt = result.prompt?.trim()
+  if (!optimizedPrompt) {
+    throw new Error('Prompt Optimizer 没有返回优化后的提示词')
+  }
+  return optimizedPrompt
+}
+
 async function urlToDataUrl(url: string) {
   let blob: Blob
   try {
@@ -814,6 +840,10 @@ export const bridge: ImageApiClient = {
   },
 
   async optimizePrompt(payload) {
+    if (payload.promptOptimizerUrl?.trim()) {
+      return optimizePromptWithPromptOptimizer(payload)
+    }
+
     const baseUrl = normalizeBaseUrl(payload.baseUrl)
     const response = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: 'POST',

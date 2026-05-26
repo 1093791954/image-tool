@@ -2,6 +2,7 @@
   "name": "image-tools",
   "version": "1.0.0",
   "description": "Local-first web image generation tool for OpenAI-compatible image APIs.",
+  "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
   "scripts": {

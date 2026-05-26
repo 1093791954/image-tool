@@ -2171,6 +2171,18 @@ export function App() {
     await bridge.openExternal(targetUrl)
   }
 
+  function hasPromptOptimizationProvider() {
+    return Boolean(promptOptimizerUrl.trim() || codexApiKey)
+  }
+
+  function promptOptimizerPayloadFields() {
+    return {
+      promptOptimizerUrl,
+      promptOptimizerUsername,
+      promptOptimizerPassword,
+    }
+  }
+
   async function handleExportBackup() {
     const backup = await exportBackup()
     const date = new Date(backup.exportedAt).toISOString().slice(0, 10)
@@ -2366,8 +2378,8 @@ export function App() {
       setError('请先输入需要优化的提示词')
       return
     }
-    if (!codexApiKey) {
-      setError('请先点击连接配置里的登录，获取 codex 满血高速 分组秘钥')
+    if (!hasPromptOptimizationProvider()) {
+      setError('请先填写 Prompt Optimizer 地址，或点击连接配置里的登录获取文本模型秘钥')
       setStatus('缺少提示词优化秘钥')
       return
     }
@@ -2386,6 +2398,7 @@ export function App() {
         prompt: currentPrompt,
         mode: generationMode,
         optimizationPreset: promptOptimizationPreset,
+        ...promptOptimizerPayloadFields(),
       })
       const promptReferenceImages = getPromptMentionReferenceImages(
         promptNodeId,
@@ -2416,8 +2429,8 @@ export function App() {
       setError('请先输入需要优化的图片描述')
       return
     }
-    if (!codexApiKey) {
-      setError('请先点击连接配置里的登录，获取 codex 满血高速 分组秘钥')
+    if (!hasPromptOptimizationProvider()) {
+      setError('请先填写 Prompt Optimizer 地址，或点击连接配置里的登录获取文本模型秘钥')
       setStatus('缺少提示词优化秘钥')
       return
     }
@@ -2438,6 +2451,7 @@ export function App() {
           target === 'advanced'
             ? advancedPromptOptimizationPreset
             : simplePromptOptimizationPreset,
+        ...promptOptimizerPayloadFields(),
       })
       if (target === 'advanced') {
         setAdvancedPrompt(optimizedPrompt)
@@ -3364,7 +3378,8 @@ ${description}`
           setPromptNodeOptimizationPreset(node.id, preset),
         generationMode,
         isOptimizingPrompt: isPromptOptimizing,
-        canOptimizePrompt: Boolean(nodePrompt.trim()) && Boolean(codexApiKey) && !isPromptOptimizing,
+        canOptimizePrompt:
+          Boolean(nodePrompt.trim()) && hasPromptOptimizationProvider() && !isPromptOptimizing,
         onOptimizePrompt: () => void handleOptimizePrompt(node.id),
       }
     }

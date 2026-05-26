@@ -125,6 +125,9 @@ export type PromptOptimizationPayload = {
   prompt: string
   mode: 'text' | 'image'
   optimizationPreset: PromptOptimizationPreset
+  promptOptimizerUrl?: string
+  promptOptimizerUsername?: string
+  promptOptimizerPassword?: string
 }
 
 export type NegativePromptOptimizationPayload = {

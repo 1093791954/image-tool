@@ -4,6 +4,7 @@ dist-electron/
 release/
 tmp-responsive-check/
 .codex-run/
+.codex-local-run/
 .playwright-mcp/
 .edge-github-profile/
 *.tsbuildinfo
@@ -15,3 +16,4 @@ image-tools-data/
 server-data/
 local-docs/
 lib/风格/
+prompt-optimizer/
