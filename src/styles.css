@@ -3173,6 +3173,48 @@ select:disabled {
   backdrop-filter: blur(18px);
 }
 
+.success-toast {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  color: var(--green);
+  background: rgb(14 54 42 / 92%);
+  border-color: rgb(65 211 155 / 38%);
+}
+
+:root[data-theme='light'] .success-toast {
+  background: rgb(232 255 247 / 96%);
+  border-color: rgb(28 161 112 / 28%);
+}
+
+.success-toast > svg {
+  grid-row: 1 / span 2;
+  grid-column: 1;
+}
+
+.success-toast strong,
+.success-toast span {
+  grid-column: 2;
+}
+
+.success-toast .toast-action {
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  width: auto;
+  min-width: 96px;
+  padding: 0 12px;
+  color: #061014;
+  background: linear-gradient(135deg, var(--green), var(--blue));
+  border-color: transparent;
+  font-weight: 850;
+}
+
+.success-toast .toast-action:hover,
+.success-toast .toast-action:focus-visible {
+  filter: brightness(1.04);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
 :root[data-theme='light'] .portal-error {
   background: rgb(255 240 239 / 94%);
 }
@@ -3274,6 +3316,11 @@ select:disabled {
   grid-row: 1 / span 2;
   grid-column: 2;
   color: var(--danger);
+}
+
+.success-toast .toast-action {
+  grid-column: 3;
+  color: #061014;
 }
 
 .modal-overlay,

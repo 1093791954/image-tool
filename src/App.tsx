@@ -1436,6 +1436,10 @@ export function App() {
   const [status, setStatus] = useState('未连接')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState<{ id: number; message: string } | null>(null)
+  const [generationSuccess, setGenerationSuccess] = useState<{
+    title: string
+    message: string
+  } | null>(null)
   const [paneMenu, setPaneMenu] = useState<PaneMenu>(null)
   const [isSidebarDrawerOpen, setIsSidebarDrawerOpen] = useState(false)
   const [isCanvasDrawerOpen, setIsCanvasDrawerOpen] = useState(() =>
@@ -2875,6 +2879,7 @@ ${description}`
     }
 
     setError('')
+    setGenerationSuccess(null)
     setIsGenerating(true)
     setStatus('正在生成图片...')
 
@@ -2918,9 +2923,14 @@ ${description}`
       await saveImages(records)
       await refreshImages()
       setStatus(`已生成 ${records.length} 张图片`)
+      setGenerationSuccess({
+        title: '生成完成',
+        message: `${includeAdvancedControls ? '高级生成' : '快速生成'}已生成 ${records.length} 张图片，结果已保存到图库。`,
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
+      setGenerationSuccess(null)
       setStatus('生成失败')
     } finally {
       setIsGenerating(false)
@@ -4150,6 +4160,23 @@ ${description}`
             </button>
           </div>
         ) : null}
+        {!error && generationSuccess ? (
+          <div className='error-toast success-toast' role='status' aria-live='polite'>
+            <Check size={16} aria-hidden='true' />
+            <strong>{generationSuccess.title}</strong>
+            <span>{generationSuccess.message}</span>
+            <button
+              type='button'
+              className='toast-action'
+              onClick={() => {
+                setGenerationSuccess(null)
+                enterSidebarView('gallery')
+              }}
+            >
+              去图库查看
+            </button>
+          </div>
+        ) : null}
 
           </main>
           </section>
@@ -4992,6 +5019,23 @@ ${description}`
               <span>{error}</span>
               <button type='button' onClick={() => setError('')} aria-label='关闭错误提示'>
                 <X size={15} />
+              </button>
+            </div>
+          ) : null}
+          {!error && generationSuccess ? (
+            <div className='error-toast portal-error success-toast' role='status' aria-live='polite'>
+              <Check size={16} aria-hidden='true' />
+              <strong>{generationSuccess.title}</strong>
+              <span>{generationSuccess.message}</span>
+              <button
+                type='button'
+                className='toast-action'
+                onClick={() => {
+                  setGenerationSuccess(null)
+                  enterSidebarView('gallery')
+                }}
+              >
+                去图库查看
               </button>
             </div>
           ) : null}
