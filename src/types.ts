@@ -119,6 +119,14 @@ export type PromptOptimizationPayload = {
   optimizationPreset: PromptOptimizationPreset
 }
 
+export type NegativePromptOptimizationPayload = {
+  baseUrl: string
+  apiKey: string
+  model: string
+  prompt: string
+  currentNegativePrompt?: string
+}
+
 export type SketchDescriptionPayload = {
   baseUrl: string
   apiKey: string
@@ -166,6 +174,7 @@ export type ImageApiClient = {
     payload: ManagedNewApiLoginPayload
   ) => Promise<ManagedNewApiLoginResult>
   optimizePrompt: (payload: PromptOptimizationPayload) => Promise<string>
+  optimizeNegativePrompt: (payload: NegativePromptOptimizationPayload) => Promise<string>
   describeSketch: (payload: SketchDescriptionPayload) => Promise<string>
   prepareCommerceMainPrompt: (payload: CommerceMainPromptPayload) => Promise<string>
   prepareCommerceDetailPrompt: (payload: CommerceDetailPromptPayload) => Promise<string>

@@ -7,6 +7,7 @@ import type {
   ImageGenerationTask,
   ManagedNewApiLoginResult,
   ModelOption,
+  NegativePromptOptimizationPayload,
   PromptOptimizationPayload,
   PromptOptimizationPreset,
   SketchDescriptionPayload,
@@ -427,6 +428,62 @@ function promptOptimizationMessages(payload: PromptOptimizationPayload) {
   ]
 }
 
+function negativePromptOptimizationSystemInstruction() {
+  return '你是资深 AI 图像生成质量控制专家。你的任务是根据用户的图片描述，生成一段适合放入“负面提示词”输入框的中文负面约束。最终只输出负面提示词正文，不解释过程，不添加标题，不使用代码块。'
+}
+
+function negativePromptOptimizationUserText(payload: NegativePromptOptimizationPayload) {
+  const currentNegativePrompt = payload.currentNegativePrompt?.trim()
+  return `图片描述：
+${payload.prompt.trim()}
+
+${currentNegativePrompt ? `用户已有负面提示词：\n${currentNegativePrompt}\n\n` : ''}请生成适合这张图的负面提示词：
+1. 输出 12 到 28 个中文短词或短语，用中文逗号分隔。
+2. 覆盖通用画质问题、构图/主体错误、材质光影问题、文字水印问题。
+3. 结合图片描述中的主体和场景补充专属风险，例如人物、商品、海报、武器、手部、文字、背景等。
+4. 不要否定用户明确想要的主体、风格、颜色和文字内容。
+5. 不要输出完整句子，不要编号。`
+}
+
+function negativePromptOptimizationMessages(payload: NegativePromptOptimizationPayload) {
+  return [
+    {
+      role: 'system',
+      content: negativePromptOptimizationSystemInstruction(),
+    },
+    {
+      role: 'user',
+      content: negativePromptOptimizationUserText(payload),
+    },
+  ]
+}
+
+function negativePromptOptimizationRequestBody(payload: NegativePromptOptimizationPayload) {
+  return {
+    model: payload.model,
+    messages: negativePromptOptimizationMessages(payload),
+    temperature: 0.3,
+    stream: false,
+  }
+}
+
+function negativePromptOptimizationResponsesRequestBody(
+  payload: NegativePromptOptimizationPayload
+) {
+  return {
+    model: payload.model,
+    instructions: negativePromptOptimizationSystemInstruction(),
+    input: [
+      {
+        role: 'user',
+        content: negativePromptOptimizationUserText(payload),
+      },
+    ],
+    temperature: 0.3,
+    stream: false,
+  }
+}
+
 function sketchDescriptionSystemInstruction() {
   return '你是资深视觉导演、分镜草图分析师和 AI 图像提示词工程师。你的任务是读取用户手绘草图，提取画面构图和元素位置，并输出一段可直接并入生图提示词的中文构图约束。最终只输出约束正文，不解释过程，不写 Markdown，不使用代码块。'
 }
@@ -784,6 +841,47 @@ export const bridge: ImageApiClient = {
         content?: unknown
         text?: unknown
       }>(fallbackResponse, 'Prompt optimization fallback failed')
+      try {
+        return await parsePromptOptimizationResult(fallbackBody)
+      } catch (fallbackError) {
+        if (isEmptyPromptOptimizationError(fallbackError)) {
+          throw new Error(
+            `${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}；chat/completions 也返回空结果：${chatErrorMessage}`
+          )
+        }
+        throw fallbackError
+      }
+    }
+  },
+
+  async optimizeNegativePrompt(payload) {
+    const baseUrl = normalizeBaseUrl(payload.baseUrl)
+    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: headers(payload.apiKey),
+      body: JSON.stringify(negativePromptOptimizationRequestBody(payload)),
+    })
+    const body = await parseJsonResponse<{
+      choices?: Array<{ message?: { content?: string }; text?: string }>
+    }>(response, 'Negative prompt optimization failed')
+    try {
+      return await parsePromptOptimizationResult(body)
+    } catch (error) {
+      if (!isEmptyPromptOptimizationError(error)) throw error
+      const chatErrorMessage = error instanceof Error ? error.message : String(error)
+
+      const fallbackResponse = await fetch(`${baseUrl}/v1/responses`, {
+        method: 'POST',
+        headers: headers(payload.apiKey),
+        body: JSON.stringify(negativePromptOptimizationResponsesRequestBody(payload)),
+      })
+      const fallbackBody = await parseJsonResponse<{
+        choices?: Array<{ message?: { content?: string }; text?: string }>
+        output_text?: unknown
+        output?: unknown
+        content?: unknown
+        text?: unknown
+      }>(fallbackResponse, 'Negative prompt optimization fallback failed')
       try {
         return await parsePromptOptimizationResult(fallbackBody)
       } catch (fallbackError) {

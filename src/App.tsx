@@ -267,7 +267,6 @@ const WORKFLOW_CANVASES_STORAGE_KEY = 'gpt-image-tools.workflow-canvases.v1'
 const ACTIVE_CANVAS_STORAGE_KEY = 'gpt-image-tools.active-canvas.v1'
 const PENDING_GENERATION_TASKS_STORAGE_KEY = 'gpt-image-tools.pending-generation-tasks.v1'
 const CANVAS_DRAWER_AUTO_OPEN_QUERY = '(min-width: 1120px)'
-const DEFAULT_NEGATIVE_PROMPT = '文字、水印、低清、畸形、错手、脏背景'
 
 const initialWorkflowNodes: WorkflowNode[] = [
   { id: 'asset-1', type: 'asset', position: { x: -520, y: -130 }, data: {} },
@@ -1428,6 +1427,7 @@ export function App() {
   const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isOptimizingSimplePrompt, setIsOptimizingSimplePrompt] = useState(false)
+  const [isOptimizingNegativePrompt, setIsOptimizingNegativePrompt] = useState(false)
   const [optimizingPromptNodeIds, setOptimizingPromptNodeIds] = useState<Set<string>>(
     () => new Set()
   )
@@ -2386,6 +2386,43 @@ export function App() {
       setStatus('提示词优化失败')
     } finally {
       setIsOptimizingSimplePrompt(false)
+    }
+  }
+
+  async function handleOptimizeAdvancedNegativePrompt() {
+    const currentPrompt = advancedPrompt.trim()
+    if (!currentPrompt) {
+      setError('请先填写图片描述，再优化负面提示词')
+      setStatus('缺少图片描述')
+      return
+    }
+    if (!codexApiKey) {
+      setError('请先点击连接配置里的登录，获取 codex 满血高速 分组秘钥')
+      setStatus('缺少提示词优化秘钥')
+      return
+    }
+    if (isOptimizingNegativePrompt) return
+
+    setError('')
+    setStatus('正在优化负面提示词...')
+    setIsOptimizingNegativePrompt(true)
+
+    try {
+      const optimizedNegativePrompt = await bridge.optimizeNegativePrompt({
+        baseUrl,
+        apiKey: codexApiKey,
+        model: textModel.trim() || DEFAULT_TEXT_MODEL,
+        prompt: currentPrompt,
+        currentNegativePrompt: advancedNegativePrompt,
+      })
+      setAdvancedNegativePrompt(optimizedNegativePrompt)
+      setStatus('负面提示词已优化')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setError(message)
+      setStatus('负面提示词优化失败')
+    } finally {
+      setIsOptimizingNegativePrompt(false)
     }
   }
 
@@ -4420,9 +4457,13 @@ ${description}`
                     <button
                       type='button'
                       className='secondary compact-action'
-                      onClick={() => setAdvancedNegativePrompt(DEFAULT_NEGATIVE_PROMPT)}
+                      onClick={() => void handleOptimizeAdvancedNegativePrompt()}
+                      disabled={isGenerating || isOptimizingNegativePrompt}
                     >
-                      一键填默认
+                      {isOptimizingNegativePrompt ? (
+                        <Loader2 className='spin' size={15} />
+                      ) : null}
+                      {isOptimizingNegativePrompt ? '优化中' : '优化负面提示词'}
                     </button>
                   </div>
                   <textarea
