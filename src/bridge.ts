@@ -198,6 +198,22 @@ function blobFromDataUrl(dataUrl: string) {
   return new Blob([bytes], { type })
 }
 
+function normalizedImageApiSize(model: string, size: string) {
+  const normalizedModel = model.trim().toLowerCase()
+  if (!normalizedModel.startsWith('gpt-image')) return size
+  if (size === 'auto') return size
+  const supportedSizes = new Set(['1024x1024', '1024x1536', '1536x1024'])
+  if (supportedSizes.has(size)) return size
+
+  const match = size.match(/^(\d{2,5})x(\d{2,5})$/)
+  if (!match) return size
+  const width = Number(match[1])
+  const height = Number(match[2])
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return size
+  if (Math.abs(width - height) / Math.max(width, height) < 0.08) return '1024x1024'
+  return height > width ? '1024x1536' : '1536x1024'
+}
+
 async function parseImageResult(
   body: { data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }> }
 ) {
@@ -933,10 +949,11 @@ export const bridge: ImageApiClient = {
         throw new Error('At least one reference image is required')
       }
 
+      const apiSize = normalizedImageApiSize(payload.model, payload.size)
       const form = new FormData()
       form.set('model', payload.model)
       form.set('prompt', payload.prompt)
-      form.set('size', payload.size)
+      form.set('size', apiSize)
       if (payload.quality !== 'auto') {
         form.set('quality', payload.quality)
       }
@@ -967,26 +984,33 @@ export const bridge: ImageApiClient = {
       return parseImageResult(result)
     }
 
-    const response = await fetch(openAiImageProxyUrl('generations', payload.baseUrl), {
-      method: 'POST',
-      headers: headers(payload.apiKey),
-      body: JSON.stringify({
-        model: payload.model,
-        prompt: payload.prompt,
-        size: payload.size,
-        quality: payload.quality,
-        n: payload.count,
-        response_format: payload.responseFormat,
-      }),
-    })
-    const body = await parseJsonResponse<{
-      success?: boolean
-      message?: string
-      data?: ImageGenerationTask
-    }>(response, 'Image generation failed')
-    const task = assertTaskResponse(body, '提交生图任务失败')
-    const result = await waitForImageTask(task, payload.onTaskUpdate)
+    const requestedCount = Math.max(1, Math.floor(payload.count))
+    const apiSize = normalizedImageApiSize(payload.model, payload.size)
+    const images: ImageGenerationResult['images'] = []
+    for (let index = 0; index < requestedCount; index += 1) {
+      const response = await fetch(openAiImageProxyUrl('generations', payload.baseUrl), {
+        method: 'POST',
+        headers: headers(payload.apiKey),
+        body: JSON.stringify({
+          model: payload.model,
+          prompt: payload.prompt,
+          size: apiSize,
+          ...(payload.quality !== 'auto' ? { quality: payload.quality } : {}),
+          n: 1,
+          response_format: payload.responseFormat,
+        }),
+      })
+      const body = await parseJsonResponse<{
+        success?: boolean
+        message?: string
+        data?: ImageGenerationTask
+      }>(response, 'Image generation failed')
+      const task = assertTaskResponse(body, '提交生图任务失败')
+      const result = await waitForImageTask(task, payload.onTaskUpdate)
+      const parsed = await parseImageResult(result)
+      images.push(...parsed.images)
+    }
 
-    return parseImageResult(result)
+    return { images }
   },
 }

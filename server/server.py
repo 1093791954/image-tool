@@ -324,6 +324,10 @@ def parse_generation_metadata(content_type: str, body: bytes) -> dict[str, Any]:
     return {
         "model": str(payload.get("model") or "")[:200] or None,
         "prompt": str(payload.get("prompt") or "")[:2000] or None,
+        "size": str(payload.get("size") or "")[:200] or None,
+        "quality": str(payload.get("quality") or "")[:200] or None,
+        "count": payload.get("n"),
+        "response_format": str(payload.get("response_format") or "")[:200] or None,
     }
 
 
@@ -874,6 +878,8 @@ def create_generation_task(
             "field_names": metadata.get("field_names"),
             "size": metadata.get("size"),
             "quality": metadata.get("quality"),
+            "count": metadata.get("count"),
+            "response_format": metadata.get("response_format"),
             "input_fidelity": metadata.get("input_fidelity"),
         },
     )
