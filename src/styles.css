@@ -1405,6 +1405,90 @@ select:disabled {
   line-height: 1.6;
 }
 
+.advanced-style-board {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(240px, 1.08fr);
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.advanced-style-controls {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.advanced-style-preview {
+  display: grid;
+  grid-template-columns: minmax(128px, 180px) minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.advanced-style-image-frame {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  min-height: 138px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.advanced-style-image-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.advanced-style-image-frame div {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+}
+
+.advanced-style-meta {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.advanced-style-meta strong {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.advanced-style-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.advanced-style-keywords span {
+  padding: 4px 7px;
+  color: var(--text-muted);
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+}
+
 .commerce-upload-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3644,6 +3728,11 @@ select:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .advanced-style-board,
+  .advanced-style-preview {
+    grid-template-columns: 1fr;
+  }
+
 }
 
 @media (max-width: 620px) {
@@ -3702,6 +3791,10 @@ select:disabled {
   .advanced-sketch-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .advanced-style-image-frame {
+    min-height: 180px;
   }
 
   .simple-actions {

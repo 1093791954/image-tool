@@ -1332,6 +1332,8 @@ export function App() {
   const [advancedSketchImageDataUrl, setAdvancedSketchImageDataUrl] = useState('')
   const [isAdvancedSketchDirty, setIsAdvancedSketchDirty] = useState(false)
   const [isAnalyzingAdvancedSketch, setIsAnalyzingAdvancedSketch] = useState(false)
+  const [advancedStyleCategory, setAdvancedStyleCategory] = useState('')
+  const [advancedSelectedStyleId, setAdvancedSelectedStyleId] = useState('')
   const [commerceProductImages, setCommerceProductImages] = useState<ReferenceImage[]>([])
   const [commerceStyleImage, setCommerceStyleImage] = useState<ReferenceImage | null>(null)
   const [commerceDescription, setCommerceDescription] = useState('')
@@ -1399,6 +1401,18 @@ export function App() {
     () => referenceImageBlobs.map((blob) => `${blob.id}:${blob.dataUrl}`).join('|'),
     [referenceImageBlobs]
   )
+  const advancedVisibleStyles = useMemo(
+    () =>
+      advancedStyleCategory
+        ? styles.filter((style) => style.category === advancedStyleCategory)
+        : styles,
+    [advancedStyleCategory, styles]
+  )
+  const advancedSelectedStyle = useMemo(
+    () => styles.find((style) => style.id === advancedSelectedStyleId) || null,
+    [advancedSelectedStyleId, styles]
+  )
+  const advancedStyleKeywords = advancedSelectedStyle?.keywords?.slice(0, 6) || []
   const isConfigured = Boolean(baseUrl.trim() && apiKey.trim() && model.trim())
   const updateActiveCanvas = useCallback(
     (updater: (canvas: WorkflowCanvas) => WorkflowCanvas) => {
@@ -1644,6 +1658,20 @@ export function App() {
     if (currentView !== 'advanced') return
     initializeAdvancedSketchCanvas()
   }, [currentView])
+
+  useEffect(() => {
+    if (!advancedSelectedStyle) return
+    if (advancedSelectedStyle.category !== advancedStyleCategory) {
+      setAdvancedStyleCategory(advancedSelectedStyle.category)
+    }
+  }, [advancedSelectedStyle, advancedStyleCategory])
+
+  useEffect(() => {
+    if (!advancedSelectedStyleId) return
+    if (!styles.some((style) => style.id === advancedSelectedStyleId)) {
+      setAdvancedSelectedStyleId('')
+    }
+  }, [advancedSelectedStyleId, styles])
 
   useEffect(() => {
     try {
@@ -2697,7 +2725,10 @@ export function App() {
 ${description}`
   }
 
-  async function handleSimpleGenerate(options?: { includeAdvancedSketch?: boolean }) {
+  async function handleSimpleGenerate(options?: {
+    includeAdvancedSketch?: boolean
+    includeAdvancedStyle?: boolean
+  }) {
     const prompt = simplePrompt.trim()
     if (!isConfigured) {
       setError('')
@@ -2722,7 +2753,10 @@ ${description}`
       const sketchDescription = options?.includeAdvancedSketch
         ? await describeAdvancedSketch(prompt)
         : ''
-      const finalPrompt = promptWithAdvancedSketch(prompt, sketchDescription)
+      const sketchPrompt = promptWithAdvancedSketch(prompt, sketchDescription)
+      const selectedStyles =
+        options?.includeAdvancedStyle && advancedSelectedStyle ? [advancedSelectedStyle] : []
+      const finalPrompt = promptWithStyles(sketchPrompt, selectedStyles)
       const result = await bridge.generateImages({
         baseUrl,
         apiKey,
@@ -4232,6 +4266,73 @@ ${description}`
                     </div>
                   ) : null}
                 </section>
+                <section className='advanced-style-board' aria-label='高级生成风格库'>
+                  <div className='advanced-style-controls'>
+                    <label className='field'>
+                      <span>风格分类</span>
+                      <select
+                        value={advancedStyleCategory}
+                        disabled={isLoadingStyles || styleCategories.length === 0}
+                        onChange={(event) => {
+                          const nextCategory = event.target.value
+                          setAdvancedStyleCategory(nextCategory)
+                          setAdvancedSelectedStyleId('')
+                        }}
+                      >
+                        <option value=''>全部风格</option>
+                        {styleCategories.map((item) => (
+                          <option key={item.name} value={item.name}>
+                            {item.name} · {item.count}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className='field'>
+                      <span>风格</span>
+                      <select
+                        value={advancedSelectedStyleId}
+                        disabled={isLoadingStyles || advancedVisibleStyles.length === 0}
+                        onChange={(event) => setAdvancedSelectedStyleId(event.target.value)}
+                      >
+                        <option value=''>不使用风格</option>
+                        {advancedVisibleStyles.map((style) => (
+                          <option key={style.id} value={style.id}>
+                            {style.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className='advanced-style-preview'>
+                    <div className='advanced-style-image-frame'>
+                      {advancedSelectedStyle?.previewUrl ? (
+                        <img
+                          src={advancedSelectedStyle.previewUrl}
+                          alt={`${advancedSelectedStyle.name} 风格示例`}
+                        />
+                      ) : (
+                        <div>
+                          {isLoadingStyles ? <Loader2 className='spin' size={28} /> : <ImageIcon size={30} />}
+                          <span>{isLoadingStyles ? 'LOADING' : 'NO STYLE'}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className='advanced-style-meta'>
+                      <strong>
+                        {advancedSelectedStyle
+                          ? `${advancedSelectedStyle.category} / ${advancedSelectedStyle.name}`
+                          : '选择一个风格后，会把对应 JSON 协议加入最终提示词'}
+                      </strong>
+                      {advancedStyleKeywords.length > 0 ? (
+                        <div className='advanced-style-keywords'>
+                          {advancedStyleKeywords.map((keyword) => (
+                            <span key={keyword}>{keyword}</span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </section>
                 <div className='advanced-param-grid'>
                   <label className='field'>
                     <span>模型</span>
@@ -4321,7 +4422,12 @@ ${description}`
                   <button
                     type='button'
                     className='primary-action'
-                    onClick={() => void handleSimpleGenerate({ includeAdvancedSketch: true })}
+                    onClick={() =>
+                      void handleSimpleGenerate({
+                        includeAdvancedSketch: true,
+                        includeAdvancedStyle: true,
+                      })
+                    }
                     disabled={
                       isGenerating ||
                       isAnalyzingAdvancedSketch ||
