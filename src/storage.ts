@@ -14,6 +14,8 @@ const SETTINGS_ID = 'app'
 
 const DEFAULT_SETTINGS: AppSettings = {
   baseUrl: 'https://hotapi.top',
+  textBaseUrl: 'https://hotapi.top',
+  imageBaseUrl: 'https://hotapi.top',
   persistApiKey: false,
   apiKey: '',
   codexApiKey: '',
@@ -88,9 +90,14 @@ async function withStore<T>(
 }
 
 function normalizeSettings(settings: Partial<AppSettings> | undefined): AppSettings {
+  const legacyBaseUrl = settings?.baseUrl || DEFAULT_SETTINGS.baseUrl
+
   return {
     ...DEFAULT_SETTINGS,
     ...settings,
+    baseUrl: legacyBaseUrl,
+    textBaseUrl: settings?.textBaseUrl || legacyBaseUrl,
+    imageBaseUrl: settings?.imageBaseUrl || legacyBaseUrl,
     persistApiKey: Boolean(settings?.persistApiKey),
     apiKey: settings?.persistApiKey ? settings.apiKey || '' : '',
     codexApiKey: settings?.persistApiKey ? settings.codexApiKey || '' : '',
@@ -106,6 +113,8 @@ function normalizeSettings(settings: Partial<AppSettings> | undefined): AppSetti
 function backupSettingsFrom(settings: AppSettings): BackupSettings {
   return {
     baseUrl: settings.baseUrl || DEFAULT_SETTINGS.baseUrl,
+    textBaseUrl: settings.textBaseUrl || settings.baseUrl || DEFAULT_SETTINGS.textBaseUrl,
+    imageBaseUrl: settings.imageBaseUrl || settings.baseUrl || DEFAULT_SETTINGS.imageBaseUrl,
     persistApiKey: false,
     textModel: settings.textModel || DEFAULT_SETTINGS.textModel,
     promptOptimizerUrl: settings.promptOptimizerUrl || DEFAULT_SETTINGS.promptOptimizerUrl,
@@ -222,6 +231,10 @@ export async function importBackup(backup: unknown): Promise<number> {
     await saveSettings({
       ...current,
       baseUrl: candidate.settings.baseUrl || current.baseUrl,
+      textBaseUrl:
+        candidate.settings.textBaseUrl || candidate.settings.baseUrl || current.textBaseUrl,
+      imageBaseUrl:
+        candidate.settings.imageBaseUrl || candidate.settings.baseUrl || current.imageBaseUrl,
       textModel: candidate.settings.textModel || current.textModel,
       promptOptimizerUrl: candidate.settings.promptOptimizerUrl || current.promptOptimizerUrl,
       promptOptimizerUsername:

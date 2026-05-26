@@ -88,6 +88,8 @@ import type {
 } from './types'
 
 const DEFAULT_BASE_URL = 'https://hotapi.top'
+const DEFAULT_TEXT_BASE_URL = DEFAULT_BASE_URL
+const DEFAULT_IMAGE_BASE_URL = DEFAULT_BASE_URL
 const DEFAULT_MODEL = 'gpt-image-2'
 const DEFAULT_TEXT_MODEL = 'gpt-5.5'
 const DEFAULT_PROMPT_OPTIMIZER_URL = ''
@@ -1361,7 +1363,8 @@ async function readGenerationTask(taskId: string) {
 
 export function App() {
   const [currentView, setCurrentView] = useState<AppView>('home')
-  const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL)
+  const [textBaseUrl, setTextBaseUrl] = useState(DEFAULT_TEXT_BASE_URL)
+  const [imageBaseUrl, setImageBaseUrl] = useState(DEFAULT_IMAGE_BASE_URL)
   const [apiKey, setApiKey] = useState('')
   const [codexApiKey, setCodexApiKey] = useState('')
   const [persistApiKey, setPersistApiKey] = useState(false)
@@ -1502,7 +1505,7 @@ export function App() {
     [advancedSelectedStyleId, styles]
   )
   const advancedStyleKeywords = advancedSelectedStyle?.keywords?.slice(0, 6) || []
-  const isConfigured = Boolean(baseUrl.trim() && apiKey.trim() && model.trim())
+  const isConfigured = Boolean(imageBaseUrl.trim() && apiKey.trim() && model.trim())
   const updateActiveCanvas = useCallback(
     (updater: (canvas: WorkflowCanvas) => WorkflowCanvas) => {
       setCanvases((currentCanvases) =>
@@ -1648,7 +1651,8 @@ export function App() {
   useEffect(() => {
     void getSettings()
       .then((settings) => {
-        setBaseUrl(settings.baseUrl || DEFAULT_BASE_URL)
+        setTextBaseUrl(settings.textBaseUrl || settings.baseUrl || DEFAULT_TEXT_BASE_URL)
+        setImageBaseUrl(settings.imageBaseUrl || settings.baseUrl || DEFAULT_IMAGE_BASE_URL)
         setPersistApiKey(Boolean(settings.persistApiKey))
         setThemeMode(settings.themeMode || 'system')
         setTextModel(settings.textModel || DEFAULT_TEXT_MODEL)
@@ -2090,7 +2094,9 @@ export function App() {
 
   async function handleSaveSettings() {
     await saveSettings({
-      baseUrl,
+      baseUrl: imageBaseUrl,
+      textBaseUrl,
+      imageBaseUrl,
       persistApiKey,
       apiKey,
       codexApiKey,
@@ -2105,7 +2111,8 @@ export function App() {
 
   async function handleResetConnectionSettings() {
     setError('')
-    setBaseUrl(DEFAULT_BASE_URL)
+    setTextBaseUrl(DEFAULT_TEXT_BASE_URL)
+    setImageBaseUrl(DEFAULT_IMAGE_BASE_URL)
     setApiKey('')
     setCodexApiKey('')
     setPersistApiKey(false)
@@ -2118,7 +2125,9 @@ export function App() {
     setLoginPassword('')
     setIsLoginDialogOpen(false)
     await saveSettings({
-      baseUrl: DEFAULT_BASE_URL,
+      baseUrl: DEFAULT_IMAGE_BASE_URL,
+      textBaseUrl: DEFAULT_TEXT_BASE_URL,
+      imageBaseUrl: DEFAULT_IMAGE_BASE_URL,
       persistApiKey: false,
       apiKey: '',
       codexApiKey: '',
@@ -2134,7 +2143,9 @@ export function App() {
   async function handleThemeChange(nextThemeMode: ThemeMode) {
     setThemeMode(nextThemeMode)
     await saveSettings({
-      baseUrl,
+      baseUrl: imageBaseUrl,
+      textBaseUrl,
+      imageBaseUrl,
       persistApiKey,
       apiKey,
       codexApiKey,
@@ -2172,7 +2183,8 @@ export function App() {
       const text = await file.text()
       const importedCount = await importBackup(JSON.parse(text))
       const settings = await getSettings()
-      setBaseUrl(settings.baseUrl || DEFAULT_BASE_URL)
+      setTextBaseUrl(settings.textBaseUrl || settings.baseUrl || DEFAULT_TEXT_BASE_URL)
+      setImageBaseUrl(settings.imageBaseUrl || settings.baseUrl || DEFAULT_IMAGE_BASE_URL)
       setPersistApiKey(Boolean(settings.persistApiKey))
       setThemeMode(settings.themeMode || 'system')
       setTextModel(settings.textModel || DEFAULT_TEXT_MODEL)
@@ -2277,7 +2289,7 @@ export function App() {
     setIsLoadingModels(true)
 
     try {
-      const nextModels = await bridge.listModels({ baseUrl, apiKey })
+      const nextModels = await bridge.listModels({ baseUrl: imageBaseUrl, apiKey })
       setModels(nextModels)
 
       const preferred =
@@ -2312,7 +2324,8 @@ export function App() {
         password: loginPassword,
       })
 
-      setBaseUrl(result.baseUrl)
+      setTextBaseUrl(result.baseUrl)
+      setImageBaseUrl(result.baseUrl)
       setApiKey(result.apiKey)
       setCodexApiKey(result.codexApiKey)
       setPersistApiKey(true)
@@ -2320,6 +2333,8 @@ export function App() {
       setTextModel(result.codexModel || DEFAULT_TEXT_MODEL)
       await saveSettings({
         baseUrl: result.baseUrl,
+        textBaseUrl: result.baseUrl,
+        imageBaseUrl: result.baseUrl,
         persistApiKey: true,
         apiKey: result.apiKey,
         codexApiKey: result.codexApiKey,
@@ -2365,7 +2380,7 @@ export function App() {
 
     try {
       const optimizedPrompt = await bridge.optimizePrompt({
-        baseUrl,
+        baseUrl: textBaseUrl,
         apiKey: codexApiKey,
         model: textModel.trim() || DEFAULT_TEXT_MODEL,
         prompt: currentPrompt,
@@ -2414,7 +2429,7 @@ export function App() {
 
     try {
       const optimizedPrompt = await bridge.optimizePrompt({
-        baseUrl,
+        baseUrl: textBaseUrl,
         apiKey: codexApiKey,
         model: textModel.trim() || DEFAULT_TEXT_MODEL,
         prompt: currentPrompt,
@@ -2459,7 +2474,7 @@ export function App() {
 
     try {
       const optimizedNegativePrompt = await bridge.optimizeNegativePrompt({
-        baseUrl,
+        baseUrl: textBaseUrl,
         apiKey: codexApiKey,
         model: textModel.trim() || DEFAULT_TEXT_MODEL,
         prompt: currentPrompt,
@@ -2604,7 +2619,7 @@ export function App() {
         )
         let currentTaskId = ''
         const result = await bridge.generateImages({
-          baseUrl,
+          baseUrl: imageBaseUrl,
           apiKey,
           mode: effectiveGenerationMode,
           model,
@@ -2917,7 +2932,7 @@ export function App() {
     setIsAnalyzingAdvancedSketch(true)
     try {
       const description = await bridge.describeSketch({
-        baseUrl,
+        baseUrl: textBaseUrl,
         apiKey: codexApiKey,
         model: textModel.trim() || DEFAULT_TEXT_MODEL,
         prompt,
@@ -2988,7 +3003,7 @@ ${description}`
         options?.includeAdvancedStyle && advancedSelectedStyle ? [advancedSelectedStyle] : []
       const finalPrompt = promptWithStyles(sketchPrompt, selectedStyles, advancedStyleWeight)
       const result = await bridge.generateImages({
-        baseUrl,
+        baseUrl: imageBaseUrl,
         apiKey,
         mode: 'text',
         model: includeAdvancedControls ? advancedModel : model,
@@ -3108,7 +3123,7 @@ ${description}`
       let preparedPrompt = ''
       try {
         const promptPayload = {
-          baseUrl,
+          baseUrl: textBaseUrl,
           apiKey: codexApiKey,
           model: textModel.trim() || DEFAULT_TEXT_MODEL,
           description,
@@ -3136,7 +3151,7 @@ ${description}`
       setStatus(`正在生成${outputLabel}...`)
 
       const result = await bridge.generateImages({
-        baseUrl,
+        baseUrl: imageBaseUrl,
         apiKey,
         mode: 'image',
         model,
@@ -3378,7 +3393,7 @@ ${description}`
         null
       const canGenerateNode =
         !activeCanvasGenerating &&
-        Boolean(apiKey && baseUrl && model && getWorkflowNodePrompt(promptNode).trim())
+        Boolean(apiKey && imageBaseUrl && model && getWorkflowNodePrompt(promptNode).trim())
       const activeSize = selectedGenerationSize() || size
       const workflowSizes = sizes.includes(activeSize) ? sizes : [activeSize, ...sizes]
 
@@ -3436,8 +3451,9 @@ ${description}`
       generationMode,
       referenceImages,
       apiKey,
-      baseUrl,
+      imageBaseUrl,
       codexApiKey,
+      textBaseUrl,
       textModel,
       optimizingPromptNodeIds,
       styles,
@@ -4947,22 +4963,21 @@ ${description}`
                     <KeyRound size={16} />
                     <span>连接配置</span>
                   </div>
-                  <label className='field'>
-                    <span>Base URL</span>
-                    <input
-                      value={baseUrl}
-                      onChange={(event) => setBaseUrl(event.target.value)}
-                      placeholder='https://hotapi.top'
-                      spellCheck={false}
-                    />
-                  </label>
-
                   <div className='connection-config-block'>
                     <div className='connection-config-title'>
                       <Sparkles size={14} />
                       <span>文本模型</span>
                       <small>用于优化提示词</small>
                     </div>
+                    <label className='field'>
+                      <span>文本模型 Base URL</span>
+                      <input
+                        value={textBaseUrl}
+                        onChange={(event) => setTextBaseUrl(event.target.value)}
+                        placeholder='https://hotapi.top'
+                        spellCheck={false}
+                      />
+                    </label>
                     <label className='field'>
                       <span>文本模型名称</span>
                       <input
@@ -5037,6 +5052,15 @@ ${description}`
                       <span>生图模型</span>
                     </div>
                     <label className='field'>
+                      <span>生图模型 Base URL</span>
+                      <input
+                        value={imageBaseUrl}
+                        onChange={(event) => setImageBaseUrl(event.target.value)}
+                        placeholder='https://hotapi.top'
+                        spellCheck={false}
+                      />
+                    </label>
+                    <label className='field'>
                       <span>生图模型名称</span>
                       <select value={model} onChange={(event) => setModel(event.target.value)}>
                         {sortedModels.length === 0 ? (
@@ -5101,7 +5125,7 @@ ${description}`
                     <button
                       className='secondary'
                       onClick={handleFetchModels}
-                      disabled={isLoadingModels || !baseUrl || !apiKey}
+                      disabled={isLoadingModels || !imageBaseUrl || !apiKey}
                     >
                       {isLoadingModels ? (
                         <Loader2 className='spin' size={16} />

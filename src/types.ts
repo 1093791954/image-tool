@@ -2,6 +2,8 @@ export type ThemeMode = 'light' | 'dark' | 'system'
 
 export type AppSettings = {
   baseUrl: string
+  textBaseUrl?: string
+  imageBaseUrl?: string
   persistApiKey: boolean
   apiKey?: string
   codexApiKey?: string
