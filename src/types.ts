@@ -118,6 +118,14 @@ export type PromptOptimizationPayload = {
   optimizationPreset: PromptOptimizationPreset
 }
 
+export type SketchDescriptionPayload = {
+  baseUrl: string
+  apiKey: string
+  model: string
+  prompt: string
+  sketchDataUrl: string
+}
+
 export type CommerceMainPromptPayload = {
   baseUrl: string
   apiKey: string
@@ -156,6 +164,7 @@ export type ImageApiClient = {
     payload: ManagedNewApiLoginPayload
   ) => Promise<ManagedNewApiLoginResult>
   optimizePrompt: (payload: PromptOptimizationPayload) => Promise<string>
+  describeSketch: (payload: SketchDescriptionPayload) => Promise<string>
   prepareCommerceMainPrompt: (payload: CommerceMainPromptPayload) => Promise<string>
   prepareCommerceDetailPrompt: (payload: CommerceDetailPromptPayload) => Promise<string>
   listStyles: () => Promise<StyleLibraryResult>

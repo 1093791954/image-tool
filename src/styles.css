@@ -1338,6 +1338,73 @@ select:disabled {
   min-height: clamp(240px, 32vh, 320px);
 }
 
+.advanced-sketch-board {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.advanced-sketch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.advanced-sketch-header div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.advanced-sketch-header strong,
+.advanced-sketch-result strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.advanced-sketch-header span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.advanced-sketch-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.advanced-sketch-canvas:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.advanced-sketch-result {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.advanced-sketch-result p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .commerce-upload-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3630,6 +3697,11 @@ select:disabled {
   .workbench-actions,
   .dock-action-bar {
     grid-template-columns: 1fr;
+  }
+
+  .advanced-sketch-header {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .simple-actions {

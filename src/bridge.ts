@@ -9,6 +9,7 @@ import type {
   ModelOption,
   PromptOptimizationPayload,
   PromptOptimizationPreset,
+  SketchDescriptionPayload,
   StyleLibraryResult,
 } from './types'
 
@@ -410,6 +411,80 @@ function promptOptimizationMessages(payload: PromptOptimizationPayload) {
   ]
 }
 
+function sketchDescriptionSystemInstruction() {
+  return '你是资深视觉导演、分镜草图分析师和 AI 图像提示词工程师。你的任务是读取用户手绘草图，提取画面构图和元素位置，并输出一段可直接并入生图提示词的中文构图约束。最终只输出约束正文，不解释过程，不写 Markdown，不使用代码块。'
+}
+
+function sketchDescriptionUserText(payload: SketchDescriptionPayload) {
+  const prompt = payload.prompt.trim() || '用户未填写文字描述。'
+  return `请分析这张用户手绘的分镜/构图草图，并结合用户文字描述，输出适合加入最终生图提示词的“分镜草图约束”。
+
+用户文字描述：
+${prompt}
+
+识别要求：
+1. 重点描述画面比例、主体位置、前中后景关系、留白区域、元素大小关系、运动/视线方向、镜头角度和构图节奏。
+2. 如果草图里有多个框、箭头、文字标记或占位块，请解释它们在画面中的大致作用和位置。
+3. 不要把草图的粗糙线条当成最终风格；只把它作为导演分镜和版式参考。
+4. 不要编造草图中不存在的具体品牌、文字、价格、二维码或人物身份。
+5. 输出 120 到 320 个中文字符，以“分镜草图约束：”开头。`
+}
+
+function sketchDescriptionMessages(payload: SketchDescriptionPayload) {
+  return [
+    {
+      role: 'system',
+      content: sketchDescriptionSystemInstruction(),
+    },
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: sketchDescriptionUserText(payload),
+        },
+        {
+          type: 'image_url',
+          image_url: { url: payload.sketchDataUrl },
+        },
+      ],
+    },
+  ]
+}
+
+function sketchDescriptionRequestBody(payload: SketchDescriptionPayload) {
+  return {
+    model: payload.model,
+    messages: sketchDescriptionMessages(payload),
+    temperature: 0.2,
+    stream: false,
+  }
+}
+
+function sketchDescriptionResponsesRequestBody(payload: SketchDescriptionPayload) {
+  return {
+    model: payload.model,
+    instructions: sketchDescriptionSystemInstruction(),
+    input: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text: sketchDescriptionUserText(payload),
+          },
+          {
+            type: 'input_image',
+            image_url: payload.sketchDataUrl,
+          },
+        ],
+      },
+    ],
+    temperature: 0.2,
+    stream: false,
+  }
+}
+
 function commerceMainPromptSystemInstruction() {
   return '你是资深电商主图视觉导演、商业修图提示词工程师和多模态图像分析师。你的任务是分析商品白底图和目标风格图，然后输出一段可直接用于图像编辑/图像参考生成模型的中文提示词。最终只输出提示词正文，不解释过程，不写 Markdown，不使用代码块。'
 }
@@ -678,6 +753,51 @@ export const bridge: ImageApiClient = {
         content?: unknown
         text?: unknown
       }>(fallbackResponse, 'Prompt optimization fallback failed')
+      try {
+        return await parsePromptOptimizationResult(fallbackBody)
+      } catch (fallbackError) {
+        if (isEmptyPromptOptimizationError(fallbackError)) {
+          throw new Error(
+            `${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}；chat/completions 也返回空结果：${chatErrorMessage}`
+          )
+        }
+        throw fallbackError
+      }
+    }
+  },
+
+  async describeSketch(payload) {
+    const baseUrl = normalizeBaseUrl(payload.baseUrl)
+    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: headers(payload.apiKey),
+      body: JSON.stringify(sketchDescriptionRequestBody(payload)),
+    })
+    const body = await parseJsonResponse<{
+      choices?: Array<{ message?: { content?: string }; text?: string }>
+      output_text?: unknown
+      output?: unknown
+      content?: unknown
+      text?: unknown
+    }>(response, 'Sketch description failed')
+    try {
+      return await parsePromptOptimizationResult(body)
+    } catch (error) {
+      if (!isEmptyPromptOptimizationError(error)) throw error
+      const chatErrorMessage = error instanceof Error ? error.message : String(error)
+
+      const fallbackResponse = await fetch(`${baseUrl}/v1/responses`, {
+        method: 'POST',
+        headers: headers(payload.apiKey),
+        body: JSON.stringify(sketchDescriptionResponsesRequestBody(payload)),
+      })
+      const fallbackBody = await parseJsonResponse<{
+        choices?: Array<{ message?: { content?: string }; text?: string }>
+        output_text?: unknown
+        output?: unknown
+        content?: unknown
+        text?: unknown
+      }>(fallbackResponse, 'Sketch description fallback failed')
       try {
         return await parsePromptOptimizationResult(fallbackBody)
       } catch (fallbackError) {

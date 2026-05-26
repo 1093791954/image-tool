@@ -6,6 +6,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
 } from 'react'
 import {
   Background,
@@ -96,6 +97,8 @@ const MAX_COMMERCE_PRODUCT_IMAGES = 4
 const COMMERCE_REFERENCE_MAX_SIDE = 1600
 const COMMERCE_REFERENCE_JPEG_QUALITY = 0.86
 const COMMERCE_PRODUCT_SHEET_SIZE = 1600
+const ADVANCED_SKETCH_WIDTH = 960
+const ADVANCED_SKETCH_HEIGHT = 540
 const CONFIGURATION_NOTICE_MESSAGE =
   '请先在控制台补全生图 API Key 和模型，配置完成后再继续使用其他页面。'
 
@@ -1325,6 +1328,10 @@ export function App() {
   const [simplePrompt, setSimplePrompt] = useState('')
   const [simplePromptOptimizationPreset, setSimplePromptOptimizationPreset] =
     useState<PromptOptimizationPreset>(DEFAULT_PROMPT_OPTIMIZATION_PRESET)
+  const [advancedSketchDescription, setAdvancedSketchDescription] = useState('')
+  const [advancedSketchImageDataUrl, setAdvancedSketchImageDataUrl] = useState('')
+  const [isAdvancedSketchDirty, setIsAdvancedSketchDirty] = useState(false)
+  const [isAnalyzingAdvancedSketch, setIsAnalyzingAdvancedSketch] = useState(false)
   const [commerceProductImages, setCommerceProductImages] = useState<ReferenceImage[]>([])
   const [commerceStyleImage, setCommerceStyleImage] = useState<ReferenceImage | null>(null)
   const [commerceDescription, setCommerceDescription] = useState('')
@@ -1360,6 +1367,9 @@ export function App() {
   const lastSavedReferenceImageBlobSignatureRef = useRef('')
   const hasManuallyToggledCanvasDrawerRef = useRef(false)
   const canvasListRenameInputRef = useRef<HTMLInputElement | null>(null)
+  const advancedSketchCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const isDrawingAdvancedSketchRef = useRef(false)
+  const lastAdvancedSketchPointRef = useRef<{ x: number; y: number } | null>(null)
   const commerceCategoryLevel1Node = commerceCategoryTree.find((item) => item.name === commerceCategoryLevel1)
   const commerceCategoryLevel2Options = commerceCategoryLevel1Node?.children || []
   const commerceCategoryLevel2Node = commerceCategoryLevel2Options.find((item) => item.name === commerceCategoryLevel2)
@@ -1629,6 +1639,11 @@ export function App() {
     canvasListRenameInputRef.current?.focus()
     canvasListRenameInputRef.current?.select()
   }, [renamingCanvasId])
+
+  useEffect(() => {
+    if (currentView !== 'advanced') return
+    initializeAdvancedSketchCanvas()
+  }, [currentView])
 
   useEffect(() => {
     try {
@@ -2535,7 +2550,154 @@ export function App() {
     )
   }
 
-  async function handleSimpleGenerate() {
+  function initializeAdvancedSketchCanvas() {
+    const canvas = advancedSketchCanvasRef.current
+    if (!canvas) return
+    const context = canvas.getContext('2d')
+    if (!context) return
+    canvas.width = ADVANCED_SKETCH_WIDTH
+    canvas.height = ADVANCED_SKETCH_HEIGHT
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+
+    if (advancedSketchImageDataUrl) {
+      const image = new Image()
+      image.onload = () => {
+        context.drawImage(image, 0, 0, canvas.width, canvas.height)
+      }
+      image.src = advancedSketchImageDataUrl
+    }
+  }
+
+  function saveAdvancedSketchSnapshot(canvas: HTMLCanvasElement) {
+    setAdvancedSketchImageDataUrl(canvas.toDataURL('image/png'))
+  }
+
+  function fillAdvancedSketchCanvasWhite() {
+    const canvas = advancedSketchCanvasRef.current
+    const context = canvas?.getContext('2d')
+    if (!canvas || !context) return
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+  }
+
+  function ensureAdvancedSketchCanvasReady() {
+    const canvas = advancedSketchCanvasRef.current
+    if (!canvas) return
+    if (canvas.width !== ADVANCED_SKETCH_WIDTH || canvas.height !== ADVANCED_SKETCH_HEIGHT) {
+      canvas.width = ADVANCED_SKETCH_WIDTH
+      canvas.height = ADVANCED_SKETCH_HEIGHT
+    }
+    if (!isAdvancedSketchDirty && !advancedSketchImageDataUrl) {
+      const context = canvas.getContext('2d')
+      if (!context) return
+      context.fillStyle = '#ffffff'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+    }
+  }
+
+  function advancedSketchPoint(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const canvas = event.currentTarget
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+    }
+  }
+
+  function drawAdvancedSketchLine(
+    context: CanvasRenderingContext2D,
+    from: { x: number; y: number },
+    to: { x: number; y: number }
+  ) {
+    context.strokeStyle = '#101828'
+    context.lineWidth = 5
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+    context.beginPath()
+    context.moveTo(from.x, from.y)
+    context.lineTo(to.x, to.y)
+    context.stroke()
+  }
+
+  function handleAdvancedSketchPointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
+    ensureAdvancedSketchCanvasReady()
+    const context = event.currentTarget.getContext('2d')
+    if (!context) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const point = advancedSketchPoint(event)
+    isDrawingAdvancedSketchRef.current = true
+    lastAdvancedSketchPointRef.current = point
+    drawAdvancedSketchLine(context, point, point)
+    setIsAdvancedSketchDirty(true)
+    setAdvancedSketchDescription('')
+  }
+
+  function handleAdvancedSketchPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (!isDrawingAdvancedSketchRef.current) return
+    const context = event.currentTarget.getContext('2d')
+    const previousPoint = lastAdvancedSketchPointRef.current
+    if (!context || !previousPoint) return
+    const nextPoint = advancedSketchPoint(event)
+    drawAdvancedSketchLine(context, previousPoint, nextPoint)
+    lastAdvancedSketchPointRef.current = nextPoint
+  }
+
+  function stopAdvancedSketchDrawing(event: ReactPointerEvent<HTMLCanvasElement>) {
+    isDrawingAdvancedSketchRef.current = false
+    lastAdvancedSketchPointRef.current = null
+    saveAdvancedSketchSnapshot(event.currentTarget)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  function handleClearAdvancedSketch() {
+    fillAdvancedSketchCanvasWhite()
+    setAdvancedSketchImageDataUrl('')
+    setIsAdvancedSketchDirty(false)
+    setAdvancedSketchDescription('')
+  }
+
+  function advancedSketchDataUrl() {
+    if (!isAdvancedSketchDirty) return ''
+    return advancedSketchCanvasRef.current?.toDataURL('image/png') || advancedSketchImageDataUrl
+  }
+
+  async function describeAdvancedSketch(prompt: string) {
+    const sketchDataUrl = advancedSketchDataUrl()
+    if (!sketchDataUrl) return ''
+    if (!codexApiKey) {
+      throw new Error('请先点击连接配置里的登录，获取用于识别草图的文本模型秘钥')
+    }
+
+    setStatus('正在识别分镜草图...')
+    setIsAnalyzingAdvancedSketch(true)
+    try {
+      const description = await bridge.describeSketch({
+        baseUrl,
+        apiKey: codexApiKey,
+        model: textModel.trim() || DEFAULT_TEXT_MODEL,
+        prompt,
+        sketchDataUrl,
+      })
+      setAdvancedSketchDescription(description)
+      return description
+    } finally {
+      setIsAnalyzingAdvancedSketch(false)
+    }
+  }
+
+  function promptWithAdvancedSketch(prompt: string, sketchDescription: string) {
+    const description = sketchDescription.trim()
+    if (!description) return prompt
+    return `${prompt}
+
+【分镜草图约束】
+${description}`
+  }
+
+  async function handleSimpleGenerate(options?: { includeAdvancedSketch?: boolean }) {
     const prompt = simplePrompt.trim()
     if (!isConfigured) {
       setError('')
@@ -2557,12 +2719,16 @@ export function App() {
     setStatus('正在生成图片...')
 
     try {
+      const sketchDescription = options?.includeAdvancedSketch
+        ? await describeAdvancedSketch(prompt)
+        : ''
+      const finalPrompt = promptWithAdvancedSketch(prompt, sketchDescription)
       const result = await bridge.generateImages({
         baseUrl,
         apiKey,
         mode: 'text',
         model,
-        prompt,
+        prompt: finalPrompt,
         size: generationSize,
         quality,
         count,
@@ -2570,7 +2736,7 @@ export function App() {
         onTaskUpdate: (task) => setStatus(taskStatusLabel(task.status)),
       })
       const records = buildLocalImageRecords(result.images, {
-        prompt,
+        prompt: finalPrompt,
         model,
         size: generationSize,
         quality,
@@ -4032,6 +4198,40 @@ export function App() {
                     placeholder='例如：一张高级科技产品海报，干净背景，清晰主视觉，真实材质，高级棚拍光线'
                   />
                 </label>
+                <section className='advanced-sketch-board' aria-label='分镜草图画布'>
+                  <div className='advanced-sketch-header'>
+                    <div>
+                      <strong>分镜草图</strong>
+                      <span>手绘主体、元素和留白位置；生成时会先用文本模型识别并写入最终提示词。</span>
+                    </div>
+                    <button
+                      type='button'
+                      className='secondary'
+                      onClick={handleClearAdvancedSketch}
+                      disabled={!isAdvancedSketchDirty && !advancedSketchDescription}
+                    >
+                      <Trash2 size={15} />
+                      清空草图
+                    </button>
+                  </div>
+                  <canvas
+                    ref={advancedSketchCanvasRef}
+                    className='advanced-sketch-canvas'
+                    width={ADVANCED_SKETCH_WIDTH}
+                    height={ADVANCED_SKETCH_HEIGHT}
+                    onPointerDown={handleAdvancedSketchPointerDown}
+                    onPointerMove={handleAdvancedSketchPointerMove}
+                    onPointerUp={stopAdvancedSketchDrawing}
+                    onPointerCancel={stopAdvancedSketchDrawing}
+                    aria-label='手绘分镜草图'
+                  />
+                  {advancedSketchDescription ? (
+                    <div className='advanced-sketch-result'>
+                      <strong>草图识别结果</strong>
+                      <p>{advancedSketchDescription}</p>
+                    </div>
+                  ) : null}
+                </section>
                 <div className='advanced-param-grid'>
                   <label className='field'>
                     <span>模型</span>
@@ -4121,11 +4321,26 @@ export function App() {
                   <button
                     type='button'
                     className='primary-action'
-                    onClick={() => void handleSimpleGenerate()}
-                    disabled={isGenerating || !isConfigured || !simplePrompt.trim()}
+                    onClick={() => void handleSimpleGenerate({ includeAdvancedSketch: true })}
+                    disabled={
+                      isGenerating ||
+                      isAnalyzingAdvancedSketch ||
+                      !isConfigured ||
+                      !simplePrompt.trim()
+                    }
                   >
-                    {isGenerating ? <Loader2 className='spin' size={16} /> : <Sparkles size={16} />}
-                    {isConfigured ? (isGenerating ? '生成中' : '立即生成') : '先完成配置'}
+                    {isGenerating || isAnalyzingAdvancedSketch ? (
+                      <Loader2 className='spin' size={16} />
+                    ) : (
+                      <Sparkles size={16} />
+                    )}
+                    {isConfigured
+                      ? isAnalyzingAdvancedSketch
+                        ? '识别草图'
+                        : isGenerating
+                          ? '生成中'
+                          : '立即生成'
+                      : '先完成配置'}
                   </button>
                 </div>
               </section>
