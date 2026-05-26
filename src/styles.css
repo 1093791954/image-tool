@@ -1904,9 +1904,9 @@ select:disabled {
 }
 
 .gallery-page .gallery-strip {
-  display: block;
-  column-width: 260px;
-  column-gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(var(--gallery-columns, 1), minmax(0, 1fr));
+  gap: 12px;
 }
 
 .gallery-page-empty {
@@ -2482,9 +2482,8 @@ select:disabled {
 
 .gallery-strip article {
   position: relative;
-  display: inline-block;
+  display: block;
   width: 100%;
-  margin: 0 0 12px;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -2492,8 +2491,18 @@ select:disabled {
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 18px 44px var(--shadow);
-  vertical-align: top;
-  break-inside: avoid;
+}
+
+.gallery-column {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.gallery-column-placeholder {
+  display: block;
+  min-width: 0;
 }
 
 .gallery-strip article > button {
@@ -3802,7 +3811,7 @@ select:disabled {
   }
 
   .gallery-page .gallery-strip {
-    column-width: 240px;
+    gap: 10px;
   }
 
   .commerce-upload-grid,
@@ -3849,7 +3858,11 @@ select:disabled {
   }
 
   .gallery-page .gallery-strip {
-    column-width: 220px;
+    gap: 10px;
+  }
+
+  .gallery-column {
+    gap: 10px;
   }
 
   .gallery-tile-overlay {
