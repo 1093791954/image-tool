@@ -4302,15 +4302,31 @@ ${description}`
                   <SlidersHorizontal size={16} />
                   <span>高级生成</span>
                 </div>
-                <label className='field'>
-                  <span>图片描述</span>
+                <div className='field'>
+                  <div className='field-label-row'>
+                    <label htmlFor='advanced-prompt'>图片描述</label>
+                    <button
+                      type='button'
+                      className='secondary simple-optimize-action compact-action'
+                      onClick={() => void handleOptimizeSimplePrompt()}
+                      disabled={isGenerating || isOptimizingSimplePrompt || !simplePrompt.trim()}
+                    >
+                      {isOptimizingSimplePrompt ? (
+                        <Loader2 className='spin' size={16} />
+                      ) : (
+                        <Edit3 size={16} />
+                      )}
+                      {isOptimizingSimplePrompt ? '优化中' : '优化提示词'}
+                    </button>
+                  </div>
                   <textarea
+                    id='advanced-prompt'
                     className='simple-prompt advanced-prompt'
                     value={simplePrompt}
                     onChange={(event) => setSimplePrompt(event.target.value)}
                     placeholder='例如：一张高级科技产品海报，干净背景，清晰主视觉，真实材质，高级棚拍光线'
                   />
-                </label>
+                </div>
                 <div className='field advanced-negative-field'>
                   <div className='field-label-row'>
                     <span>负面提示词</span>
@@ -4558,19 +4574,6 @@ ${description}`
                   </label>
                 </div>
                 <div className='simple-actions'>
-                  <button
-                    type='button'
-                    className='secondary simple-optimize-action'
-                    onClick={() => void handleOptimizeSimplePrompt()}
-                    disabled={isGenerating || isOptimizingSimplePrompt || !simplePrompt.trim()}
-                  >
-                    {isOptimizingSimplePrompt ? (
-                      <Loader2 className='spin' size={16} />
-                    ) : (
-                      <Edit3 size={16} />
-                    )}
-                    {isOptimizingSimplePrompt ? '优化中' : '优化提示词'}
-                  </button>
                   <button
                     type='button'
                     className='primary-action'

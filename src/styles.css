@@ -1346,6 +1346,12 @@ select:disabled {
   min-width: 0;
 }
 
+.field-label-row label {
+  color: var(--label);
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .compact-action {
   min-height: 30px;
   padding: 0 10px;
