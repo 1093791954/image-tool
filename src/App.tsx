@@ -23,6 +23,7 @@ import {
   type Node,
 } from '@xyflow/react'
 import {
+  Check,
   Copy,
   Download,
   Edit3,
@@ -1332,6 +1333,8 @@ export function App() {
   const [commerceCustomCategory, setCommerceCustomCategory] = useState('')
   const [canvases, setCanvases] = useState<WorkflowCanvas[]>(loadWorkflowCanvases)
   const [activeCanvasId, setActiveCanvasId] = useState(loadActiveCanvasId)
+  const [renamingCanvasId, setRenamingCanvasId] = useState<string | null>(null)
+  const [renamingCanvasName, setRenamingCanvasName] = useState('')
   const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isOptimizingSimplePrompt, setIsOptimizingSimplePrompt] = useState(false)
@@ -1353,6 +1356,7 @@ export function App() {
   const generationTaskIdsRef = useRef(new Set<string>())
   const lastSavedReferenceImageBlobSignatureRef = useRef('')
   const hasManuallyToggledCanvasDrawerRef = useRef(false)
+  const canvasListRenameInputRef = useRef<HTMLInputElement | null>(null)
   const commerceCategoryLevel1Node = commerceCategoryTree.find((item) => item.name === commerceCategoryLevel1)
   const commerceCategoryLevel2Options = commerceCategoryLevel1Node?.children || []
   const commerceCategoryLevel2Node = commerceCategoryLevel2Options.find((item) => item.name === commerceCategoryLevel2)
@@ -1616,6 +1620,12 @@ export function App() {
       setActiveCanvasId(activeCanvas.id)
     }
   }, [activeCanvas, activeCanvasId, canvases])
+
+  useEffect(() => {
+    if (!renamingCanvasId) return
+    canvasListRenameInputRef.current?.focus()
+    canvasListRenameInputRef.current?.select()
+  }, [renamingCanvasId])
 
   useEffect(() => {
     try {
@@ -1939,6 +1949,28 @@ export function App() {
   async function handleSaveSettings() {
     await saveSettings({ baseUrl, persistApiKey, apiKey, codexApiKey, textModel, themeMode })
     setStatus(persistApiKey ? '设置已保存' : '设置已保存，API Key 未落盘')
+  }
+
+  async function handleResetConnectionSettings() {
+    setError('')
+    setBaseUrl(DEFAULT_BASE_URL)
+    setApiKey('')
+    setCodexApiKey('')
+    setPersistApiKey(false)
+    setModel(DEFAULT_MODEL)
+    setTextModel(DEFAULT_TEXT_MODEL)
+    setModels([])
+    setLoginPassword('')
+    setIsLoginDialogOpen(false)
+    await saveSettings({
+      baseUrl: DEFAULT_BASE_URL,
+      persistApiKey: false,
+      apiKey: '',
+      codexApiKey: '',
+      textModel: DEFAULT_TEXT_MODEL,
+      themeMode,
+    })
+    setStatus('连接配置已重设，API Key 已清除')
   }
 
   async function handleThemeChange(nextThemeMode: ThemeMode) {
@@ -2764,6 +2796,30 @@ export function App() {
     )
   }
 
+  function handleBeginCanvasRename(canvas: WorkflowCanvas) {
+    setRenamingCanvasId(canvas.id)
+    setRenamingCanvasName(canvas.name)
+  }
+
+  function handleCancelCanvasRename() {
+    setRenamingCanvasId(null)
+    setRenamingCanvasName('')
+  }
+
+  function handleCommitCanvasRename(id: string) {
+    const canvas = canvases.find((item) => item.id === id)
+    if (!canvas) {
+      handleCancelCanvasRename()
+      return
+    }
+
+    const nextName = renamingCanvasName.trim() || '未命名画布'
+    if (nextName !== canvas.name) handleRenameCanvas(id, nextName)
+    setRenamingCanvasId(null)
+    setRenamingCanvasName('')
+    setStatus(`${nextName} 已命名`)
+  }
+
   function handleCommitCanvasName(id: string) {
     const canvas = canvases.find((item) => item.id === id)
     if (!canvas) return
@@ -2777,6 +2833,19 @@ export function App() {
     event.stopPropagation()
     if (event.key === 'Enter') {
       event.currentTarget.blur()
+    }
+  }
+
+  function handleCanvasRenameShortcut(
+    event: ReactKeyboardEvent<HTMLInputElement>,
+    id: string
+  ) {
+    event.stopPropagation()
+    if (event.key === 'Enter') {
+      handleCommitCanvasRename(id)
+    }
+    if (event.key === 'Escape') {
+      handleCancelCanvasRename()
     }
   }
 
@@ -3575,64 +3644,98 @@ export function App() {
               ) : null}
 
               <div className='canvas-list'>
-                {canvases.map((canvas) => (
-                  <article
-                    key={canvas.id}
-                    className={`canvas-item ${canvas.id === activeCanvas?.id ? 'active' : ''}`}
-                  >
-                    <div
-                      className='canvas-switch'
-                      onClick={() => {
-                        setActiveCanvasId(canvas.id)
-                        setPaneMenu(null)
-                        setStatus(`已切换到 ${canvas.name}`)
-                      }}
+                {canvases.map((canvas) => {
+                  const isRenamingCanvas = canvas.id === renamingCanvasId
+
+                  return (
+                    <article
+                      key={canvas.id}
+                      className={`canvas-item ${canvas.id === activeCanvas?.id ? 'active' : ''}`}
                     >
-                      <label className='canvas-name-field'>
-                        <span>画布名称</span>
-                        <input
-                          value={canvas.name}
-                          onChange={(event) => handleRenameCanvas(canvas.id, event.target.value)}
-                          onBlur={() => handleCommitCanvasName(canvas.id)}
-                          onClick={(event) => event.stopPropagation()}
-                          onKeyDown={stopCanvasNameShortcut}
-                          aria-label={`修改 ${canvas.name || '画布'} 名称`}
-                          placeholder='未命名画布'
-                        />
-                      </label>
-                      <div className='canvas-switch-meta'>
-                        <span>
-                        {canvas.nodes.length} 节点 · {canvas.edges.length} 连接
-                        </span>
-                        {isCanvasGenerating(canvas) ? (
-                          <span className='canvas-generation-state'>
-                            <Loader2 className='spin' size={12} />
-                            生成中
+                      {isRenamingCanvas ? (
+                        <div className='canvas-switch canvas-switch-editing'>
+                          <label className='canvas-name-field'>
+                            <span>画布名称</span>
+                            <input
+                              ref={canvasListRenameInputRef}
+                              value={renamingCanvasName}
+                              onChange={(event) => setRenamingCanvasName(event.target.value.slice(0, 32))}
+                              onKeyDown={(event) => handleCanvasRenameShortcut(event, canvas.id)}
+                              aria-label={`输入 ${canvas.name || '画布'} 的新名称`}
+                              placeholder='未命名画布'
+                            />
+                          </label>
+                          <div className='canvas-switch-meta'>
+                            <span>
+                            {canvas.nodes.length} 节点 · {canvas.edges.length} 连接
+                            </span>
+                            {isCanvasGenerating(canvas) ? (
+                              <span className='canvas-generation-state'>
+                                <Loader2 className='spin' size={12} />
+                                生成中
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type='button'
+                          className='canvas-switch'
+                          onClick={() => {
+                            setActiveCanvasId(canvas.id)
+                            setPaneMenu(null)
+                            setStatus(`已切换到 ${canvas.name}`)
+                          }}
+                          aria-label={`打开 ${canvas.name || '未命名画布'}`}
+                        >
+                          <span className='canvas-name-text'>{canvas.name || '未命名画布'}</span>
+                          <span className='canvas-switch-meta'>
+                            <span>
+                            {canvas.nodes.length} 节点 · {canvas.edges.length} 连接
+                            </span>
+                            {isCanvasGenerating(canvas) ? (
+                              <span className='canvas-generation-state'>
+                                <Loader2 className='spin' size={12} />
+                                生成中
+                              </span>
+                            ) : null}
                           </span>
-                        ) : null}
+                        </button>
+                      )}
+                      <div className='canvas-actions'>
+                        <button
+                          type='button'
+                          onClick={() =>
+                            isRenamingCanvas
+                              ? handleCommitCanvasRename(canvas.id)
+                              : handleBeginCanvasRename(canvas)
+                          }
+                          aria-label={isRenamingCanvas ? `完成重命名 ${canvas.name}` : `重命名 ${canvas.name}`}
+                          title={isRenamingCanvas ? '完成重命名' : '重命名画布'}
+                        >
+                          {isRenamingCanvas ? <Check size={14} /> : <Edit3 size={14} />}
+                        </button>
+                        <button
+                          type='button'
+                          onClick={() => handleDuplicateCanvas(canvas.id)}
+                          aria-label={`复制 ${canvas.name}`}
+                          title='复制画布'
+                        >
+                          <Copy size={14} />
+                        </button>
+                        <button
+                          type='button'
+                          onClick={() => handleDeleteCanvas(canvas.id)}
+                          disabled={canvases.length <= 1}
+                          aria-label={`删除 ${canvas.name}`}
+                          title='删除画布'
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
-                    </div>
-                    <div className='canvas-actions'>
-                      <button
-                        type='button'
-                        onClick={() => handleDuplicateCanvas(canvas.id)}
-                        aria-label={`复制 ${canvas.name}`}
-                        title='复制画布'
-                      >
-                        <Copy size={14} />
-                      </button>
-                      <button
-                        type='button'
-                        onClick={() => handleDeleteCanvas(canvas.id)}
-                        disabled={canvases.length <= 1}
-                        aria-label={`删除 ${canvas.name}`}
-                        title='删除画布'
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  )
+                })}
               </div>
             </div>
           </aside>
@@ -4130,6 +4233,15 @@ export function App() {
                     >
                       <LogIn size={16} />
                       登录
+                    </button>
+                    <button
+                      className='secondary danger destructive-button'
+                      onClick={() => void handleResetConnectionSettings()}
+                      aria-label='重设连接配置并清除 API Key'
+                      title='重设连接配置并清除 API Key'
+                    >
+                      <Trash2 size={16} />
+                      重设连接
                     </button>
                     <button className='secondary' onClick={handleSaveSettings}>
                       <Save size={16} />

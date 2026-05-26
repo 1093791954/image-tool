@@ -159,16 +159,33 @@ select:disabled {
 .canvas-switch {
   display: grid;
   gap: 4px;
+  width: 100%;
   min-width: 0;
   padding: 5px 7px;
   color: var(--text);
   background: transparent;
+  border: 0;
   border-radius: 7px;
+  font: inherit;
   text-align: left;
+  cursor: pointer;
 }
 
 .canvas-switch:hover {
   background: var(--field-hover);
+}
+
+.canvas-switch:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.canvas-switch-editing {
+  cursor: default;
+}
+
+.canvas-switch-editing:hover {
+  background: transparent;
 }
 
 .canvas-name-field {
@@ -207,10 +224,23 @@ select:disabled {
   box-shadow: 0 0 0 2px var(--focus);
 }
 
+.canvas-switch-editing .canvas-name-field input {
+  padding: 2px 5px;
+  background: var(--field);
+  border-radius: 6px;
+}
+
 .canvas-switch span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.canvas-switch span.canvas-name-text {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
 .canvas-switch-meta {
@@ -233,6 +263,11 @@ select:disabled {
   font-size: 10px;
   font-weight: 850;
   text-transform: uppercase;
+}
+
+.canvas-switch .canvas-generation-state {
+  color: var(--green);
+  font-size: 10px;
 }
 
 .canvas-actions {
@@ -2099,10 +2134,6 @@ select:disabled {
   gap: 9px;
 }
 
-.login-button {
-  grid-column: 1 / -1;
-}
-
 .secondary,
 .ghost,
 .shop-link,
@@ -2144,6 +2175,18 @@ select:disabled {
 
 .danger {
   color: var(--danger);
+}
+
+.destructive-button {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+}
+
+.destructive-button:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: var(--danger);
 }
 
 .file-action {
