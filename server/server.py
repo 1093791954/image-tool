@@ -53,6 +53,8 @@ TOKEN_LIST_PAGE_SIZE = 100
 TOKEN_LIST_MAX_PAGES = 50
 REQUEST_TIMEOUT = env_int("IMAGE_TOOLS_REQUEST_TIMEOUT", 25)
 IMAGE_REQUEST_TIMEOUT = env_int("IMAGE_TOOLS_IMAGE_REQUEST_TIMEOUT", 600)
+IMAGE_UPSTREAM_RETRY_COUNT = max(0, env_int("IMAGE_TOOLS_IMAGE_UPSTREAM_RETRY_COUNT", 1))
+IMAGE_UPSTREAM_RETRY_DELAY = max(0, env_int("IMAGE_TOOLS_IMAGE_UPSTREAM_RETRY_DELAY", 3))
 CACHE_MAX_BYTES = env_int("IMAGE_TOOLS_CACHE_MAX_BYTES", 1024 * 1024 * 1024)
 LOG_MAX_ROWS = env_int("IMAGE_TOOLS_LOG_MAX_ROWS", 5000)
 DB_MAX_BYTES = env_int("IMAGE_TOOLS_DB_MAX_BYTES", 64 * 1024 * 1024)
@@ -60,6 +62,7 @@ DEFAULT_LOCAL_PROXY = "http://127.0.0.1:7897"
 DEFAULT_LOCAL_PROXY_HOST = "127.0.0.1"
 DEFAULT_LOCAL_PROXY_PORT = 7897
 TASK_POLL_SECONDS = 1.5
+TRANSIENT_UPSTREAM_STATUSES = {502, 503, 504}
 OPENAI_IMAGE_PROXY_PATHS = {
     "/api/openai/v1/images/generations": "/v1/images/generations",
     "/api/openai/v1/images/edits": "/v1/images/edits",
@@ -131,6 +134,60 @@ def build_url_opener(*handlers: urllib.request.BaseHandler) -> urllib.request.Op
 
 def open_url(request: urllib.request.Request, timeout: float | None = None):
     return build_url_opener().open(request, timeout=timeout)
+
+
+def extract_upstream_error_message(status: int, response_body: bytes) -> str:
+    raw = response_body.decode("utf-8", errors="replace").strip()
+    if not raw:
+        return ""
+
+    try:
+        body = json.loads(raw)
+        if isinstance(body, dict):
+            error = body.get("error")
+            if isinstance(error, dict):
+                message = error.get("message")
+                if isinstance(message, str) and message.strip():
+                    return message.strip()[:1000]
+            message = body.get("message")
+            if isinstance(message, str) and message.strip():
+                return message.strip()[:1000]
+    except json.JSONDecodeError:
+        pass
+
+    title_match = re.search(r"<title>\s*(.*?)\s*</title>", raw, flags=re.I | re.S)
+    if title_match:
+        return re.sub(r"\s+", " ", title_match.group(1)).strip()[:1000]
+
+    text = re.sub(r"<[^>]+>", " ", raw)
+    text = re.sub(r"\s+", " ", text).strip()
+    if text:
+        return text[:1000]
+
+    return f"HTTP {status}"
+
+
+def upstream_failure_message(
+    status: int,
+    response_body: bytes,
+    retry_count: int,
+) -> str:
+    upstream_message = extract_upstream_error_message(status, response_body)
+    retry_text = f"，已自动重试 {retry_count} 次" if retry_count > 0 else ""
+    if status == 504:
+        return (
+            "上游生图网关超时（HTTP 504）。"
+            "这通常表示中转站或模型服务排队/生成时间超过它自己的网关限制，"
+            f"不是本站服务宕机{retry_text}。请稍后重试，或切换到更稳定的生图中转地址。"
+        )
+    if status in {502, 503}:
+        return (
+            f"上游生图服务暂时不可用（HTTP {status}）{retry_text}。"
+            "请稍后重试，或切换到更稳定的生图中转地址。"
+        )
+    if upstream_message:
+        return f"上游生图失败：HTTP {status} {upstream_message}"
+    return f"上游生图失败：HTTP {status}"
 
 
 def now_ts() -> float:
@@ -980,17 +1037,56 @@ def run_generation_task(
     )
 
     try:
-        try:
-            with open_url(request, timeout=IMAGE_REQUEST_TIMEOUT) as response:
-                response_body = response.read()
-                status = response.status
-        except urllib.error.HTTPError as exc:
-            response_body = exc.read()
-            status = exc.code
+        max_attempts = IMAGE_UPSTREAM_RETRY_COUNT + 1
+        retry_count = 0
+        for attempt in range(1, max_attempts + 1):
+            try:
+                with open_url(request, timeout=IMAGE_REQUEST_TIMEOUT) as response:
+                    response_body = response.read()
+                    status = response.status
+            except urllib.error.HTTPError as exc:
+                response_body = exc.read()
+                status = exc.code
 
-        if status < 200 or status >= 300:
-            message = response_body.decode("utf-8", errors="replace")[:1000]
-            raise ImageTaskError(f"上游生图失败：HTTP {status} {message}")
+            if status < 200 or status >= 300:
+                upstream_message = extract_upstream_error_message(status, response_body)
+                can_retry = status in TRANSIENT_UPSTREAM_STATUSES and attempt < max_attempts
+                write_log(
+                    "WARN" if can_retry else "ERROR",
+                    "upstream_image_failed",
+                    f"上游生图返回 HTTP {status}: {upstream_message or '无错误正文'}",
+                    task_id,
+                    {
+                        "attempt": attempt,
+                        "max_attempts": max_attempts,
+                        "status": status,
+                        "base_url": base_url,
+                        "upstream_path": upstream_path,
+                        "will_retry": can_retry,
+                    },
+                )
+                if can_retry:
+                    retry_count += 1
+                    if IMAGE_UPSTREAM_RETRY_DELAY:
+                        time.sleep(IMAGE_UPSTREAM_RETRY_DELAY)
+                    continue
+                raise ImageTaskError(
+                    upstream_failure_message(status, response_body, retry_count)
+                )
+            break
+
+        if retry_count:
+            write_log(
+                "INFO",
+                "upstream_image_retry_recovered",
+                f"上游生图在自动重试 {retry_count} 次后成功",
+                task_id,
+                {
+                    "retry_count": retry_count,
+                    "base_url": base_url,
+                    "upstream_path": upstream_path,
+                },
+            )
 
         try:
             upstream_result = json.loads(response_body.decode("utf-8"))

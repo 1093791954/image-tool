@@ -49,6 +49,23 @@ function responseSnippet(text: string) {
   )
 }
 
+function cleanErrorMessage(message: string) {
+  const normalized = message.trim()
+  if (!normalized) return ''
+
+  const title = normalized.match(/<title>\s*([\s\S]*?)\s*<\/title>/i)?.[1]
+  const source = title || normalized
+  return (
+    source
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 240) || normalized.slice(0, 240)
+  )
+}
+
 function parseEventStreamBody(text: string) {
   const dataLines = text
     .split(/\r?\n/)
@@ -103,7 +120,7 @@ async function parseJsonResponse<T>(response: Response, prefix: string) {
 
   if (!response.ok) {
     const message = body?.error?.message || body?.message || response.statusText
-    throw new Error(`${prefix}: ${message}`)
+    throw new Error(`${prefix}: ${cleanErrorMessage(String(message))}`)
   }
 
   if (!body) {
@@ -122,7 +139,7 @@ function assertApiSuccess<T>(
   fallback: string
 ): T {
   if (!body?.success) {
-    throw new Error(body?.message || fallback)
+    throw new Error(cleanErrorMessage(body?.message || fallback))
   }
   if (body.data === undefined) {
     throw new Error(fallback)
@@ -161,7 +178,7 @@ async function waitForImageTask(
   }
 
   if (task.status === 'failed' || task.status === 'expired') {
-    throw new Error(task.error || '服务器后台生图任务失败')
+    throw new Error(cleanErrorMessage(task.error || '服务器后台生图任务失败'))
   }
   if (task.status !== 'completed' || !task.result) {
     throw new Error('服务器后台任务没有返回生成结果')
