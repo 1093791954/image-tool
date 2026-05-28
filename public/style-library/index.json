@@ -1,0 +1,1711 @@
+{
+  "root": "public/style-library",
+  "categories": [
+    {
+      "name": "动漫",
+      "count": 34,
+      "href": "./style-library/categories/8ca4a7b3fe33cb47.json"
+    },
+    {
+      "name": "扩展",
+      "count": 12,
+      "href": "./style-library/categories/17d13aa49d71ab14.json"
+    },
+    {
+      "name": "数字艺术",
+      "count": 8,
+      "href": "./style-library/categories/68fa117179b8ece8.json"
+    },
+    {
+      "name": "戏剧张力",
+      "count": 10,
+      "href": "./style-library/categories/56f8c7d0c3940b4f.json"
+    },
+    {
+      "name": "致敬导演",
+      "count": 50,
+      "href": "./style-library/categories/b6d1b49d60d2ecce.json"
+    }
+  ],
+  "styles": [
+    {
+      "id": "694e6625109d495fbbe4a6d763d04203",
+      "category": "动漫",
+      "name": "90年代复古动漫",
+      "keywords": [
+        "90s anime style",
+        "retro anime aesthetic",
+        "VHS quality",
+        "film grain",
+        "limited color palette",
+        "sharp highlights",
+        "nostalgic",
+        "Sailor Moon era",
+        "classic cel animation"
+      ],
+      "previewUrl": "./style-library/assets/694e6625109d495fbbe4a6d763d04203-preview.jpg",
+      "sourceUrl": "./style-library/assets/694e6625109d495fbbe4a6d763d04203-source.jpg"
+    },
+    {
+      "id": "a448bb54233eb5e3685ff754c03f779a",
+      "category": "动漫",
+      "name": "美式卡通",
+      "keywords": [
+        "American cartoon style",
+        "Cartoon Network aesthetic",
+        "bold outlines",
+        "exaggerated proportions",
+        "flat colors",
+        "rubberhose animation",
+        "expressive faces",
+        "clean vector art"
+      ],
+      "previewUrl": "./style-library/assets/a448bb54233eb5e3685ff754c03f779a-preview.jpg",
+      "sourceUrl": "./style-library/assets/a448bb54233eb5e3685ff754c03f779a-source.jpg"
+    },
+    {
+      "id": "a756f39574024f7ffe0de1f748695867",
+      "category": "动漫",
+      "name": "2D日漫",
+      "keywords": [
+        "anime style",
+        "cel shading",
+        "flat color",
+        "2D aesthetic",
+        "clean lines",
+        "bold outlines",
+        "vibrant colors",
+        "high quality illustration"
+      ],
+      "previewUrl": "./style-library/assets/a756f39574024f7ffe0de1f748695867-preview.jpg",
+      "sourceUrl": "./style-library/assets/a756f39574024f7ffe0de1f748695867-source.jpg"
+    },
+    {
+      "id": "754f79220c7c19aa63b23ee60694f3c2",
+      "category": "动漫",
+      "name": "双城之战/Arcane",
+      "keywords": [
+        "Arcane animation style",
+        "Fortiche Production aesthetic",
+        "semi-realistic 3D",
+        "thick coating",
+        "cinematic lighting",
+        "volumetric lighting",
+        "expressive face",
+        "vibrant hair color",
+        "8k"
+      ]
+    },
+    {
+      "id": "a993397c6053b472f6239aeada559eaf",
+      "category": "动漫",
+      "name": "装饰艺术",
+      "keywords": [
+        "Art Deco style",
+        "1920s aesthetic",
+        "geometric patterns",
+        "gold and black",
+        "symmetrical design",
+        "luxurious elegance",
+        "Gatsby era",
+        "decorative motifs",
+        "streamlined forms"
+      ],
+      "previewUrl": "./style-library/assets/a993397c6053b472f6239aeada559eaf-preview.jpg",
+      "sourceUrl": "./style-library/assets/a993397c6053b472f6239aeada559eaf-source.jpg"
+    },
+    {
+      "id": "8fb2d89d539f8004f4276721807fcc42",
+      "category": "动漫",
+      "name": "新艺术运动",
+      "keywords": [
+        "Art Nouveau style",
+        "Alphonse Mucha influence",
+        "organic curves",
+        "flowing lines",
+        "botanical motifs",
+        "decorative borders",
+        "elegant feminine",
+        "natural forms",
+        "ornamental design"
+      ],
+      "previewUrl": "./style-library/assets/8fb2d89d539f8004f4276721807fcc42-preview.jpg",
+      "sourceUrl": "./style-library/assets/8fb2d89d539f8004f4276721807fcc42-source.jpg"
+    },
+    {
+      "id": "a6f244c3520bfae4456844f17cc3c97a",
+      "category": "动漫",
+      "name": "赛璐璐透明",
+      "keywords": [
+        "cel transparent style",
+        "glass-like aesthetic",
+        "translucent layers",
+        "light refraction",
+        "ethereal quality",
+        "delicate linework",
+        "dreamy transparency",
+        "layered composition",
+        "luminous colors"
+      ],
+      "previewUrl": "./style-library/assets/a6f244c3520bfae4456844f17cc3c97a-preview.jpg",
+      "sourceUrl": "./style-library/assets/a6f244c3520bfae4456844f17cc3c97a-source.jpg"
+    },
+    {
+      "id": "7eebaa8e4b8560b6b7a0142de6165eaf",
+      "category": "动漫",
+      "name": "CG渲染",
+      "keywords": [
+        "game CG style",
+        "artistic and stunning",
+        "rich colors with deep stacked shadows",
+        "close-up shot ultra HD",
+        "gold powder splash",
+        "foreground bokeh with spatial depth",
+        "dynamic motion blur",
+        "background dynamic bokeh",
+        "tiny glowing particles floating in air",
+        "sunshine blue sky white clouds",
+        "soft bokeh spots",
+        "Tyndall effect",
+        "interleaving light and shadow",
+        "low-angle close-up",
+        "high contrast lighting",
+        "speed and visual impact",
+        "strong perspective"
+      ],
+      "previewUrl": "./style-library/assets/7eebaa8e4b8560b6b7a0142de6165eaf-preview.jpg",
+      "sourceUrl": "./style-library/assets/7eebaa8e4b8560b6b7a0142de6165eaf-source.png"
+    },
+    {
+      "id": "2b4ffb30574df336631eb42986d51cd7",
+      "category": "动漫",
+      "name": "水墨画",
+      "keywords": [
+        "Chinese ink wash style",
+        "sumi-e influence",
+        "brush painting",
+        "monochrome ink",
+        "negative space",
+        "calligraphic strokes",
+        "traditional Asian art",
+        "minimalist composition",
+        "meditative aesthetic"
+      ],
+      "previewUrl": "./style-library/assets/2b4ffb30574df336631eb42986d51cd7-preview.jpg",
+      "sourceUrl": "./style-library/assets/2b4ffb30574df336631eb42986d51cd7-source.jpg"
+    },
+    {
+      "id": "294c98bbd415604f18facd84bdb301df",
+      "category": "动漫",
+      "name": "黏土动画",
+      "keywords": [
+        "claymation style",
+        "stop motion animation",
+        "Aardman aesthetic",
+        "Laika Studios influence",
+        "clay texture",
+        "handmade feel",
+        "miniature set",
+        "practical lighting",
+        "tactile quality"
+      ],
+      "previewUrl": "./style-library/assets/294c98bbd415604f18facd84bdb301df-preview.jpg",
+      "sourceUrl": "./style-library/assets/294c98bbd415604f18facd84bdb301df-source.jpg"
+    },
+    {
+      "id": "c2fd73c14b77934c4b1e9b9ff8c42ed1",
+      "category": "动漫",
+      "name": "立体主义",
+      "keywords": [
+        "Cubist style",
+        "Picasso influence",
+        "geometric fragmentation",
+        "multiple viewpoints",
+        "angular shapes",
+        "deconstructed forms",
+        "abstract geometry",
+        "analytical cubism",
+        "faceted surfaces"
+      ],
+      "previewUrl": "./style-library/assets/c2fd73c14b77934c4b1e9b9ff8c42ed1-preview.jpg",
+      "sourceUrl": "./style-library/assets/c2fd73c14b77934c4b1e9b9ff8c42ed1-source.jpg"
+    },
+    {
+      "id": "87f4afcff5972e7c99d27175845af3f5",
+      "category": "动漫",
+      "name": "赛博动漫",
+      "keywords": [],
+      "previewUrl": "./style-library/assets/87f4afcff5972e7c99d27175845af3f5-preview.jpg",
+      "sourceUrl": "./style-library/assets/87f4afcff5972e7c99d27175845af3f5-source.png"
+    },
+    {
+      "id": "7676c3e881392674ce3433809ed6c4b1",
+      "category": "动漫",
+      "name": "表现主义",
+      "keywords": [
+        "Expressionist style",
+        "Edvard Munch influence",
+        "distorted forms",
+        "emotional color",
+        "bold brushstrokes",
+        "psychological intensity",
+        "non-naturalistic",
+        "raw emotion",
+        "angular distortion"
+      ],
+      "previewUrl": "./style-library/assets/7676c3e881392674ce3433809ed6c4b1-preview.jpg",
+      "sourceUrl": "./style-library/assets/7676c3e881392674ce3433809ed6c4b1-source.jpg"
+    },
+    {
+      "id": "95e31fa76294451a0f57e1edebc1a621",
+      "category": "动漫",
+      "name": "奇幻插画",
+      "keywords": [
+        "fantasy illustration style",
+        "epic fantasy art",
+        "magical atmosphere",
+        "rich colors",
+        "dramatic lighting",
+        "heroic composition",
+        "detailed painting",
+        "book cover art",
+        "mythical aesthetic"
+      ],
+      "previewUrl": "./style-library/assets/95e31fa76294451a0f57e1edebc1a621-preview.jpg",
+      "sourceUrl": "./style-library/assets/95e31fa76294451a0f57e1edebc1a621-source.jpg"
+    },
+    {
+      "id": "afe679a3f86ef1e82637e97931d0f525",
+      "category": "动漫",
+      "name": "时尚手绘",
+      "keywords": [
+        "fashion croquis",
+        "fashion illustration",
+        "watercolor sketch",
+        "pencil lines",
+        "rough sketch",
+        "marker art",
+        "white background",
+        "minimalism",
+        "high fashion"
+      ],
+      "previewUrl": "./style-library/assets/afe679a3f86ef1e82637e97931d0f525-preview.jpg",
+      "sourceUrl": "./style-library/assets/afe679a3f86ef1e82637e97931d0f525-source.jpg"
+    },
+    {
+      "id": "add0139964d36c4643a389c045a6233d",
+      "category": "动漫",
+      "name": "法式动画",
+      "keywords": [
+        "French animation style",
+        "European art film aesthetic",
+        "artistic hand-drawn",
+        "watercolor rendering",
+        "sketchy linework",
+        "Sylvain Chomet influence",
+        "artistic imperfection",
+        "painterly quality",
+        "indie animation"
+      ],
+      "previewUrl": "./style-library/assets/add0139964d36c4643a389c045a6233d-preview.jpg",
+      "sourceUrl": "./style-library/assets/add0139964d36c4643a389c045a6233d-source.jpg"
+    },
+    {
+      "id": "99f52536f6a2b932861872570c68c00e",
+      "category": "动漫",
+      "name": "哥特",
+      "keywords": [
+        "Gothic style",
+        "dark romantic aesthetic",
+        "Victorian gothic",
+        "deep shadows",
+        "mysterious atmosphere",
+        "ornate details",
+        "melancholic mood",
+        "candlelight ambiance",
+        "dramatic contrast"
+      ],
+      "previewUrl": "./style-library/assets/99f52536f6a2b932861872570c68c00e-preview.jpg",
+      "sourceUrl": "./style-library/assets/99f52536f6a2b932861872570c68c00e-source.jpg"
+    },
+    {
+      "id": "d24ab5010ff86d03cc404afb53367296",
+      "category": "动漫",
+      "name": "线稿",
+      "keywords": [
+        "line art style",
+        "pen and ink",
+        "architectural drawing",
+        "clean linework",
+        "no color fill",
+        "technical illustration",
+        "cross-hatching for shading",
+        "minimalist lines",
+        "blueprint aesthetic"
+      ],
+      "previewUrl": "./style-library/assets/d24ab5010ff86d03cc404afb53367296-preview.jpg",
+      "sourceUrl": "./style-library/assets/d24ab5010ff86d03cc404afb53367296-source.jpg"
+    },
+    {
+      "id": "e47979fa7d6f78c6954bc359c4a0036b",
+      "category": "动漫",
+      "name": "低多边形",
+      "keywords": [
+        "low poly style",
+        "geometric art",
+        "polygon mesh",
+        "flat shading",
+        "minimalist 3D",
+        "faceted surfaces",
+        "indie game aesthetic",
+        "abstract geometry",
+        "clean edges"
+      ],
+      "previewUrl": "./style-library/assets/e47979fa7d6f78c6954bc359c4a0036b-preview.jpg",
+      "sourceUrl": "./style-library/assets/e47979fa7d6f78c6954bc359c4a0036b-source.jpg"
+    },
+    {
+      "id": "9fe4e038e167dd04ba3fffa64dd8a198",
+      "category": "动漫",
+      "name": "新海诚",
+      "keywords": [
+        "Makoto Shinkai style",
+        "Your Name aesthetic",
+        "hyper-detailed sky",
+        "dramatic lighting",
+        "lens flare",
+        "god rays",
+        "luminous atmosphere",
+        "anime realism",
+        "beautiful clouds",
+        "golden hour glow"
+      ],
+      "previewUrl": "./style-library/assets/9fe4e038e167dd04ba3fffa64dd8a198-preview.jpg",
+      "sourceUrl": "./style-library/assets/9fe4e038e167dd04ba3fffa64dd8a198-source.jpg"
+    },
+    {
+      "id": "5fe56983e6cfee0c714a2430847a7333",
+      "category": "动漫",
+      "name": "3D皮克斯卡通",
+      "keywords": [
+        "Disney Pixar style",
+        "3D cartoon",
+        "clay render",
+        "soft lighting",
+        "cute",
+        "expressive",
+        "vibrant colors",
+        "smooth skin texture",
+        "rounded features",
+        "4k"
+      ],
+      "previewUrl": "./style-library/assets/5fe56983e6cfee0c714a2430847a7333-preview.jpg",
+      "sourceUrl": "./style-library/assets/5fe56983e6cfee0c714a2430847a7333-source.jpg"
+    },
+    {
+      "id": "82437fa6f4c30fa3ee3630b78af2739d",
+      "category": "动漫",
+      "name": "像素艺术",
+      "keywords": [
+        "pixel art style",
+        "8-bit aesthetic",
+        "16-bit graphics",
+        "retro game art",
+        "limited color palette",
+        "dithering",
+        "nostalgic gaming",
+        "indie game style",
+        "crisp pixels"
+      ],
+      "previewUrl": "./style-library/assets/82437fa6f4c30fa3ee3630b78af2739d-preview.jpg",
+      "sourceUrl": "./style-library/assets/82437fa6f4c30fa3ee3630b78af2739d-source.jpg"
+    },
+    {
+      "id": "b3a65bf9b635f2662dd2bb8cd4e8213c",
+      "category": "动漫",
+      "name": "波普艺术",
+      "keywords": [
+        "Pop Art style",
+        "Andy Warhol influence",
+        "Roy Lichtenstein aesthetic",
+        "bold primary colors",
+        "Ben-Day dots",
+        "high contrast",
+        "commercial art",
+        "screen print look",
+        "graphic bold"
+      ],
+      "previewUrl": "./style-library/assets/b3a65bf9b635f2662dd2bb8cd4e8213c-preview.jpg",
+      "sourceUrl": "./style-library/assets/b3a65bf9b635f2662dd2bb8cd4e8213c-source.jpg"
+    },
+    {
+      "id": "0033d74e4b5f9447892b55117930e38e",
+      "category": "动漫",
+      "name": "科幻概念艺术",
+      "keywords": [
+        "sci-fi concept art style",
+        "futuristic design",
+        "industrial aesthetic",
+        "cool color palette",
+        "sleek surfaces",
+        "advanced technology",
+        "concept design",
+        "matte painting influence",
+        "cinematic sci-fi"
+      ],
+      "previewUrl": "./style-library/assets/0033d74e4b5f9447892b55117930e38e-preview.jpg",
+      "sourceUrl": "./style-library/assets/0033d74e4b5f9447892b55117930e38e-source.jpg"
+    },
+    {
+      "id": "31abb32e8401995ee20b672d0f561270",
+      "category": "动漫",
+      "name": "2.5D游戏立绘",
+      "keywords": [
+        "semi-realistic",
+        "digital painting",
+        "thick coating",
+        "Riot Games style",
+        "detailed shading",
+        "cinematic lighting",
+        "dramatic shadow",
+        "8k resolution",
+        "trending on ArtStation"
+      ],
+      "previewUrl": "./style-library/assets/31abb32e8401995ee20b672d0f561270-preview.jpg",
+      "sourceUrl": "./style-library/assets/31abb32e8401995ee20b672d0f561270-source.jpg"
+    },
+    {
+      "id": "9dc556db13c8d004352264901e8c0595",
+      "category": "动漫",
+      "name": "少女漫画",
+      "keywords": [
+        "shoujo manga style",
+        "sparkly eyes",
+        "flower petals",
+        "soft pastel colors",
+        "dreamy atmosphere",
+        "romantic aesthetic",
+        "delicate linework",
+        "screen tone shading",
+        "bishojo style"
+      ],
+      "previewUrl": "./style-library/assets/9dc556db13c8d004352264901e8c0595-preview.jpg",
+      "sourceUrl": "./style-library/assets/9dc556db13c8d004352264901e8c0595-source.jpg"
+    },
+    {
+      "id": "34b2d7430680d92b874fb8ee03dd2b5d",
+      "category": "动漫",
+      "name": "少年漫画",
+      "keywords": [
+        "shounen manga style",
+        "dynamic action pose",
+        "speed lines",
+        "high contrast",
+        "bold linework",
+        "impact effects",
+        "energetic composition",
+        "battle manga aesthetic",
+        "dramatic shadows"
+      ],
+      "previewUrl": "./style-library/assets/34b2d7430680d92b874fb8ee03dd2b5d-preview.jpg",
+      "sourceUrl": "./style-library/assets/34b2d7430680d92b874fb8ee03dd2b5d-source.jpg"
+    },
+    {
+      "id": "21a26650d2ee78b6ed4b606aa354277a",
+      "category": "动漫",
+      "name": "蜘蛛侠：平行宇宙",
+      "keywords": [
+        "Spider-Verse style",
+        "comic book aesthetic",
+        "halftone dots",
+        "Ben-Day dots",
+        "motion smear",
+        "chromatic aberration",
+        "pop art influence",
+        "dynamic composition",
+        "print texture"
+      ],
+      "previewUrl": "./style-library/assets/21a26650d2ee78b6ed4b606aa354277a-preview.jpg",
+      "sourceUrl": "./style-library/assets/21a26650d2ee78b6ed4b606aa354277a-source.jpg"
+    },
+    {
+      "id": "0fb61893c79b7c1c665a546cb064ca0d",
+      "category": "动漫",
+      "name": "蒸汽朋克",
+      "keywords": [
+        "Steampunk style",
+        "Victorian sci-fi",
+        "brass and copper",
+        "clockwork mechanisms",
+        "industrial revolution aesthetic",
+        "retro-futuristic",
+        "mechanical details",
+        "rivets and gears",
+        "sepia tones"
+      ],
+      "previewUrl": "./style-library/assets/0fb61893c79b7c1c665a546cb064ca0d-preview.jpg",
+      "sourceUrl": "./style-library/assets/0fb61893c79b7c1c665a546cb064ca0d-source.jpg"
+    },
+    {
+      "id": "b9691d9a2f4ca02fa9cf955da98a9bca",
+      "category": "动漫",
+      "name": "吉卜力",
+      "keywords": [
+        "Studio Ghibli style",
+        "Hayao Miyazaki aesthetic",
+        "hand-painted animation",
+        "watercolor background",
+        "soft warm colors",
+        "whimsical atmosphere",
+        "naturalistic detail",
+        "healing aesthetic",
+        "nostalgic mood"
+      ],
+      "previewUrl": "./style-library/assets/b9691d9a2f4ca02fa9cf955da98a9bca-preview.jpg",
+      "sourceUrl": "./style-library/assets/b9691d9a2f4ca02fa9cf955da98a9bca-source.jpg"
+    },
+    {
+      "id": "c0cc916df7484c1c62f4af5444e13ff1",
+      "category": "动漫",
+      "name": "超现实主义",
+      "keywords": [
+        "Surrealist style",
+        "Salvador Dali influence",
+        "dreamlike imagery",
+        "impossible physics",
+        "melting forms",
+        "hyper-detailed",
+        "subconscious imagery",
+        "bizarre juxtaposition",
+        "photorealistic fantasy"
+      ],
+      "previewUrl": "./style-library/assets/c0cc916df7484c1c62f4af5444e13ff1-preview.jpg",
+      "sourceUrl": "./style-library/assets/c0cc916df7484c1c62f4af5444e13ff1-source.jpg"
+    },
+    {
+      "id": "488563d14240b4664b1527aaa072aeac",
+      "category": "动漫",
+      "name": "浮世绘",
+      "keywords": [
+        "ukiyo-e style",
+        "Japanese woodblock print",
+        "Hokusai influence",
+        "flat color areas",
+        "bold outlines",
+        "traditional Japanese art",
+        "wave patterns",
+        "Edo period aesthetic",
+        "decorative composition"
+      ],
+      "previewUrl": "./style-library/assets/488563d14240b4664b1527aaa072aeac-preview.jpg",
+      "sourceUrl": "./style-library/assets/488563d14240b4664b1527aaa072aeac-source.jpg"
+    },
+    {
+      "id": "fe8d90add048d0132fdeba1756476a2e",
+      "category": "动漫",
+      "name": "维多利亚植物画",
+      "keywords": [
+        "Victorian botanical illustration",
+        "19th century European art",
+        "hand-painted texture",
+        "soft watercolor edges",
+        "muted earth tones",
+        "romantic garden aesthetic",
+        "delicate linework",
+        "antique paper texture",
+        "natural history illustration"
+      ],
+      "previewUrl": "./style-library/assets/fe8d90add048d0132fdeba1756476a2e-preview.jpg",
+      "sourceUrl": "./style-library/assets/fe8d90add048d0132fdeba1756476a2e-source.jpg"
+    },
+    {
+      "id": "4e117cff305229b4fa55702a548e384c",
+      "category": "动漫",
+      "name": "水彩梦境",
+      "keywords": [
+        "watercolor painting",
+        "wet-on-wet technique",
+        "soft color bleeding",
+        "transparent washes",
+        "dreamy atmospheric haze",
+        "pastel color palette",
+        "impressionistic blur",
+        "ethereal quality",
+        "fluid color transitions"
+      ],
+      "previewUrl": "./style-library/assets/4e117cff305229b4fa55702a548e384c-preview.jpg",
+      "sourceUrl": "./style-library/assets/4e117cff305229b4fa55702a548e384c-source.jpg"
+    },
+    {
+      "id": "b8d0e6bcb569a206550f45e7c8616054",
+      "category": "扩展",
+      "name": "Blender",
+      "keywords": [
+        "Blender Eevee render",
+        "real-time rendering",
+        "clean toon shading",
+        "soft ambient occlusion"
+      ],
+      "previewUrl": "./style-library/assets/b8d0e6bcb569a206550f45e7c8616054-preview.jpg",
+      "sourceUrl": "./style-library/assets/b8d0e6bcb569a206550f45e7c8616054-source.jpg"
+    },
+    {
+      "id": "763a0c8af79cff6a34724fbc41a1430b",
+      "category": "扩展",
+      "name": "交叉冲洗",
+      "keywords": [
+        "cross processed film",
+        "color shift",
+        "cyan shadows",
+        "yellow highlights",
+        "experimental film look"
+      ],
+      "previewUrl": "./style-library/assets/763a0c8af79cff6a34724fbc41a1430b-preview.jpg",
+      "sourceUrl": "./style-library/assets/763a0c8af79cff6a34724fbc41a1430b-source.jpg"
+    },
+    {
+      "id": "de100d104a26e1307241204ba3ead95d",
+      "category": "扩展",
+      "name": "双色调",
+      "keywords": [
+        "duotone color effect",
+        "two-color gradient",
+        "graphic poster aesthetic",
+        "bold color contrast"
+      ],
+      "previewUrl": "./style-library/assets/de100d104a26e1307241204ba3ead95d-preview.jpg",
+      "sourceUrl": "./style-library/assets/de100d104a26e1307241204ba3ead95d-source.jpg"
+    },
+    {
+      "id": "2671d241a9c6be01c24ca87493029fed",
+      "category": "扩展",
+      "name": "Octane",
+      "keywords": [
+        "Octane render quality",
+        "path tracing",
+        "physically accurate lighting",
+        "subsurface scattering"
+      ],
+      "previewUrl": "./style-library/assets/2671d241a9c6be01c24ca87493029fed-preview.jpg",
+      "sourceUrl": "./style-library/assets/2671d241a9c6be01c24ca87493029fed-source.jpg"
+    },
+    {
+      "id": "a64fca98306f47de20e6f5c61c9330cc",
+      "category": "扩展",
+      "name": "伦勃朗光",
+      "keywords": [
+        "Rembrandt lighting",
+        "triangle light patch",
+        "classical portrait",
+        "warm chiaroscuro"
+      ],
+      "previewUrl": "./style-library/assets/a64fca98306f47de20e6f5c61c9330cc-preview.jpg",
+      "sourceUrl": "./style-library/assets/a64fca98306f47de20e6f5c61c9330cc-source.jpg"
+    },
+    {
+      "id": "31e53dbb43bc82fcbab188dbc70054b5",
+      "category": "扩展",
+      "name": "轮廓光",
+      "keywords": [
+        "rim lighting",
+        "backlit edge glow",
+        "subject separation",
+        "dramatic outline"
+      ],
+      "previewUrl": "./style-library/assets/31e53dbb43bc82fcbab188dbc70054b5-preview.jpg",
+      "sourceUrl": "./style-library/assets/31e53dbb43bc82fcbab188dbc70054b5-source.jpg"
+    },
+    {
+      "id": "be23ac949c7454d7bd7e88a503548226",
+      "category": "扩展",
+      "name": "酸性视觉",
+      "keywords": [
+        "psychedelic lsd visual",
+        "color cycling",
+        "iridescent colors",
+        "trippy visual distortion",
+        "extreme vibrancy"
+      ],
+      "previewUrl": "./style-library/assets/be23ac949c7454d7bd7e88a503548226-preview.jpg",
+      "sourceUrl": "./style-library/assets/be23ac949c7454d7bd7e88a503548226-source.jpg"
+    },
+    {
+      "id": "4971af344a064eb7f286a7c5690b379a",
+      "category": "扩展",
+      "name": "芭比粉",
+      "keywords": [
+        "Barbiecore aesthetic",
+        "dominant hot pink",
+        "plastic glossy texture",
+        "vibrant magenta",
+        "bright high key"
+      ],
+      "previewUrl": "./style-library/assets/4971af344a064eb7f286a7c5690b379a-preview.jpg",
+      "sourceUrl": "./style-library/assets/4971af344a064eb7f286a7c5690b379a-source.jpg"
+    },
+    {
+      "id": "86331991ec43f59e34b36dd1b184bc8a",
+      "category": "扩展",
+      "name": "野兽派",
+      "keywords": [
+        "Fauvism art style",
+        "Matisse colors",
+        "unnatural wild colors",
+        "strong color contrast",
+        "painterly expressionism"
+      ],
+      "previewUrl": "./style-library/assets/86331991ec43f59e34b36dd1b184bc8a-preview.jpg",
+      "sourceUrl": "./style-library/assets/86331991ec43f59e34b36dd1b184bc8a-source.jpg"
+    },
+    {
+      "id": "48d6e58abbe6e6c0610267dcca09cf46",
+      "category": "扩展",
+      "name": "波普艺术",
+      "keywords": [
+        "Pop Art aesthetic",
+        "Warhol style",
+        "bold primary colors",
+        "halftone patterns",
+        "flat color blocks"
+      ],
+      "previewUrl": "./style-library/assets/48d6e58abbe6e6c0610267dcca09cf46-preview.jpg",
+      "sourceUrl": "./style-library/assets/48d6e58abbe6e6c0610267dcca09cf46-source.jpg"
+    },
+    {
+      "id": "d02c01afecb9a359e12bf7e79ff7ae66",
+      "category": "扩展",
+      "name": "特艺三色",
+      "keywords": [
+        "Technicolor 3-strip process",
+        "golden age hollywood",
+        "lush saturated colors",
+        "deep reds and blues",
+        "vivid cinematic look"
+      ],
+      "previewUrl": "./style-library/assets/d02c01afecb9a359e12bf7e79ff7ae66-preview.jpg",
+      "sourceUrl": "./style-library/assets/d02c01afecb9a359e12bf7e79ff7ae66-source.jpg"
+    },
+    {
+      "id": "2d1f9ccc1f8dc54662ab44c9b0ae1434",
+      "category": "扩展",
+      "name": "热成像",
+      "keywords": [
+        "thermal imaging heat map",
+        "false color spectrum",
+        "extreme rainbow gradient",
+        "blue to red gradient"
+      ],
+      "previewUrl": "./style-library/assets/2d1f9ccc1f8dc54662ab44c9b0ae1434-preview.jpg",
+      "sourceUrl": "./style-library/assets/2d1f9ccc1f8dc54662ab44c9b0ae1434-source.jpg"
+    },
+    {
+      "id": "63bf63c073cfc7bf1ac42fc2953966e5",
+      "category": "数字艺术",
+      "name": "标准赛博",
+      "keywords": [
+        "cyberpunk aesthetic",
+        "neon cyan and magenta",
+        "wet street reflections",
+        "chromatic aberration"
+      ],
+      "previewUrl": "./style-library/assets/63bf63c073cfc7bf1ac42fc2953966e5-preview.jpg",
+      "sourceUrl": "./style-library/assets/63bf63c073cfc7bf1ac42fc2953966e5-source.jpg"
+    },
+    {
+      "id": "9c4445c2c34a555f203c13ecee7dd1dc",
+      "category": "数字艺术",
+      "name": "梦核",
+      "keywords": [
+        "dreamcore aesthetic",
+        "liminal spaces",
+        "uncanny bright light",
+        "soft focus bloom",
+        "surreal vivid colors"
+      ],
+      "previewUrl": "./style-library/assets/9c4445c2c34a555f203c13ecee7dd1dc-preview.jpg",
+      "sourceUrl": "./style-library/assets/9c4445c2c34a555f203c13ecee7dd1dc-source.jpg"
+    },
+    {
+      "id": "d3387d717033b0d87eab96a4e377deba",
+      "category": "数字艺术",
+      "name": "故障艺术",
+      "keywords": [
+        "digital glitch artifacts",
+        "chromatic aberration",
+        "RGB split",
+        "datamosh texture"
+      ],
+      "previewUrl": "./style-library/assets/d3387d717033b0d87eab96a4e377deba-preview.jpg",
+      "sourceUrl": "./style-library/assets/d3387d717033b0d87eab96a4e377deba-source.jpg"
+    },
+    {
+      "id": "82a73e7ca1650cb5afdfe76291f7cff5",
+      "category": "数字艺术",
+      "name": "矩阵绿",
+      "keywords": [
+        "matrix green code tint",
+        "sickly green atmosphere",
+        "digital sci-fi",
+        "high contrast"
+      ],
+      "previewUrl": "./style-library/assets/82a73e7ca1650cb5afdfe76291f7cff5-preview.jpg",
+      "sourceUrl": "./style-library/assets/82a73e7ca1650cb5afdfe76291f7cff5-source.jpg"
+    },
+    {
+      "id": "13f460d623b620e2170da832592a5e0f",
+      "category": "数字艺术",
+      "name": "暗黑",
+      "keywords": [
+        "grim dark fantasy",
+        "desaturated earth tones",
+        "dramatic god rays",
+        "atmospheric haze"
+      ],
+      "previewUrl": "./style-library/assets/13f460d623b620e2170da832592a5e0f-preview.jpg",
+      "sourceUrl": "./style-library/assets/13f460d623b620e2170da832592a5e0f-source.jpg"
+    },
+    {
+      "id": "7850d6ebebc019c9119056fc459ba8fa",
+      "category": "数字艺术",
+      "name": "风格化游戏",
+      "keywords": [
+        "stylized PBR rendering",
+        "vibrant clean colors",
+        "painterly textures",
+        "ambient occlusion",
+        "soft shading"
+      ],
+      "previewUrl": "./style-library/assets/7850d6ebebc019c9119056fc459ba8fa-preview.jpg",
+      "sourceUrl": "./style-library/assets/7850d6ebebc019c9119056fc459ba8fa-source.jpg"
+    },
+    {
+      "id": "41c0764f1e5986d6c0642facb00c05a3",
+      "category": "数字艺术",
+      "name": "席德·米德",
+      "keywords": [],
+      "previewUrl": "./style-library/assets/41c0764f1e5986d6c0642facb00c05a3-preview.png",
+      "sourceUrl": "./style-library/assets/41c0764f1e5986d6c0642facb00c05a3-source.png"
+    },
+    {
+      "id": "57a5276cf535a3959820539361db2258",
+      "category": "数字艺术",
+      "name": "蒸汽波",
+      "keywords": [
+        "vaporwave aesthetic",
+        "lo-fi retro",
+        "pink and purple gradient",
+        "nostalgic dreamscape",
+        "soft glow"
+      ],
+      "previewUrl": "./style-library/assets/57a5276cf535a3959820539361db2258-preview.jpg",
+      "sourceUrl": "./style-library/assets/57a5276cf535a3959820539361db2258-source.jpg"
+    },
+    {
+      "id": "aa9c38a1eb04c4fe3505ee4aa65f3dc0",
+      "category": "戏剧张力",
+      "name": "罪恶之城",
+      "keywords": [
+        "Sin City graphic novel style",
+        "high contrast black and white",
+        "ink noir aesthetic",
+        "stark silhouette"
+      ],
+      "previewUrl": "./style-library/assets/aa9c38a1eb04c4fe3505ee4aa65f3dc0-preview.jpg",
+      "sourceUrl": "./style-library/assets/aa9c38a1eb04c4fe3505ee4aa65f3dc0-source.jpg"
+    },
+    {
+      "id": "368e9bd2c9034576f50784a57eeae8b6",
+      "category": "戏剧张力",
+      "name": "明暗对照",
+      "keywords": [
+        "Chiaroscuro lighting",
+        "Caravaggio style",
+        "deep black shadows",
+        "dramatic spotlight",
+        "high contrast painterly"
+      ],
+      "previewUrl": "./style-library/assets/368e9bd2c9034576f50784a57eeae8b6-preview.jpg",
+      "sourceUrl": "./style-library/assets/368e9bd2c9034576f50784a57eeae8b6-source.jpg"
+    },
+    {
+      "id": "ff61d3b737aeca3042b01570523a1db4",
+      "category": "戏剧张力",
+      "name": "黑色电影",
+      "keywords": [
+        "Film Noir aesthetic",
+        "high contrast black and white",
+        "hard lighting",
+        "venetian blind shadows",
+        "mystery atmosphere"
+      ],
+      "previewUrl": "./style-library/assets/ff61d3b737aeca3042b01570523a1db4-preview.jpg",
+      "sourceUrl": "./style-library/assets/ff61d3b737aeca3042b01570523a1db4-source.jpg"
+    },
+    {
+      "id": "a4359bf63c3d402bc279417086356550",
+      "category": "戏剧张力",
+      "name": "剪影",
+      "keywords": [
+        "silhouette photography",
+        "backlit subject",
+        "pure black shape",
+        "bright dramatic background",
+        "graphic contrast"
+      ],
+      "previewUrl": "./style-library/assets/a4359bf63c3d402bc279417086356550-preview.jpg",
+      "sourceUrl": "./style-library/assets/a4359bf63c3d402bc279417086356550-source.jpg"
+    },
+    {
+      "id": "4d0e1b375f5e0f8e86990fac71c180e3",
+      "category": "戏剧张力",
+      "name": "意式西部",
+      "keywords": [
+        "Spaghetti Western aesthetic",
+        "harsh sunlight",
+        "sweaty bronze skin",
+        "deep blue sky",
+        "gritty high contrast"
+      ],
+      "previewUrl": "./style-library/assets/4d0e1b375f5e0f8e86990fac71c180e3-preview.jpg",
+      "sourceUrl": "./style-library/assets/4d0e1b375f5e0f8e86990fac71c180e3-source.jpg"
+    },
+    {
+      "id": "948f96284fb2f6d26bd48785015151d2",
+      "category": "戏剧张力",
+      "name": "漂白冲印",
+      "keywords": [
+        "bleach bypass process",
+        "gritty war movie look",
+        "high contrast desaturated",
+        "silver retention",
+        "harsh texture"
+      ],
+      "previewUrl": "./style-library/assets/948f96284fb2f6d26bd48785015151d2-preview.jpg",
+      "sourceUrl": "./style-library/assets/948f96284fb2f6d26bd48785015151d2-source.jpg"
+    },
+    {
+      "id": "e9b1e8481f66b7b5ad64008ce16ae848",
+      "category": "戏剧张力",
+      "name": "热浪",
+      "keywords": [
+        "extreme heat atmosphere",
+        "burning orange sun",
+        "scorching light",
+        "oppressive warmth",
+        "hazy distortion"
+      ],
+      "previewUrl": "./style-library/assets/e9b1e8481f66b7b5ad64008ce16ae848-preview.jpg",
+      "sourceUrl": "./style-library/assets/e9b1e8481f66b7b5ad64008ce16ae848-source.jpg"
+    },
+    {
+      "id": "136ef36fba4992711b39140115f705ec",
+      "category": "戏剧张力",
+      "name": "冷月光",
+      "keywords": [
+        "cinematic moonlight",
+        "day for night technique",
+        "cold blue monochrome",
+        "mysterious night atmosphere",
+        "deep shadows"
+      ],
+      "previewUrl": "./style-library/assets/136ef36fba4992711b39140115f705ec-preview.jpg",
+      "sourceUrl": "./style-library/assets/136ef36fba4992711b39140115f705ec-source.png"
+    },
+    {
+      "id": "7e301a8a8681101dfdb41e8a763ce6df",
+      "category": "戏剧张力",
+      "name": "闪光灯",
+      "keywords": [
+        "direct flash photography",
+        "hard shadows",
+        "overexposed foreground",
+        "dark background",
+        "raw paparazzi look"
+      ],
+      "previewUrl": "./style-library/assets/7e301a8a8681101dfdb41e8a763ce6df-preview.jpg",
+      "sourceUrl": "./style-library/assets/7e301a8a8681101dfdb41e8a763ce6df-source.jpg"
+    },
+    {
+      "id": "c7dd28ff5e7dbefd5fa55d8b6c64600b",
+      "category": "戏剧张力",
+      "name": "深空",
+      "keywords": [
+        "deep space void",
+        "infinite black background",
+        "piercing bright lights",
+        "sci-fi starkness",
+        "zero gravity atmosphere"
+      ],
+      "previewUrl": "./style-library/assets/c7dd28ff5e7dbefd5fa55d8b6c64600b-preview.jpg",
+      "sourceUrl": "./style-library/assets/c7dd28ff5e7dbefd5fa55d8b6c64600b-source.jpg"
+    },
+    {
+      "id": "548376a2e5938503b0ad8197b4eb61e0",
+      "category": "致敬导演",
+      "name": "韦斯·安德森",
+      "keywords": [
+        "pastel color palette",
+        "soft muted tones",
+        "vintage storybook aesthetic",
+        "warm retro feel",
+        "deliberate artificial lighting",
+        "symmetrical composition lighting"
+      ],
+      "previewUrl": "./style-library/assets/548376a2e5938503b0ad8197b4eb61e0-preview.jpg",
+      "sourceUrl": "./style-library/assets/548376a2e5938503b0ad8197b4eb61e0-source.jpg"
+    },
+    {
+      "id": "aafd68b06ae05a20ed16d99ba22cf469",
+      "category": "致敬导演",
+      "name": "王家卫",
+      "keywords": [
+        "saturated neon color palette",
+        "lush impressionistic visuals",
+        "dreamy romantic atmosphere",
+        "smeared light trails effect",
+        "step-printing motion blur aesthetic"
+      ],
+      "previewUrl": "./style-library/assets/aafd68b06ae05a20ed16d99ba22cf469-preview.jpg",
+      "sourceUrl": "./style-library/assets/aafd68b06ae05a20ed16d99ba22cf469-source.jpg"
+    },
+    {
+      "id": "86022d14e3b18fdbb6e9df1cc71be036",
+      "category": "致敬导演",
+      "name": "大卫·芬奇",
+      "keywords": [
+        "sickly green-yellow tint",
+        "desaturated clinical look",
+        "cold institutional feel",
+        "oppressive shadow detail"
+      ],
+      "previewUrl": "./style-library/assets/86022d14e3b18fdbb6e9df1cc71be036-preview.jpg",
+      "sourceUrl": "./style-library/assets/86022d14e3b18fdbb6e9df1cc71be036-source.jpg"
+    },
+    {
+      "id": "044d2a37cd48e9d4c1f502388eaab19a",
+      "category": "致敬导演",
+      "name": "克里斯托弗·诺兰",
+      "keywords": [
+        "IMAX large format clarity",
+        "photochemical film finish",
+        "natural realistic color",
+        "rich blacks deep shadows",
+        "warm golden highlights",
+        "high dynamic range"
+      ],
+      "previewUrl": "./style-library/assets/044d2a37cd48e9d4c1f502388eaab19a-preview.jpg",
+      "sourceUrl": "./style-library/assets/044d2a37cd48e9d4c1f502388eaab19a-source.jpg"
+    },
+    {
+      "id": "82610a1d32f5c2689a02d2c7dd90b156",
+      "category": "致敬导演",
+      "name": "丹尼斯·维伦纽瓦",
+      "keywords": [
+        "muted brutalist aesthetic",
+        "orange teal split toning",
+        "monochromatic color schemes",
+        "atmospheric haze"
+      ],
+      "previewUrl": "./style-library/assets/82610a1d32f5c2689a02d2c7dd90b156-preview.jpg",
+      "sourceUrl": "./style-library/assets/82610a1d32f5c2689a02d2c7dd90b156-source.jpg"
+    },
+    {
+      "id": "4dfb031d0e10fe4c1a983868e9b015d2",
+      "category": "致敬导演",
+      "name": "斯坦利·库布里克",
+      "keywords": [
+        "cold detached tone",
+        "bold primary colors",
+        "stark white spaces",
+        "clinical precision lighting"
+      ],
+      "previewUrl": "./style-library/assets/4dfb031d0e10fe4c1a983868e9b015d2-preview.jpg",
+      "sourceUrl": "./style-library/assets/4dfb031d0e10fe4c1a983868e9b015d2-source.jpg"
+    },
+    {
+      "id": "1e7b84e4013d2eed9722e75c6e45e03c",
+      "category": "致敬导演",
+      "name": "昆汀·塔伦蒂诺",
+      "keywords": [
+        "warm 1970s film aesthetic",
+        "rich saturated colors",
+        "golden warm tones",
+        "35mm film grain texture",
+        "nostalgic retro palette"
+      ],
+      "previewUrl": "./style-library/assets/1e7b84e4013d2eed9722e75c6e45e03c-preview.jpg",
+      "sourceUrl": "./style-library/assets/1e7b84e4013d2eed9722e75c6e45e03c-source.jpg"
+    },
+    {
+      "id": "98bd6b1e129672c989eec3216507490a",
+      "category": "致敬导演",
+      "name": "雷德利·斯科特",
+      "keywords": [
+        "atmospheric smoke and haze effect",
+        "chiaroscuro lighting",
+        "dramatic backlighting"
+      ],
+      "previewUrl": "./style-library/assets/98bd6b1e129672c989eec3216507490a-preview.jpg",
+      "sourceUrl": "./style-library/assets/98bd6b1e129672c989eec3216507490a-source.jpg"
+    },
+    {
+      "id": "d395d8710dc8768bdfac376bcc854a7f",
+      "category": "致敬导演",
+      "name": "马丁·斯科塞斯",
+      "keywords": [
+        "warm amber tones",
+        "rich saturated reds",
+        "urban night atmosphere",
+        "expressive lighting"
+      ],
+      "previewUrl": "./style-library/assets/d395d8710dc8768bdfac376bcc854a7f-preview.jpg",
+      "sourceUrl": "./style-library/assets/d395d8710dc8768bdfac376bcc854a7f-source.jpg"
+    },
+    {
+      "id": "f71ea0e88582e3d11c8dc988c867877e",
+      "category": "致敬导演",
+      "name": "吉尔莫·德尔·托罗",
+      "keywords": [
+        "amber and steel-blue duality",
+        "rich jewel tones",
+        "deep shadows",
+        "warm golden candlelight",
+        "cold moonlit blue contrast"
+      ],
+      "previewUrl": "./style-library/assets/f71ea0e88582e3d11c8dc988c867877e-preview.jpg",
+      "sourceUrl": "./style-library/assets/f71ea0e88582e3d11c8dc988c867877e-source.jpg"
+    },
+    {
+      "id": "924630f33557d04f144656e6bfe06041",
+      "category": "致敬导演",
+      "name": "索菲亚·科波拉",
+      "keywords": [
+        "dreamy soft focus",
+        "hazy pastel palette",
+        "ethereal feminine aesthetic",
+        "soft natural light",
+        "muted romantic tones"
+      ],
+      "previewUrl": "./style-library/assets/924630f33557d04f144656e6bfe06041-preview.jpg",
+      "sourceUrl": "./style-library/assets/924630f33557d04f144656e6bfe06041-source.jpg"
+    },
+    {
+      "id": "e1a323e07be56348f5eee97abc941b6c",
+      "category": "致敬导演",
+      "name": "扎克·施奈德",
+      "keywords": [
+        "desaturated muted palette",
+        "high contrast dramatic",
+        "crushed blacks lifted highlights",
+        "bronze sepia tones"
+      ],
+      "previewUrl": "./style-library/assets/e1a323e07be56348f5eee97abc941b6c-preview.jpg",
+      "sourceUrl": "./style-library/assets/e1a323e07be56348f5eee97abc941b6c-source.jpg"
+    },
+    {
+      "id": "35eb6487e89cf45bed65e2d852bdc751",
+      "category": "致敬导演",
+      "name": "科恩兄弟",
+      "keywords": [
+        "natural realistic lighting",
+        "sepia dusty tones",
+        "cold blue tones",
+        "meticulous composition lighting"
+      ],
+      "previewUrl": "./style-library/assets/35eb6487e89cf45bed65e2d852bdc751-preview.jpg",
+      "sourceUrl": "./style-library/assets/35eb6487e89cf45bed65e2d852bdc751-source.jpg"
+    },
+    {
+      "id": "5bf5f1feacbcf4cba2e16a5c8b68b521",
+      "category": "致敬导演",
+      "name": "黑泽明",
+      "keywords": [
+        "bold primary colors",
+        "high contrast",
+        "telephoto lens compression effect",
+        "natural weather elements lighting"
+      ],
+      "previewUrl": "./style-library/assets/5bf5f1feacbcf4cba2e16a5c8b68b521-preview.jpg",
+      "sourceUrl": "./style-library/assets/5bf5f1feacbcf4cba2e16a5c8b68b521-source.jpg"
+    },
+    {
+      "id": "1ffac0db82d3e29049935df0c0331409",
+      "category": "致敬导演",
+      "name": "阿尔弗雷德·希区柯克",
+      "keywords": [
+        "Technicolor vibrancy",
+        "suspenseful dramatic lighting",
+        "bold color symbolism",
+        "noir shadow play"
+      ],
+      "previewUrl": "./style-library/assets/1ffac0db82d3e29049935df0c0331409-preview.jpg",
+      "sourceUrl": "./style-library/assets/1ffac0db82d3e29049935df0c0331409-source.jpg"
+    },
+    {
+      "id": "41431feec87ab1627cc18c3a5cfae830",
+      "category": "致敬导演",
+      "name": "泰伦斯·马力克",
+      "keywords": [
+        "magic hour golden light",
+        "natural soft diffused lighting",
+        "ethereal dreamlike atmosphere",
+        "warm amber sunset tones"
+      ],
+      "previewUrl": "./style-library/assets/41431feec87ab1627cc18c3a5cfae830-preview.jpg",
+      "sourceUrl": "./style-library/assets/41431feec87ab1627cc18c3a5cfae830-source.jpg"
+    },
+    {
+      "id": "77c3c56c792a2c2be216db15c573b353",
+      "category": "致敬导演",
+      "name": "佩德罗·阿莫多瓦",
+      "keywords": [
+        "bold saturated primary colors",
+        "dominant red palette",
+        "vibrant passionate tones",
+        "rich jewel tones",
+        "warm skin tones"
+      ],
+      "previewUrl": "./style-library/assets/77c3c56c792a2c2be216db15c573b353-preview.jpg",
+      "sourceUrl": "./style-library/assets/77c3c56c792a2c2be216db15c573b353-source.jpg"
+    },
+    {
+      "id": "8816c7fd0f36b3bab91f7703ed47679e",
+      "category": "致敬导演",
+      "name": "大卫·林奇",
+      "keywords": [
+        "surreal uncanny atmosphere",
+        "saturated colors",
+        "deep shadow mystery",
+        "neon noir aesthetic",
+        "dreamlike unsettling beauty"
+      ],
+      "previewUrl": "./style-library/assets/8816c7fd0f36b3bab91f7703ed47679e-preview.jpg",
+      "sourceUrl": "./style-library/assets/8816c7fd0f36b3bab91f7703ed47679e-source.jpg"
+    },
+    {
+      "id": "674864af79acfd7ae2c21a5b243787e2",
+      "category": "致敬导演",
+      "name": "安德烈·塔可夫斯基",
+      "keywords": [
+        "sepia earth tones",
+        "meditative contemplative atmosphere",
+        "muted desaturated palette",
+        "spiritual metaphysical mood"
+      ],
+      "previewUrl": "./style-library/assets/674864af79acfd7ae2c21a5b243787e2-preview.jpg",
+      "sourceUrl": "./style-library/assets/674864af79acfd7ae2c21a5b243787e2-source.jpg"
+    },
+    {
+      "id": "44502e529f9c2e4f3431ba7add76e54e",
+      "category": "致敬导演",
+      "name": "奉俊昊",
+      "keywords": [
+        "meticulous controlled palette",
+        "naturalistic aesthetic",
+        "rain and water atmosphere",
+        "precise lighting"
+      ],
+      "previewUrl": "./style-library/assets/44502e529f9c2e4f3431ba7add76e54e-preview.jpg",
+      "sourceUrl": "./style-library/assets/44502e529f9c2e4f3431ba7add76e54e-source.jpg"
+    },
+    {
+      "id": "261a229db5d41aac78e09eba113e1098",
+      "category": "致敬导演",
+      "name": "保罗·托马斯·安德森",
+      "keywords": [
+        "warm 1970s film stock",
+        "rich amber period tones",
+        "elegant classical lighting",
+        "naturalistic skin tones"
+      ]
+    },
+    {
+      "id": "f724e61aa220fe98d4ff51c084247a1d",
+      "category": "致敬导演",
+      "name": "斯派克·李",
+      "keywords": [
+        "vibrant saturated colors",
+        "bold red orange yellow",
+        "hot summer heat tones",
+        "kinetic energetic palette"
+      ],
+      "previewUrl": "./style-library/assets/f724e61aa220fe98d4ff51c084247a1d-preview.jpg",
+      "sourceUrl": "./style-library/assets/f724e61aa220fe98d4ff51c084247a1d-source.jpg"
+    },
+    {
+      "id": "2b406c4193df9ccff4a182d6aec8f53f",
+      "category": "致敬导演",
+      "name": "格蕾塔·葛韦格",
+      "keywords": [
+        "warm golden natural light",
+        "soft feminine palette",
+        "nostalgic warmth",
+        "pastel pink tones",
+        "intimate domestic lighting"
+      ],
+      "previewUrl": "./style-library/assets/2b406c4193df9ccff4a182d6aec8f53f-preview.jpg",
+      "sourceUrl": "./style-library/assets/2b406c4193df9ccff4a182d6aec8f53f-source.jpg"
+    },
+    {
+      "id": "d9259b044f834aa86798aa94b094e7ca",
+      "category": "致敬导演",
+      "name": "宫崎骏",
+      "keywords": [
+        "lush green nature palette",
+        "soft watercolor aesthetic",
+        "magical wonder atmosphere",
+        "rich blue sky",
+        "warm nostalgic tones"
+      ],
+      "previewUrl": "./style-library/assets/d9259b044f834aa86798aa94b094e7ca-preview.jpg",
+      "sourceUrl": "./style-library/assets/d9259b044f834aa86798aa94b094e7ca-source.jpg"
+    },
+    {
+      "id": "7f6c5f278e6d3cbd842c39c17d146280",
+      "category": "致敬导演",
+      "name": "让-吕克·戈达尔",
+      "keywords": [
+        "bold primary color blocks",
+        "French New Wave aesthetic",
+        "saturated red blue yellow",
+        "pop art color sensibility"
+      ],
+      "previewUrl": "./style-library/assets/7f6c5f278e6d3cbd842c39c17d146280-preview.jpg",
+      "sourceUrl": "./style-library/assets/7f6c5f278e6d3cbd842c39c17d146280-source.jpg"
+    },
+    {
+      "id": "3da3019c9012dead3f11ffe0a84c83cf",
+      "category": "致敬导演",
+      "name": "迈克尔·曼",
+      "keywords": [
+        "digital video aesthetic",
+        "cool blue urban tones",
+        "crisp sharp detail",
+        "neon reflections"
+      ],
+      "previewUrl": "./style-library/assets/3da3019c9012dead3f11ffe0a84c83cf-preview.jpg",
+      "sourceUrl": "./style-library/assets/3da3019c9012dead3f11ffe0a84c83cf-source.jpg"
+    },
+    {
+      "id": "2c4131736c32ff45cd5ee57f96d99d1e",
+      "category": "致敬导演",
+      "name": "约格斯·兰西莫斯",
+      "keywords": [
+        "absurdist surreal palette",
+        "period drama richness",
+        "bold unconventional lighting",
+        "theatrical atmosphere"
+      ],
+      "previewUrl": "./style-library/assets/2c4131736c32ff45cd5ee57f96d99d1e-preview.jpg",
+      "sourceUrl": "./style-library/assets/2c4131736c32ff45cd5ee57f96d99d1e-source.jpg"
+    },
+    {
+      "id": "88c86d848c05ed7c4162d919d2ac6d76",
+      "category": "致敬导演",
+      "name": "罗杰·迪金斯",
+      "keywords": [
+        "natural motivated lighting",
+        "single source illumination",
+        "atmospheric depth and haze",
+        "precise exposure control",
+        "painterly composition"
+      ],
+      "previewUrl": "./style-library/assets/88c86d848c05ed7c4162d919d2ac6d76-preview.jpg",
+      "sourceUrl": "./style-library/assets/88c86d848c05ed7c4162d919d2ac6d76-source.jpg"
+    },
+    {
+      "id": "d10e84fc0878060346504cf086baed7b",
+      "category": "致敬导演",
+      "name": "艾曼努尔·卢贝兹基",
+      "keywords": [
+        "natural light only",
+        "magic hour golden glow",
+        "long take fluidity",
+        "immersive atmospheric lighting",
+        "soft diffused natural tones"
+      ],
+      "previewUrl": "./style-library/assets/d10e84fc0878060346504cf086baed7b-preview.jpg",
+      "sourceUrl": "./style-library/assets/d10e84fc0878060346504cf086baed7b-source.jpg"
+    },
+    {
+      "id": "c18d5110bd56b6a79998eb11d331274f",
+      "category": "致敬导演",
+      "name": "维托里奥·斯托拉罗",
+      "keywords": [
+        "bold expressive color theory",
+        "warm amber orange",
+        "dramatic chiaroscuro",
+        "painterly light and shadow"
+      ],
+      "previewUrl": "./style-library/assets/c18d5110bd56b6a79998eb11d331274f-preview.jpg",
+      "sourceUrl": "./style-library/assets/c18d5110bd56b6a79998eb11d331274f-source.jpg"
+    },
+    {
+      "id": "5759a2946c1c88e264c7fb2dc7904d9c",
+      "category": "致敬导演",
+      "name": "巴里·詹金斯",
+      "keywords": [
+        "rich warm skin tones",
+        "intimate soft lighting",
+        "poetic visual lyricism",
+        "gentle color palette"
+      ],
+      "previewUrl": "./style-library/assets/5759a2946c1c88e264c7fb2dc7904d9c-preview.jpg",
+      "sourceUrl": "./style-library/assets/5759a2946c1c88e264c7fb2dc7904d9c-source.jpg"
+    },
+    {
+      "id": "58293bd3166ea791700d8fef006831c0",
+      "category": "致敬导演",
+      "name": "达米恩·查泽雷",
+      "keywords": [
+        "vibrant saturated colors",
+        "golden hour warmth",
+        "classic Hollywood glamour",
+        "bold primary accents"
+      ],
+      "previewUrl": "./style-library/assets/58293bd3166ea791700d8fef006831c0-preview.jpg",
+      "sourceUrl": "./style-library/assets/58293bd3166ea791700d8fef006831c0-source.jpg"
+    },
+    {
+      "id": "d2ad7a28107b06ede4e11215f0aa1e12",
+      "category": "致敬导演",
+      "name": "阿里·艾斯特",
+      "keywords": [
+        "bright daylight horror aesthetic",
+        "unsettling clarity",
+        "muted pastoral tones",
+        "cold clinical brightness"
+      ],
+      "previewUrl": "./style-library/assets/d2ad7a28107b06ede4e11215f0aa1e12-preview.jpg",
+      "sourceUrl": "./style-library/assets/d2ad7a28107b06ede4e11215f0aa1e12-source.jpg"
+    },
+    {
+      "id": "30d49a368513a46de196ce6c584503c9",
+      "category": "致敬导演",
+      "name": "罗伯特·艾格斯",
+      "keywords": [
+        "stark black and white aesthetic",
+        "high contrast period look",
+        "cold grey tones",
+        "candlelight warmth accents"
+      ],
+      "previewUrl": "./style-library/assets/30d49a368513a46de196ce6c584503c9-preview.jpg",
+      "sourceUrl": "./style-library/assets/30d49a368513a46de196ce6c584503c9-source.jpg"
+    },
+    {
+      "id": "606116759bd7d5e80920de4b4010ffb4",
+      "category": "致敬导演",
+      "name": "朴赞郁",
+      "keywords": [
+        "rich jewel tones",
+        "deep emerald green",
+        "lush saturated palette",
+        "elegant darkness",
+        "precise controlled lighting"
+      ],
+      "previewUrl": "./style-library/assets/606116759bd7d5e80920de4b4010ffb4-preview.jpg",
+      "sourceUrl": "./style-library/assets/606116759bd7d5e80920de4b4010ffb4-source.jpg"
+    },
+    {
+      "id": "03a155cf67c2d38be0cf25c3df65585e",
+      "category": "致敬导演",
+      "name": "张艺谋",
+      "keywords": [
+        "bold saturated primary colors",
+        "dominant red",
+        "rich golden yellow",
+        "vibrant blue accents",
+        "theatrical color blocking"
+      ],
+      "previewUrl": "./style-library/assets/03a155cf67c2d38be0cf25c3df65585e-preview.jpg",
+      "sourceUrl": "./style-library/assets/03a155cf67c2d38be0cf25c3df65585e-source.jpg"
+    },
+    {
+      "id": "8503201dbaf4b1b146ad78d41ba4f9c2",
+      "category": "致敬导演",
+      "name": "李安",
+      "keywords": [
+        "natural elegant lighting",
+        "subtle color harmony",
+        "classical composition",
+        "soft naturalistic tones"
+      ],
+      "previewUrl": "./style-library/assets/8503201dbaf4b1b146ad78d41ba4f9c2-preview.jpg",
+      "sourceUrl": "./style-library/assets/8503201dbaf4b1b146ad78d41ba4f9c2-source.jpg"
+    },
+    {
+      "id": "8726ec27f1e4bbb4a42004fc6bf407d0",
+      "category": "致敬导演",
+      "name": "加斯帕·诺",
+      "keywords": [
+        "extreme saturated neon colors",
+        "strobing color shifts",
+        "aggressive color palette",
+        "psychedelic visual intensity"
+      ],
+      "previewUrl": "./style-library/assets/8726ec27f1e4bbb4a42004fc6bf407d0-preview.jpg",
+      "sourceUrl": "./style-library/assets/8726ec27f1e4bbb4a42004fc6bf407d0-source.jpg"
+    },
+    {
+      "id": "0d8798cdd95bed7a8dd69e241535ccee",
+      "category": "致敬导演",
+      "name": "尼古拉斯·温丁·雷弗恩",
+      "keywords": [
+        "neon pink blue palette",
+        "high contrast noir",
+        "saturated color pools",
+        "stylized darkness",
+        "electric color intensity"
+      ],
+      "previewUrl": "./style-library/assets/0d8798cdd95bed7a8dd69e241535ccee-preview.jpg",
+      "sourceUrl": "./style-library/assets/0d8798cdd95bed7a8dd69e241535ccee-source.jpg"
+    },
+    {
+      "id": "8bcd8e1a1b3113bcf0a08c42a8368914",
+      "category": "致敬导演",
+      "name": "达里奥·阿基多",
+      "keywords": [
+        "giallo color palette",
+        "bold red blue green",
+        "expressionist lighting",
+        "saturated primary colors",
+        "theatrical color drama"
+      ],
+      "previewUrl": "./style-library/assets/8bcd8e1a1b3113bcf0a08c42a8368914-preview.jpg",
+      "sourceUrl": "./style-library/assets/8bcd8e1a1b3113bcf0a08c42a8368914-source.jpg"
+    },
+    {
+      "id": "3a794becda7c37f9f3c66a40399c78a6",
+      "category": "致敬导演",
+      "name": "弗朗索瓦·特吕弗",
+      "keywords": [
+        "French New Wave naturalism",
+        "soft realistic tones",
+        "gentle warm palette",
+        "intimate lighting",
+        "classic European aesthetic"
+      ],
+      "previewUrl": "./style-library/assets/3a794becda7c37f9f3c66a40399c78a6-preview.jpg",
+      "sourceUrl": "./style-library/assets/3a794becda7c37f9f3c66a40399c78a6-source.jpg"
+    },
+    {
+      "id": "64903554284e7a410e683ad48851bc4d",
+      "category": "致敬导演",
+      "name": "英格玛·伯格曼",
+      "keywords": [
+        "stark high contrast black and white",
+        "theatrical close-up lighting",
+        "psychological intensity",
+        "stark minimalism"
+      ],
+      "previewUrl": "./style-library/assets/64903554284e7a410e683ad48851bc4d-preview.jpg",
+      "sourceUrl": "./style-library/assets/64903554284e7a410e683ad48851bc4d-source.jpg"
+    },
+    {
+      "id": "db46da7b265a4ac4cd6763c58dbf9a70",
+      "category": "致敬导演",
+      "name": "费德里科·费里尼",
+      "keywords": [
+        "dreamlike carnival atmosphere",
+        "warm Mediterranean tones",
+        "soft diffused light",
+        "theatrical spectacle lighting"
+      ],
+      "previewUrl": "./style-library/assets/db46da7b265a4ac4cd6763c58dbf9a70-preview.jpg",
+      "sourceUrl": "./style-library/assets/db46da7b265a4ac4cd6763c58dbf9a70-source.jpg"
+    },
+    {
+      "id": "a176593906993cd3bbd9cf8c2809439c",
+      "category": "致敬导演",
+      "name": "维尔纳·赫尔佐格",
+      "keywords": [
+        "raw natural documentary aesthetic",
+        "harsh natural lighting",
+        "earthy organic tones",
+        "unpolished authentic look"
+      ],
+      "previewUrl": "./style-library/assets/a176593906993cd3bbd9cf8c2809439c-preview.jpg",
+      "sourceUrl": "./style-library/assets/a176593906993cd3bbd9cf8c2809439c-source.jpg"
+    },
+    {
+      "id": "67d4699c2e572429843444524dae9a12",
+      "category": "致敬导演",
+      "name": "拉斯·冯·提尔",
+      "keywords": [
+        "Dogme 95 raw aesthetic",
+        "desaturated muted tones",
+        "handheld natural light",
+        "cold stark atmosphere"
+      ],
+      "previewUrl": "./style-library/assets/67d4699c2e572429843444524dae9a12-preview.jpg",
+      "sourceUrl": "./style-library/assets/67d4699c2e572429843444524dae9a12-source.jpg"
+    },
+    {
+      "id": "743d9485f9f4ed448f9225b2fba92ada",
+      "category": "致敬导演",
+      "name": "维姆·文德斯",
+      "keywords": [
+        "road movie aesthetic",
+        "warm nostalgic tones",
+        "soft natural light",
+        "contemplative atmosphere",
+        "European art house palette"
+      ],
+      "previewUrl": "./style-library/assets/743d9485f9f4ed448f9225b2fba92ada-preview.jpg",
+      "sourceUrl": "./style-library/assets/743d9485f9f4ed448f9225b2fba92ada-source.jpg"
+    },
+    {
+      "id": "6aa778cc912fc22b53e8670a6af9f970",
+      "category": "致敬导演",
+      "name": "吉姆·贾木许",
+      "keywords": [
+        "indie minimalist aesthetic",
+        "muted cool tones",
+        "deadpan flat lighting",
+        "understated color palette"
+      ],
+      "previewUrl": "./style-library/assets/6aa778cc912fc22b53e8670a6af9f970-preview.jpg",
+      "sourceUrl": "./style-library/assets/6aa778cc912fc22b53e8670a6af9f970-source.jpg"
+    },
+    {
+      "id": "1af988171cad52e22badaae2be67f16d",
+      "category": "致敬导演",
+      "name": "凯莉·雷查德",
+      "keywords": [
+        "quiet naturalistic aesthetic",
+        "muted earth tones",
+        "soft diffused daylight",
+        "understated realism"
+      ],
+      "previewUrl": "./style-library/assets/1af988171cad52e22badaae2be67f16d-preview.jpg",
+      "sourceUrl": "./style-library/assets/1af988171cad52e22badaae2be67f16d-source.jpg"
+    },
+    {
+      "id": "562a0157e772dc6af2b57ce9e0bde10b",
+      "category": "致敬导演",
+      "name": "克莱尔·德尼",
+      "keywords": [
+        "sensual tactile lighting",
+        "warm skin tones",
+        "intimate close-up atmosphere",
+        "rich shadows"
+      ],
+      "previewUrl": "./style-library/assets/562a0157e772dc6af2b57ce9e0bde10b-preview.jpg",
+      "sourceUrl": "./style-library/assets/562a0157e772dc6af2b57ce9e0bde10b-source.jpg"
+    },
+    {
+      "id": "116838b33e91a89866f0fab9c27c672e",
+      "category": "致敬导演",
+      "name": "赵婷",
+      "keywords": [
+        "magic hour natural light",
+        "golden hour warmth",
+        "vast landscape atmosphere",
+        "soft naturalistic tones",
+        "poetic documentary aesthetic"
+      ],
+      "previewUrl": "./style-library/assets/116838b33e91a89866f0fab9c27c672e-preview.jpg",
+      "sourceUrl": "./style-library/assets/116838b33e91a89866f0fab9c27c672e-source.jpg"
+    }
+  ]
+}

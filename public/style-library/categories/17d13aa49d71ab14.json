@@ -1,0 +1,417 @@
+{
+  "category": "扩展",
+  "styles": [
+    {
+      "id": "b8d0e6bcb569a206550f45e7c8616054",
+      "category": "扩展",
+      "name": "Blender",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 30,
+          "saturation": 20,
+          "vibrance": 25,
+          "temperature": 0,
+          "temperature_desc": "neutral",
+          "tint": 0,
+          "clarity": 35,
+          "shadows": -15,
+          "highlights": 10
+        },
+        "style_keywords": [
+          "Blender Eevee render",
+          "real-time rendering",
+          "clean toon shading",
+          "soft ambient occlusion"
+        ]
+      },
+      "keywords": [
+        "Blender Eevee render",
+        "real-time rendering",
+        "clean toon shading",
+        "soft ambient occlusion"
+      ],
+      "previewUrl": "./style-library/assets/b8d0e6bcb569a206550f45e7c8616054-preview.jpg",
+      "sourceUrl": "./style-library/assets/b8d0e6bcb569a206550f45e7c8616054-source.jpg"
+    },
+    {
+      "id": "763a0c8af79cff6a34724fbc41a1430b",
+      "category": "扩展",
+      "name": "交叉冲洗",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 35,
+          "saturation": 35,
+          "vibrance": 25,
+          "temperature": -15,
+          "temperature_desc": "cool",
+          "tint": -20,
+          "tint_desc": "green shift",
+          "clarity": 15,
+          "shadows": 15,
+          "highlights": 10
+        },
+        "style_keywords": [
+          "cross processed film",
+          "color shift",
+          "cyan shadows",
+          "yellow highlights",
+          "experimental film look"
+        ]
+      },
+      "keywords": [
+        "cross processed film",
+        "color shift",
+        "cyan shadows",
+        "yellow highlights",
+        "experimental film look"
+      ],
+      "previewUrl": "./style-library/assets/763a0c8af79cff6a34724fbc41a1430b-preview.jpg",
+      "sourceUrl": "./style-library/assets/763a0c8af79cff6a34724fbc41a1430b-source.jpg"
+    },
+    {
+      "id": "de100d104a26e1307241204ba3ead95d",
+      "category": "扩展",
+      "name": "双色调",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 40,
+          "saturation": 30,
+          "vibrance": 20,
+          "temperature": 0,
+          "temperature_desc": "varies by color pair",
+          "tint": 0,
+          "clarity": 20,
+          "shadows": -30,
+          "highlights": 20
+        },
+        "style_keywords": [
+          "duotone color effect",
+          "two-color gradient",
+          "graphic poster aesthetic",
+          "bold color contrast"
+        ]
+      },
+      "keywords": [
+        "duotone color effect",
+        "two-color gradient",
+        "graphic poster aesthetic",
+        "bold color contrast"
+      ],
+      "previewUrl": "./style-library/assets/de100d104a26e1307241204ba3ead95d-preview.jpg",
+      "sourceUrl": "./style-library/assets/de100d104a26e1307241204ba3ead95d-source.jpg"
+    },
+    {
+      "id": "2671d241a9c6be01c24ca87493029fed",
+      "category": "扩展",
+      "name": "Octane",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 35,
+          "saturation": 15,
+          "vibrance": 20,
+          "temperature": 10,
+          "temperature_desc": "warm",
+          "tint": 0,
+          "clarity": 45,
+          "shadows": -25,
+          "highlights": 15
+        },
+        "style_keywords": [
+          "Octane render quality",
+          "path tracing",
+          "physically accurate lighting",
+          "subsurface scattering"
+        ]
+      },
+      "keywords": [
+        "Octane render quality",
+        "path tracing",
+        "physically accurate lighting",
+        "subsurface scattering"
+      ],
+      "previewUrl": "./style-library/assets/2671d241a9c6be01c24ca87493029fed-preview.jpg",
+      "sourceUrl": "./style-library/assets/2671d241a9c6be01c24ca87493029fed-source.jpg"
+    },
+    {
+      "id": "a64fca98306f47de20e6f5c61c9330cc",
+      "category": "扩展",
+      "name": "伦勃朗光",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 40,
+          "saturation": -5,
+          "vibrance": 0,
+          "temperature": 20,
+          "temperature_desc": "warm",
+          "tint": 0,
+          "clarity": 30,
+          "shadows": -45,
+          "highlights": 5
+        },
+        "style_keywords": [
+          "Rembrandt lighting",
+          "triangle light patch",
+          "classical portrait",
+          "warm chiaroscuro"
+        ]
+      },
+      "keywords": [
+        "Rembrandt lighting",
+        "triangle light patch",
+        "classical portrait",
+        "warm chiaroscuro"
+      ],
+      "previewUrl": "./style-library/assets/a64fca98306f47de20e6f5c61c9330cc-preview.jpg",
+      "sourceUrl": "./style-library/assets/a64fca98306f47de20e6f5c61c9330cc-source.jpg"
+    },
+    {
+      "id": "31e53dbb43bc82fcbab188dbc70054b5",
+      "category": "扩展",
+      "name": "轮廓光",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 50,
+          "saturation": 10,
+          "vibrance": 15,
+          "temperature": 0,
+          "temperature_desc": "neutral",
+          "tint": 0,
+          "clarity": 25,
+          "shadows": -55,
+          "highlights": 25
+        },
+        "style_keywords": [
+          "rim lighting",
+          "backlit edge glow",
+          "subject separation",
+          "dramatic outline"
+        ]
+      },
+      "keywords": [
+        "rim lighting",
+        "backlit edge glow",
+        "subject separation",
+        "dramatic outline"
+      ],
+      "previewUrl": "./style-library/assets/31e53dbb43bc82fcbab188dbc70054b5-preview.jpg",
+      "sourceUrl": "./style-library/assets/31e53dbb43bc82fcbab188dbc70054b5-source.jpg"
+    },
+    {
+      "id": "be23ac949c7454d7bd7e88a503548226",
+      "category": "扩展",
+      "name": "酸性视觉",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 30,
+          "saturation": 50,
+          "vibrance": 50,
+          "temperature": 0,
+          "temperature_desc": "neutral",
+          "tint": 50,
+          "tint_desc": "strong magenta shift",
+          "clarity": 10,
+          "shadows": -10,
+          "highlights": 20
+        },
+        "style_keywords": [
+          "psychedelic lsd visual",
+          "color cycling",
+          "iridescent colors",
+          "trippy visual distortion",
+          "extreme vibrancy"
+        ]
+      },
+      "keywords": [
+        "psychedelic lsd visual",
+        "color cycling",
+        "iridescent colors",
+        "trippy visual distortion",
+        "extreme vibrancy"
+      ],
+      "previewUrl": "./style-library/assets/be23ac949c7454d7bd7e88a503548226-preview.jpg",
+      "sourceUrl": "./style-library/assets/be23ac949c7454d7bd7e88a503548226-source.jpg"
+    },
+    {
+      "id": "4971af344a064eb7f286a7c5690b379a",
+      "category": "扩展",
+      "name": "芭比粉",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 25,
+          "saturation": 50,
+          "vibrance": 40,
+          "temperature": 10,
+          "temperature_desc": "warm",
+          "tint": 40,
+          "tint_desc": "strong magenta/pink",
+          "clarity": 10,
+          "shadows": 0,
+          "highlights": 20
+        },
+        "style_keywords": [
+          "Barbiecore aesthetic",
+          "dominant hot pink",
+          "plastic glossy texture",
+          "vibrant magenta",
+          "bright high key"
+        ]
+      },
+      "keywords": [
+        "Barbiecore aesthetic",
+        "dominant hot pink",
+        "plastic glossy texture",
+        "vibrant magenta",
+        "bright high key"
+      ],
+      "previewUrl": "./style-library/assets/4971af344a064eb7f286a7c5690b379a-preview.jpg",
+      "sourceUrl": "./style-library/assets/4971af344a064eb7f286a7c5690b379a-source.jpg"
+    },
+    {
+      "id": "86331991ec43f59e34b36dd1b184bc8a",
+      "category": "扩展",
+      "name": "野兽派",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 35,
+          "saturation": 45,
+          "vibrance": 40,
+          "temperature": 20,
+          "temperature_desc": "warm",
+          "tint": 20,
+          "tint_desc": "magenta",
+          "clarity": 15,
+          "shadows": -10,
+          "highlights": 10
+        },
+        "style_keywords": [
+          "Fauvism art style",
+          "Matisse colors",
+          "unnatural wild colors",
+          "strong color contrast",
+          "painterly expressionism"
+        ]
+      },
+      "keywords": [
+        "Fauvism art style",
+        "Matisse colors",
+        "unnatural wild colors",
+        "strong color contrast",
+        "painterly expressionism"
+      ],
+      "previewUrl": "./style-library/assets/86331991ec43f59e34b36dd1b184bc8a-preview.jpg",
+      "sourceUrl": "./style-library/assets/86331991ec43f59e34b36dd1b184bc8a-source.jpg"
+    },
+    {
+      "id": "48d6e58abbe6e6c0610267dcca09cf46",
+      "category": "扩展",
+      "name": "波普艺术",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 45,
+          "saturation": 55,
+          "vibrance": 40,
+          "temperature": 0,
+          "temperature_desc": "neutral",
+          "tint": 0,
+          "clarity": 20,
+          "shadows": -10,
+          "highlights": 10
+        },
+        "style_keywords": [
+          "Pop Art aesthetic",
+          "Warhol style",
+          "bold primary colors",
+          "halftone patterns",
+          "flat color blocks"
+        ]
+      },
+      "keywords": [
+        "Pop Art aesthetic",
+        "Warhol style",
+        "bold primary colors",
+        "halftone patterns",
+        "flat color blocks"
+      ],
+      "previewUrl": "./style-library/assets/48d6e58abbe6e6c0610267dcca09cf46-preview.jpg",
+      "sourceUrl": "./style-library/assets/48d6e58abbe6e6c0610267dcca09cf46-source.jpg"
+    },
+    {
+      "id": "d02c01afecb9a359e12bf7e79ff7ae66",
+      "category": "扩展",
+      "name": "特艺三色",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 35,
+          "saturation": 45,
+          "vibrance": 30,
+          "temperature": 10,
+          "temperature_desc": "warm",
+          "tint": 0,
+          "clarity": 20,
+          "shadows": -25,
+          "highlights": 10
+        },
+        "style_keywords": [
+          "Technicolor 3-strip process",
+          "golden age hollywood",
+          "lush saturated colors",
+          "deep reds and blues",
+          "vivid cinematic look"
+        ]
+      },
+      "keywords": [
+        "Technicolor 3-strip process",
+        "golden age hollywood",
+        "lush saturated colors",
+        "deep reds and blues",
+        "vivid cinematic look"
+      ],
+      "previewUrl": "./style-library/assets/d02c01afecb9a359e12bf7e79ff7ae66-preview.jpg",
+      "sourceUrl": "./style-library/assets/d02c01afecb9a359e12bf7e79ff7ae66-source.jpg"
+    },
+    {
+      "id": "2d1f9ccc1f8dc54662ab44c9b0ae1434",
+      "category": "扩展",
+      "name": "热成像",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 50,
+          "saturation": 60,
+          "vibrance": 50,
+          "temperature": 0,
+          "temperature_desc": "neutral",
+          "tint": 0,
+          "clarity": 10,
+          "shadows": -40,
+          "highlights": 40
+        },
+        "style_keywords": [
+          "thermal imaging heat map",
+          "false color spectrum",
+          "extreme rainbow gradient",
+          "blue to red gradient"
+        ]
+      },
+      "keywords": [
+        "thermal imaging heat map",
+        "false color spectrum",
+        "extreme rainbow gradient",
+        "blue to red gradient"
+      ],
+      "previewUrl": "./style-library/assets/2d1f9ccc1f8dc54662ab44c9b0ae1434-preview.jpg",
+      "sourceUrl": "./style-library/assets/2d1f9ccc1f8dc54662ab44c9b0ae1434-source.jpg"
+    }
+  ]
+}

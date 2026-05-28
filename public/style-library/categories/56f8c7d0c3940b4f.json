@@ -1,0 +1,353 @@
+{
+  "category": "戏剧张力",
+  "styles": [
+    {
+      "id": "aa9c38a1eb04c4fe3505ee4aa65f3dc0",
+      "category": "戏剧张力",
+      "name": "罪恶之城",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 50,
+          "saturation": -100,
+          "vibrance": -100,
+          "temperature": 0,
+          "temperature_desc": "neutral",
+          "tint": 0,
+          "clarity": 40,
+          "shadows": -50,
+          "highlights": 20
+        },
+        "style_keywords": [
+          "Sin City graphic novel style",
+          "high contrast black and white",
+          "ink noir aesthetic",
+          "stark silhouette"
+        ]
+      },
+      "keywords": [
+        "Sin City graphic novel style",
+        "high contrast black and white",
+        "ink noir aesthetic",
+        "stark silhouette"
+      ],
+      "previewUrl": "./style-library/assets/aa9c38a1eb04c4fe3505ee4aa65f3dc0-preview.jpg",
+      "sourceUrl": "./style-library/assets/aa9c38a1eb04c4fe3505ee4aa65f3dc0-source.jpg"
+    },
+    {
+      "id": "368e9bd2c9034576f50784a57eeae8b6",
+      "category": "戏剧张力",
+      "name": "明暗对照",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 45,
+          "saturation": -10,
+          "vibrance": 0,
+          "temperature": 15,
+          "temperature_desc": "warm",
+          "tint": 0,
+          "clarity": 35,
+          "shadows": -60,
+          "highlights": 10
+        },
+        "style_keywords": [
+          "Chiaroscuro lighting",
+          "Caravaggio style",
+          "deep black shadows",
+          "dramatic spotlight",
+          "high contrast painterly"
+        ]
+      },
+      "keywords": [
+        "Chiaroscuro lighting",
+        "Caravaggio style",
+        "deep black shadows",
+        "dramatic spotlight",
+        "high contrast painterly"
+      ],
+      "previewUrl": "./style-library/assets/368e9bd2c9034576f50784a57eeae8b6-preview.jpg",
+      "sourceUrl": "./style-library/assets/368e9bd2c9034576f50784a57eeae8b6-source.jpg"
+    },
+    {
+      "id": "ff61d3b737aeca3042b01570523a1db4",
+      "category": "戏剧张力",
+      "name": "黑色电影",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 55,
+          "saturation": -100,
+          "vibrance": -100,
+          "temperature": 0,
+          "temperature_desc": "neutral",
+          "tint": 0,
+          "clarity": 35,
+          "shadows": -45,
+          "highlights": 15
+        },
+        "style_keywords": [
+          "Film Noir aesthetic",
+          "high contrast black and white",
+          "hard lighting",
+          "venetian blind shadows",
+          "mystery atmosphere"
+        ]
+      },
+      "keywords": [
+        "Film Noir aesthetic",
+        "high contrast black and white",
+        "hard lighting",
+        "venetian blind shadows",
+        "mystery atmosphere"
+      ],
+      "previewUrl": "./style-library/assets/ff61d3b737aeca3042b01570523a1db4-preview.jpg",
+      "sourceUrl": "./style-library/assets/ff61d3b737aeca3042b01570523a1db4-source.jpg"
+    },
+    {
+      "id": "a4359bf63c3d402bc279417086356550",
+      "category": "戏剧张力",
+      "name": "剪影",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 50,
+          "saturation": 10,
+          "vibrance": 10,
+          "temperature": 0,
+          "temperature_desc": "neutral",
+          "tint": 0,
+          "clarity": 20,
+          "shadows": -80,
+          "highlights": 10
+        },
+        "style_keywords": [
+          "silhouette photography",
+          "backlit subject",
+          "pure black shape",
+          "bright dramatic background",
+          "graphic contrast"
+        ]
+      },
+      "keywords": [
+        "silhouette photography",
+        "backlit subject",
+        "pure black shape",
+        "bright dramatic background",
+        "graphic contrast"
+      ],
+      "previewUrl": "./style-library/assets/a4359bf63c3d402bc279417086356550-preview.jpg",
+      "sourceUrl": "./style-library/assets/a4359bf63c3d402bc279417086356550-source.jpg"
+    },
+    {
+      "id": "4d0e1b375f5e0f8e86990fac71c180e3",
+      "category": "戏剧张力",
+      "name": "意式西部",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 45,
+          "saturation": 20,
+          "vibrance": 15,
+          "temperature": 35,
+          "temperature_desc": "hot warm",
+          "tint": 0,
+          "clarity": 40,
+          "shadows": -35,
+          "highlights": 20
+        },
+        "style_keywords": [
+          "Spaghetti Western aesthetic",
+          "harsh sunlight",
+          "sweaty bronze skin",
+          "deep blue sky",
+          "gritty high contrast"
+        ]
+      },
+      "keywords": [
+        "Spaghetti Western aesthetic",
+        "harsh sunlight",
+        "sweaty bronze skin",
+        "deep blue sky",
+        "gritty high contrast"
+      ],
+      "previewUrl": "./style-library/assets/4d0e1b375f5e0f8e86990fac71c180e3-preview.jpg",
+      "sourceUrl": "./style-library/assets/4d0e1b375f5e0f8e86990fac71c180e3-source.jpg"
+    },
+    {
+      "id": "948f96284fb2f6d26bd48785015151d2",
+      "category": "戏剧张力",
+      "name": "漂白冲印",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 50,
+          "saturation": -40,
+          "vibrance": -30,
+          "temperature": -10,
+          "temperature_desc": "cool",
+          "tint": 0,
+          "clarity": 45,
+          "shadows": -40,
+          "highlights": 30
+        },
+        "style_keywords": [
+          "bleach bypass process",
+          "gritty war movie look",
+          "high contrast desaturated",
+          "silver retention",
+          "harsh texture"
+        ]
+      },
+      "keywords": [
+        "bleach bypass process",
+        "gritty war movie look",
+        "high contrast desaturated",
+        "silver retention",
+        "harsh texture"
+      ],
+      "previewUrl": "./style-library/assets/948f96284fb2f6d26bd48785015151d2-preview.jpg",
+      "sourceUrl": "./style-library/assets/948f96284fb2f6d26bd48785015151d2-source.jpg"
+    },
+    {
+      "id": "e9b1e8481f66b7b5ad64008ce16ae848",
+      "category": "戏剧张力",
+      "name": "热浪",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 35,
+          "saturation": 30,
+          "vibrance": 25,
+          "temperature": 50,
+          "temperature_desc": "extreme warm",
+          "tint": 10,
+          "clarity": -10,
+          "shadows": 10,
+          "highlights": 40
+        },
+        "style_keywords": [
+          "extreme heat atmosphere",
+          "burning orange sun",
+          "scorching light",
+          "oppressive warmth",
+          "hazy distortion"
+        ]
+      },
+      "keywords": [
+        "extreme heat atmosphere",
+        "burning orange sun",
+        "scorching light",
+        "oppressive warmth",
+        "hazy distortion"
+      ],
+      "previewUrl": "./style-library/assets/e9b1e8481f66b7b5ad64008ce16ae848-preview.jpg",
+      "sourceUrl": "./style-library/assets/e9b1e8481f66b7b5ad64008ce16ae848-source.jpg"
+    },
+    {
+      "id": "136ef36fba4992711b39140115f705ec",
+      "category": "戏剧张力",
+      "name": "冷月光",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 35,
+          "saturation": -10,
+          "vibrance": -10,
+          "temperature": -45,
+          "temperature_desc": "extreme cool blue",
+          "tint": 10,
+          "clarity": 20,
+          "shadows": -30,
+          "highlights": -20
+        },
+        "style_keywords": [
+          "cinematic moonlight",
+          "day for night technique",
+          "cold blue monochrome",
+          "mysterious night atmosphere",
+          "deep shadows"
+        ]
+      },
+      "keywords": [
+        "cinematic moonlight",
+        "day for night technique",
+        "cold blue monochrome",
+        "mysterious night atmosphere",
+        "deep shadows"
+      ],
+      "previewUrl": "./style-library/assets/136ef36fba4992711b39140115f705ec-preview.jpg",
+      "sourceUrl": "./style-library/assets/136ef36fba4992711b39140115f705ec-source.png"
+    },
+    {
+      "id": "7e301a8a8681101dfdb41e8a763ce6df",
+      "category": "戏剧张力",
+      "name": "闪光灯",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 45,
+          "saturation": 15,
+          "vibrance": 10,
+          "temperature": -5,
+          "temperature_desc": "slightly cool",
+          "tint": 0,
+          "clarity": 35,
+          "shadows": -40,
+          "highlights": 40
+        },
+        "style_keywords": [
+          "direct flash photography",
+          "hard shadows",
+          "overexposed foreground",
+          "dark background",
+          "raw paparazzi look"
+        ]
+      },
+      "keywords": [
+        "direct flash photography",
+        "hard shadows",
+        "overexposed foreground",
+        "dark background",
+        "raw paparazzi look"
+      ],
+      "previewUrl": "./style-library/assets/7e301a8a8681101dfdb41e8a763ce6df-preview.jpg",
+      "sourceUrl": "./style-library/assets/7e301a8a8681101dfdb41e8a763ce6df-source.jpg"
+    },
+    {
+      "id": "c7dd28ff5e7dbefd5fa55d8b6c64600b",
+      "category": "戏剧张力",
+      "name": "深空",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 60,
+          "saturation": -20,
+          "vibrance": 0,
+          "temperature": -20,
+          "temperature_desc": "cool",
+          "tint": 0,
+          "clarity": 50,
+          "shadows": -60,
+          "highlights": 30
+        },
+        "style_keywords": [
+          "deep space void",
+          "infinite black background",
+          "piercing bright lights",
+          "sci-fi starkness",
+          "zero gravity atmosphere"
+        ]
+      },
+      "keywords": [
+        "deep space void",
+        "infinite black background",
+        "piercing bright lights",
+        "sci-fi starkness",
+        "zero gravity atmosphere"
+      ],
+      "previewUrl": "./style-library/assets/c7dd28ff5e7dbefd5fa55d8b6c64600b-preview.jpg",
+      "sourceUrl": "./style-library/assets/c7dd28ff5e7dbefd5fa55d8b6c64600b-source.jpg"
+    }
+  ]
+}

@@ -10,6 +10,8 @@ import type {
   NegativePromptOptimizationPayload,
   PromptOptimizationPayload,
   SketchDescriptionPayload,
+  StyleCategory,
+  StyleCategoryResult,
   StyleLibraryResult,
 } from './types'
 import {
@@ -21,10 +23,29 @@ import {
   buildPromptOptimizationMessages,
 } from './promptEngineering'
 
+const NEW_API_BASE_URL = 'https://hotapi.top'
+const IMAGE_GROUP = 'gpt-image-2 生图低价'
+const IMAGE_MODEL = 'gpt-image-2'
+const IMAGE_TOKEN_NAME = 'GPT Image Tools - gpt-image-2'
+const CODEX_GROUP = 'codex 满血高速'
+const CODEX_MODEL = 'gpt-5.5'
+const CODEX_TOKEN_NAME = 'GPT Image Tools - codex'
+const TOKEN_LIST_PAGE_SIZE = 100
+const TOKEN_LIST_MAX_PAGES = 50
+
 function normalizeBaseUrl(baseUrl: string) {
   const trimmed = baseUrl.trim().replace(/\/+$/, '')
   if (!trimmed) throw new Error('Base URL is required')
   return trimmed
+}
+
+function normalizeNewApiBaseUrl(value: string) {
+  const baseUrl = normalizeBaseUrl(value || NEW_API_BASE_URL)
+  const parsed = new URL(baseUrl)
+  if (parsed.protocol !== 'https:' || parsed.host !== 'hotapi.top') {
+    throw new Error('当前只允许登录 https://hotapi.top/')
+  }
+  return `${parsed.protocol}//${parsed.host}`
 }
 
 function headers(apiKey: string) {
@@ -37,21 +58,17 @@ function headers(apiKey: string) {
   }
 }
 
-function imageTaskHeaders(apiKey: string, retryCount?: number) {
-  const retryValue = Math.max(0, Math.min(5, Math.floor(Number(retryCount ?? 1))))
+function imageTaskHeaders(apiKey: string) {
   return {
     ...headers(apiKey),
-    'X-Image-Tools-Retry-Count': String(Number.isFinite(retryValue) ? retryValue : 1),
   }
 }
 
-function imageTaskAuthHeaders(apiKey: string, retryCount?: number) {
+function imageTaskAuthHeaders(apiKey: string) {
   const key = apiKey.trim()
   if (!key) throw new Error('API Key is required')
-  const retryValue = Math.max(0, Math.min(5, Math.floor(Number(retryCount ?? 1))))
   return {
     Authorization: `Bearer ${key}`,
-    'X-Image-Tools-Retry-Count': String(Number.isFinite(retryValue) ? retryValue : 1),
   }
 }
 
@@ -148,8 +165,20 @@ async function parseJsonResponse<T>(response: Response, prefix: string) {
   return body as T
 }
 
-function openAiImageProxyUrl(path: 'generations' | 'edits', baseUrl: string) {
-  return `/api/openai/v1/images/${path}?base_url=${encodeURIComponent(normalizeBaseUrl(baseUrl))}`
+async function parseNewApiResponse(
+  response: Response,
+  prefix: string
+): Promise<{ success?: boolean; message?: string; data?: any }> {
+  try {
+    return await parseJsonResponse(response, prefix)
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        `${prefix}: 浏览器无法直连中转站登录接口，可能是对方未开放跨域。请在控制台手动填写 API Key。`
+      )
+    }
+    throw error
+  }
 }
 
 function assertApiSuccess<T>(
@@ -165,73 +194,272 @@ function assertApiSuccess<T>(
   return body.data
 }
 
+function splitModelLimits(value: unknown) {
+  return new Set(
+    String(value || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  )
+}
+
+async function newApiRequest(
+  baseUrl: string,
+  method: string,
+  path: string,
+  options: { payload?: Record<string, unknown>; userId?: number } = {}
+) {
+  const requestHeaders: Record<string, string> = {
+    Accept: 'application/json',
+  }
+  if (options.payload) {
+    requestHeaders['Content-Type'] = 'application/json'
+  }
+  if (options.userId !== undefined) {
+    requestHeaders['New-Api-User'] = String(options.userId)
+  }
+
+  const response = await fetch(`${baseUrl}${path}`, {
+    method,
+    credentials: 'include',
+    headers: requestHeaders,
+    body: options.payload ? JSON.stringify(options.payload) : undefined,
+  })
+  const body = await parseNewApiResponse(response, 'New API request failed')
+  if (!body.success) {
+    throw new Error(String(body.message || '中转站请求失败'))
+  }
+  return body.data
+}
+
+async function loginNewApiBrowser(baseUrl: string, username: string, password: string) {
+  if (!username.trim() || !password) throw new Error('请输入账号和密码')
+  const data = await newApiRequest(baseUrl, 'POST', '/api/user/login?turnstile=', {
+    payload: { username: username.trim(), password },
+  })
+  if (data?.require_2fa) {
+    throw new Error('该账号开启了 2FA，请先在控制台登录并处理安全验证')
+  }
+  const userId = data?.id
+  if (typeof userId !== 'number') {
+    throw new Error('登录成功但没有返回用户 ID')
+  }
+  return userId
+}
+
+async function listNewApiTokens(baseUrl: string, userId: number) {
+  const firstPage = await newApiRequest(
+    baseUrl,
+    'GET',
+    `/api/token/?p=1&size=${TOKEN_LIST_PAGE_SIZE}`,
+    { userId }
+  )
+  const items = Array.isArray(firstPage?.items) ? firstPage.items : []
+  const tokens = items.filter((item: unknown): item is Record<string, any> => {
+    return Boolean(item && typeof item === 'object')
+  })
+  const total = typeof firstPage?.total === 'number' ? firstPage.total : tokens.length
+
+  for (let page = 2; tokens.length < total && page <= TOKEN_LIST_MAX_PAGES; page += 1) {
+    const data = await newApiRequest(
+      baseUrl,
+      'GET',
+      `/api/token/?p=${page}&size=${TOKEN_LIST_PAGE_SIZE}`,
+      { userId }
+    )
+    const pageItems = Array.isArray(data?.items) ? data.items : []
+    if (pageItems.length === 0) break
+    tokens.push(
+      ...pageItems.filter((item: unknown): item is Record<string, any> =>
+        Boolean(item && typeof item === 'object')
+      )
+    )
+  }
+
+  return tokens
+}
+
+async function findNewApiToken(baseUrl: string, userId: number, group: string, model: string) {
+  const tokens = await listNewApiTokens(baseUrl, userId)
+  return (
+    tokens.find((token: Record<string, any>) => {
+      if (token.group !== group) return false
+      if (token.status !== undefined && token.status !== 1) return false
+      if (token.model_limits_enabled && !splitModelLimits(token.model_limits).has(model)) {
+        return false
+      }
+      return true
+    }) || null
+  )
+}
+
+async function createNewApiToken(
+  baseUrl: string,
+  userId: number,
+  name: string,
+  group: string,
+  model: string
+) {
+  const data = await newApiRequest(baseUrl, 'POST', '/api/token/', {
+    userId,
+    payload: {
+      name,
+      remain_quota: 0,
+      expired_time: -1,
+      unlimited_quota: true,
+      model_limits_enabled: true,
+      model_limits: model,
+      allow_ips: '',
+      group,
+      cross_group_retry: false,
+    },
+  })
+
+  const candidates = [data, data?.token, data?.item]
+  const createdToken = candidates.find((item) => item && typeof item.id === 'number')
+  if (createdToken) return createdToken
+
+  const token = await findNewApiToken(baseUrl, userId, group, model)
+  if (!token) throw new Error(`${group} 秘钥已创建，但重新查询时没有找到`)
+  return token
+}
+
+async function getNewApiFullKey(baseUrl: string, userId: number, tokenId: number, group: string) {
+  const data = await newApiRequest(baseUrl, 'POST', `/api/token/${tokenId}/key`, { userId })
+  const key = data?.key
+  if (typeof key !== 'string' || !key) {
+    throw new Error(`中转站没有返回“${group}”可用秘钥`)
+  }
+  return key
+}
+
+async function obtainNewApiTokenKey(
+  baseUrl: string,
+  userId: number,
+  name: string,
+  group: string,
+  model: string
+) {
+  let token = await findNewApiToken(baseUrl, userId, group, model)
+  let created = false
+  if (!token) {
+    token = await createNewApiToken(baseUrl, userId, name, group, model)
+    created = true
+  }
+
+  const tokenId = token.id
+  if (typeof tokenId !== 'number') throw new Error(`${group} 目标秘钥缺少 ID`)
+
+  return {
+    apiKey: await getNewApiFullKey(baseUrl, userId, tokenId, group),
+    group,
+    model,
+    tokenName: token.name || name,
+    created,
+  }
+}
+
+async function obtainManagedNewApiKey(payload: {
+  baseUrl: string
+  username: string
+  password: string
+}): Promise<ManagedNewApiLoginResult> {
+  const baseUrl = normalizeNewApiBaseUrl(payload.baseUrl)
+  const userId = await loginNewApiBrowser(baseUrl, payload.username, payload.password)
+  const imageKey = await obtainNewApiTokenKey(
+    baseUrl,
+    userId,
+    IMAGE_TOKEN_NAME,
+    IMAGE_GROUP,
+    IMAGE_MODEL
+  )
+  const codexKey = await obtainNewApiTokenKey(
+    baseUrl,
+    userId,
+    CODEX_TOKEN_NAME,
+    CODEX_GROUP,
+    CODEX_MODEL
+  )
+
+  return {
+    baseUrl,
+    apiKey: imageKey.apiKey,
+    group: imageKey.group,
+    model: imageKey.model,
+    tokenName: imageKey.tokenName,
+    created: imageKey.created,
+    codexApiKey: codexKey.apiKey,
+    codexGroup: codexKey.group,
+    codexModel: codexKey.model,
+    codexTokenName: codexKey.tokenName,
+    codexCreated: codexKey.created,
+  }
+}
+
 function delay(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
-function assertTaskResponse(
-  body: { success?: boolean; message?: string; data?: ImageGenerationTask },
-  fallback: string
-) {
-  return assertApiSuccess(body, fallback)
+function normalizeRetryCount(value: unknown) {
+  const count = Math.floor(Number(value ?? 1))
+  if (!Number.isFinite(count)) return 1
+  return Math.max(0, Math.min(5, count))
 }
 
-async function waitForImageTask(
-  firstTask: ImageGenerationTask,
-  onTaskUpdate?: (task: ImageGenerationTask) => void
+function isTransientUpstreamStatus(status: number) {
+  return status === 502 || status === 503 || status === 504
+}
+
+async function fetchJsonWithRetry<T>(
+  url: string,
+  init: RequestInit,
+  prefix: string,
+  retryCount?: number,
+  onRetry?: (attempt: number, maxAttempts: number, status: number) => void
 ) {
-  let task = firstTask
-  onTaskUpdate?.(task)
+  const retries = normalizeRetryCount(retryCount)
+  const maxAttempts = retries + 1
+  let lastError: unknown = null
 
-  while (task.status === 'queued' || task.status === 'running') {
-    await delay(Math.max(800, task.pollAfterMs || 1500))
-    const response = await fetch(`/api/openai/tasks/${encodeURIComponent(task.taskId)}`)
-    const body = await parseJsonResponse<{
-      success?: boolean
-      message?: string
-      data?: ImageGenerationTask
-    }>(response, 'Image task polling failed')
-    task = assertTaskResponse(body, '查询生图任务失败')
-    onTaskUpdate?.(task)
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(url, init)
+      if (!response.ok && isTransientUpstreamStatus(response.status) && attempt < maxAttempts) {
+        onRetry?.(attempt, maxAttempts, response.status)
+        await delay(800)
+        continue
+      }
+      return await parseJsonResponse<T>(response, prefix)
+    } catch (error) {
+      lastError = error
+      if (error instanceof TypeError && attempt < maxAttempts) {
+        onRetry?.(attempt, maxAttempts, 0)
+        await delay(800)
+        continue
+      }
+      throw error
+    }
   }
 
-  if (task.status === 'failed' || task.status === 'expired') {
-    throw new Error(cleanErrorMessage(task.error || '服务器后台生图任务失败'))
-  }
-  if (task.status !== 'completed' || !task.result) {
-    throw new Error('服务器后台任务没有返回生成结果')
-  }
-  return task.result
+  throw lastError instanceof Error ? lastError : new Error(String(lastError || `${prefix}: 请求失败`))
 }
 
 async function urlToDataUrl(url: string) {
-  let blob: Blob
   try {
     const response = await fetch(url)
     if (!response.ok) throw new Error(`Failed to download image: ${response.status}`)
-    blob = await response.blob()
-  } catch {
-    const response = await fetch('/api/image-url-to-data-url', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
+    const blob = await response.blob()
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(blob)
     })
-    const body = await parseJsonResponse<{ success?: boolean; message?: string; dataUrl?: string }>(
-      response,
-      'Image URL proxy failed'
+  } catch (error) {
+    throw new Error(
+      `图片已生成，但浏览器无法下载返回的图片 URL。请在控制台把响应格式切换为 b64_json 后重试。${error instanceof Error ? ` 原因：${error.message}` : ''}`
     )
-    if (!body.success || !body.dataUrl) {
-      throw new Error(body.message || '图片已生成，但浏览器无法下载返回的图片 URL')
-    }
-    return body.dataUrl
   }
-
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(blob)
-  })
 }
 
 function blobFromDataUrl(dataUrl: string) {
@@ -676,17 +904,7 @@ export const bridge: ImageApiClient = {
   },
 
   async loginNewApi(payload) {
-    const response = await fetch('/api/newapi/login-key', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    const body = await parseJsonResponse<{
-      success: boolean
-      message?: string
-      data?: ManagedNewApiLoginResult
-    }>(response, 'New API login failed')
-    return assertApiSuccess(body, '中转站登录失败')
+    return obtainManagedNewApiKey(payload)
   },
 
   async listModels(args) {
@@ -919,16 +1137,29 @@ export const bridge: ImageApiClient = {
   },
 
   async listStyles() {
-    const response = await fetch('/api/style-library')
-    const body = await parseJsonResponse<{
-      success?: boolean
-      message?: string
-      data?: StyleLibraryResult
-    }>(response, 'Style library failed')
-    return assertApiSuccess(body, '读取风格库失败')
+    const response = await fetch('./style-library/index.json', { cache: 'force-cache' })
+    return parseJsonResponse<StyleLibraryResult>(response, 'Style library failed')
+  },
+
+  async listStyleCategory(category: StyleCategory) {
+    if (!category.href) {
+      throw new Error(`风格分类缺少静态资源路径：${category.name}`)
+    }
+    const response = await fetch(category.href, { cache: 'force-cache' })
+    return parseJsonResponse<StyleCategoryResult>(response, 'Style category failed')
   },
 
   async generateImages(payload: ImageGenerationPayload) {
+    const startedAt = Date.now()
+    const taskId = `local-${startedAt}-${Math.random().toString(36).slice(2, 10)}`
+    payload.onTaskUpdate?.({
+      taskId,
+      status: 'running',
+      createdAt: startedAt,
+      updatedAt: startedAt,
+      pollAfterMs: 0,
+    })
+
     if (payload.mode === 'image') {
       const references = payload.referenceImages || []
       if (references.length === 0) {
@@ -952,49 +1183,117 @@ export const bridge: ImageApiClient = {
         form.append('image[]', blobFromDataUrl(image.dataUrl), image.name)
       })
 
-      const response = await fetch(openAiImageProxyUrl('edits', payload.baseUrl), {
-        method: 'POST',
-        headers: imageTaskAuthHeaders(payload.apiKey, payload.retryCount),
-        body: form,
-      })
-      const body = await parseJsonResponse<{
-        success?: boolean
-        message?: string
-        data?: ImageGenerationTask
-      }>(response, 'Image edit failed')
-      const task = assertTaskResponse(body, '提交图像参考生成任务失败')
-      const result = await waitForImageTask(task, payload.onTaskUpdate)
-
-      return parseImageResult(result)
+      try {
+        const result = await fetchJsonWithRetry<{
+          data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>
+        }>(
+          `${normalizeBaseUrl(payload.baseUrl)}/v1/images/edits`,
+          {
+            method: 'POST',
+            headers: imageTaskAuthHeaders(payload.apiKey),
+            body: form,
+          },
+          'Image edit failed',
+          payload.retryCount,
+          (attempt, maxAttempts, status) => {
+            payload.onTaskUpdate?.({
+              taskId,
+              status: 'running',
+              createdAt: startedAt,
+              updatedAt: Date.now(),
+              pollAfterMs: 0,
+              error: status
+                ? `上游返回 HTTP ${status}，正在重试 ${attempt}/${maxAttempts - 1}`
+                : `上游请求失败，正在重试 ${attempt}/${maxAttempts - 1}`,
+            })
+          }
+        )
+        const parsed = await parseImageResult(result)
+        payload.onTaskUpdate?.({
+          taskId,
+          status: 'completed',
+          createdAt: startedAt,
+          updatedAt: Date.now(),
+          completedAt: Date.now(),
+          result,
+          pollAfterMs: 0,
+        })
+        return parsed
+      } catch (error) {
+        payload.onTaskUpdate?.({
+          taskId,
+          status: 'failed',
+          createdAt: startedAt,
+          updatedAt: Date.now(),
+          completedAt: Date.now(),
+          error: error instanceof Error ? error.message : String(error),
+          pollAfterMs: 0,
+        })
+        throw error
+      }
     }
 
     const requestedCount = Math.max(1, Math.floor(payload.count))
     const apiSize = normalizedImageApiSize(payload.model, payload.size)
     const images: ImageGenerationResult['images'] = []
-    for (let index = 0; index < requestedCount; index += 1) {
-      const response = await fetch(openAiImageProxyUrl('generations', payload.baseUrl), {
-        method: 'POST',
-        headers: imageTaskHeaders(payload.apiKey, payload.retryCount),
-        body: JSON.stringify({
-          model: payload.model,
-          prompt: payload.prompt,
-          size: apiSize,
-          ...(payload.quality !== 'auto' ? { quality: payload.quality } : {}),
-          n: 1,
-          response_format: payload.responseFormat,
-        }),
-      })
-      const body = await parseJsonResponse<{
-        success?: boolean
-        message?: string
-        data?: ImageGenerationTask
-      }>(response, 'Image generation failed')
-      const task = assertTaskResponse(body, '提交生图任务失败')
-      const result = await waitForImageTask(task, payload.onTaskUpdate)
-      const parsed = await parseImageResult(result)
-      images.push(...parsed.images)
-    }
 
-    return { images }
+    try {
+      for (let index = 0; index < requestedCount; index += 1) {
+        const result = await fetchJsonWithRetry<{
+          data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>
+        }>(
+          `${normalizeBaseUrl(payload.baseUrl)}/v1/images/generations`,
+          {
+            method: 'POST',
+            headers: imageTaskHeaders(payload.apiKey),
+            body: JSON.stringify({
+              model: payload.model,
+              prompt: payload.prompt,
+              size: apiSize,
+              ...(payload.quality !== 'auto' ? { quality: payload.quality } : {}),
+              n: 1,
+              response_format: payload.responseFormat,
+            }),
+          },
+          'Image generation failed',
+          payload.retryCount,
+          (attempt, maxAttempts, status) => {
+            payload.onTaskUpdate?.({
+              taskId,
+              status: 'running',
+              createdAt: startedAt,
+              updatedAt: Date.now(),
+              pollAfterMs: 0,
+              error: status
+                ? `第 ${index + 1}/${requestedCount} 张上游返回 HTTP ${status}，正在重试 ${attempt}/${maxAttempts - 1}`
+                : `第 ${index + 1}/${requestedCount} 张上游请求失败，正在重试 ${attempt}/${maxAttempts - 1}`,
+            })
+          }
+        )
+        const parsed = await parseImageResult(result)
+        images.push(...parsed.images)
+      }
+      payload.onTaskUpdate?.({
+        taskId,
+        status: 'completed',
+        createdAt: startedAt,
+        updatedAt: Date.now(),
+        completedAt: Date.now(),
+        result: { data: [] },
+        pollAfterMs: 0,
+      })
+      return { images }
+    } catch (error) {
+      payload.onTaskUpdate?.({
+        taskId,
+        status: 'failed',
+        createdAt: startedAt,
+        updatedAt: Date.now(),
+        completedAt: Date.now(),
+        error: error instanceof Error ? error.message : String(error),
+        pollAfterMs: 0,
+      })
+      throw error
+    }
   },
 }

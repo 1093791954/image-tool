@@ -1,0 +1,314 @@
+{
+  "category": "数字艺术",
+  "styles": [
+    {
+      "id": "63bf63c073cfc7bf1ac42fc2953966e5",
+      "category": "数字艺术",
+      "name": "标准赛博",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 45,
+          "saturation": 30,
+          "vibrance": 40,
+          "temperature": -20,
+          "temperature_desc": "cool cyan",
+          "tint": 30,
+          "tint_desc": "magenta shift",
+          "clarity": 25,
+          "shadows": -30,
+          "highlights": 20
+        },
+        "style_keywords": [
+          "cyberpunk aesthetic",
+          "neon cyan and magenta",
+          "wet street reflections",
+          "chromatic aberration"
+        ]
+      },
+      "keywords": [
+        "cyberpunk aesthetic",
+        "neon cyan and magenta",
+        "wet street reflections",
+        "chromatic aberration"
+      ],
+      "previewUrl": "./style-library/assets/63bf63c073cfc7bf1ac42fc2953966e5-preview.jpg",
+      "sourceUrl": "./style-library/assets/63bf63c073cfc7bf1ac42fc2953966e5-source.jpg"
+    },
+    {
+      "id": "9c4445c2c34a555f203c13ecee7dd1dc",
+      "category": "数字艺术",
+      "name": "梦核",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 10,
+          "saturation": 40,
+          "vibrance": 30,
+          "temperature": 10,
+          "temperature_desc": "warm",
+          "tint": 10,
+          "tint_desc": "slight magenta",
+          "clarity": -20,
+          "shadows": 30,
+          "highlights": 40
+        },
+        "style_keywords": [
+          "dreamcore aesthetic",
+          "liminal spaces",
+          "uncanny bright light",
+          "soft focus bloom",
+          "surreal vivid colors"
+        ]
+      },
+      "keywords": [
+        "dreamcore aesthetic",
+        "liminal spaces",
+        "uncanny bright light",
+        "soft focus bloom",
+        "surreal vivid colors"
+      ],
+      "previewUrl": "./style-library/assets/9c4445c2c34a555f203c13ecee7dd1dc-preview.jpg",
+      "sourceUrl": "./style-library/assets/9c4445c2c34a555f203c13ecee7dd1dc-source.jpg"
+    },
+    {
+      "id": "d3387d717033b0d87eab96a4e377deba",
+      "category": "数字艺术",
+      "name": "故障艺术",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 25,
+          "saturation": 40,
+          "vibrance": 20,
+          "temperature": 0,
+          "temperature_desc": "neutral",
+          "tint": 20,
+          "tint_desc": "magenta",
+          "clarity": 10,
+          "shadows": 10,
+          "highlights": 30
+        },
+        "style_keywords": [
+          "digital glitch artifacts",
+          "chromatic aberration",
+          "RGB split",
+          "datamosh texture"
+        ]
+      },
+      "keywords": [
+        "digital glitch artifacts",
+        "chromatic aberration",
+        "RGB split",
+        "datamosh texture"
+      ],
+      "previewUrl": "./style-library/assets/d3387d717033b0d87eab96a4e377deba-preview.jpg",
+      "sourceUrl": "./style-library/assets/d3387d717033b0d87eab96a4e377deba-source.jpg"
+    },
+    {
+      "id": "82a73e7ca1650cb5afdfe76291f7cff5",
+      "category": "数字艺术",
+      "name": "矩阵绿",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 35,
+          "saturation": -10,
+          "vibrance": 0,
+          "temperature": -10,
+          "temperature_desc": "cool",
+          "tint": -50,
+          "tint_desc": "strong green shift",
+          "clarity": 30,
+          "shadows": -30,
+          "highlights": 10
+        },
+        "style_keywords": [
+          "matrix green code tint",
+          "sickly green atmosphere",
+          "digital sci-fi",
+          "high contrast"
+        ]
+      },
+      "keywords": [
+        "matrix green code tint",
+        "sickly green atmosphere",
+        "digital sci-fi",
+        "high contrast"
+      ],
+      "previewUrl": "./style-library/assets/82a73e7ca1650cb5afdfe76291f7cff5-preview.jpg",
+      "sourceUrl": "./style-library/assets/82a73e7ca1650cb5afdfe76291f7cff5-source.jpg"
+    },
+    {
+      "id": "13f460d623b620e2170da832592a5e0f",
+      "category": "数字艺术",
+      "name": "暗黑",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 40,
+          "saturation": -25,
+          "vibrance": -10,
+          "temperature": 10,
+          "temperature_desc": "warm yellow",
+          "tint": -15,
+          "tint_desc": "green shift",
+          "clarity": 50,
+          "shadows": -40,
+          "highlights": -10
+        },
+        "style_keywords": [
+          "grim dark fantasy",
+          "desaturated earth tones",
+          "dramatic god rays",
+          "atmospheric haze"
+        ]
+      },
+      "keywords": [
+        "grim dark fantasy",
+        "desaturated earth tones",
+        "dramatic god rays",
+        "atmospheric haze"
+      ],
+      "previewUrl": "./style-library/assets/13f460d623b620e2170da832592a5e0f-preview.jpg",
+      "sourceUrl": "./style-library/assets/13f460d623b620e2170da832592a5e0f-source.jpg"
+    },
+    {
+      "id": "7850d6ebebc019c9119056fc459ba8fa",
+      "category": "数字艺术",
+      "name": "风格化游戏",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 25,
+          "saturation": 35,
+          "vibrance": 30,
+          "temperature": 0,
+          "temperature_desc": "neutral",
+          "tint": 0,
+          "clarity": 10,
+          "shadows": 15,
+          "highlights": 10
+        },
+        "style_keywords": [
+          "stylized PBR rendering",
+          "vibrant clean colors",
+          "painterly textures",
+          "ambient occlusion",
+          "soft shading"
+        ]
+      },
+      "keywords": [
+        "stylized PBR rendering",
+        "vibrant clean colors",
+        "painterly textures",
+        "ambient occlusion",
+        "soft shading"
+      ],
+      "previewUrl": "./style-library/assets/7850d6ebebc019c9119056fc459ba8fa-preview.jpg",
+      "sourceUrl": "./style-library/assets/7850d6ebebc019c9119056fc459ba8fa-source.jpg"
+    },
+    {
+      "id": "41c0764f1e5986d6c0642facb00c05a3",
+      "category": "数字艺术",
+      "name": "席德·米德",
+      "styleJson": {
+        "instruction": "Apply a comprehensive aesthetic based on the specified cinematic/artistic direction. This is a set of visual components, not just a color grade.",
+        "cinematic_tech": {
+          "camera_and_lens": [
+            "Anamorphic lens characteristics (horizontal flares, oval bokeh)",
+            "Deep depth of field to show environmental detail"
+          ],
+          "film_stock_and_format": [
+            "35mm film stock with noticeable grain",
+            "Gouache painting aesthetic as a source style",
+            "Mastery of architectural rendering and perspective"
+          ]
+        },
+        "lighting_setup": {
+          "philosophy": [
+            "Light is used to create mood and reveal form",
+            "Sci-Fi Noir"
+          ],
+          "key_techniques": [
+            "Strong, dramatic backlighting to create silhouettes",
+            "Atmospheric perspective via smoke, haze, and rain",
+            "Low, integrated light sources (vehicle headlights, street-level ads)",
+            "Reflections as a key compositional element"
+          ]
+        },
+        "color_system": {
+          "palette_description": [
+            "Controlled, sophisticated color palettes",
+            "Often analogous colors with a single complementary accent"
+          ],
+          "key_color_relationships": [
+            "High contrast between warm light sources and cool ambient light (Orange and Teal is a descendant)",
+            "Color defines form and mood"
+          ]
+        },
+        "material_and_texture": {
+          "dominant_materials": [
+            "High-tech (chrome, glass) juxtaposed with low-tech (brick, concrete)",
+            "Heavy, functional machinery"
+          ],
+          "surface_properties": [
+            "Ubiquitous wet, reflective surfaces",
+            "Visible material history: rust, grime, wear-and-tear",
+            "Tangible, physical presence of technology"
+          ]
+        },
+        "composition_and_framing": {
+          "shot_type": [
+            "Street-level perspective",
+            "Complex, layered compositions with foreground, midground, and background elements"
+          ],
+          "key_principles": [
+            "Industrial Design-driven composition",
+            "Functionality and plausibility first",
+            "A dense, lived-in world"
+          ]
+        }
+      },
+      "keywords": [],
+      "previewUrl": "./style-library/assets/41c0764f1e5986d6c0642facb00c05a3-preview.png",
+      "sourceUrl": "./style-library/assets/41c0764f1e5986d6c0642facb00c05a3-source.png"
+    },
+    {
+      "id": "57a5276cf535a3959820539361db2258",
+      "category": "数字艺术",
+      "name": "蒸汽波",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply color grading style only",
+        "parameters": {
+          "contrast": 15,
+          "saturation": 20,
+          "vibrance": 30,
+          "temperature": -10,
+          "temperature_desc": "cool",
+          "tint": 40,
+          "tint_desc": "strong magenta/pink",
+          "clarity": -10,
+          "shadows": 20,
+          "highlights": -10
+        },
+        "style_keywords": [
+          "vaporwave aesthetic",
+          "lo-fi retro",
+          "pink and purple gradient",
+          "nostalgic dreamscape",
+          "soft glow"
+        ]
+      },
+      "keywords": [
+        "vaporwave aesthetic",
+        "lo-fi retro",
+        "pink and purple gradient",
+        "nostalgic dreamscape",
+        "soft glow"
+      ],
+      "previewUrl": "./style-library/assets/57a5276cf535a3959820539361db2258-preview.jpg",
+      "sourceUrl": "./style-library/assets/57a5276cf535a3959820539361db2258-source.jpg"
+    }
+  ]
+}

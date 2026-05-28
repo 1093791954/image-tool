@@ -1,0 +1,1487 @@
+{
+  "category": "动漫",
+  "styles": [
+    {
+      "id": "694e6625109d495fbbe4a6d763d04203",
+      "category": "动漫",
+      "name": "90年代复古动漫",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "traditional cel animation",
+          "coloring": "limited color palette",
+          "outline": "sharp black lines",
+          "texture": "film grain and VHS artifacts"
+        },
+        "post_processing": {
+          "grain": "heavy film grain",
+          "chromatic_aberration": true,
+          "scan_lines": "subtle"
+        },
+        "style_keywords": [
+          "90s anime style",
+          "retro anime aesthetic",
+          "VHS quality",
+          "film grain",
+          "limited color palette",
+          "sharp highlights",
+          "nostalgic",
+          "Sailor Moon era",
+          "classic cel animation"
+        ]
+      },
+      "keywords": [
+        "90s anime style",
+        "retro anime aesthetic",
+        "VHS quality",
+        "film grain",
+        "limited color palette",
+        "sharp highlights",
+        "nostalgic",
+        "Sailor Moon era",
+        "classic cel animation"
+      ],
+      "previewUrl": "./style-library/assets/694e6625109d495fbbe4a6d763d04203-preview.jpg",
+      "sourceUrl": "./style-library/assets/694e6625109d495fbbe4a6d763d04203-source.jpg"
+    },
+    {
+      "id": "a448bb54233eb5e3685ff754c03f779a",
+      "category": "动漫",
+      "name": "美式卡通",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "vector cartoon",
+          "coloring": "flat bold colors",
+          "outline": "thick black outlines",
+          "texture": "smooth clean"
+        },
+        "proportions": {
+          "exaggeration": "high",
+          "squash_stretch": true
+        },
+        "style_keywords": [
+          "American cartoon style",
+          "Cartoon Network aesthetic",
+          "bold outlines",
+          "exaggerated proportions",
+          "flat colors",
+          "rubberhose animation",
+          "expressive faces",
+          "clean vector art"
+        ]
+      },
+      "keywords": [
+        "American cartoon style",
+        "Cartoon Network aesthetic",
+        "bold outlines",
+        "exaggerated proportions",
+        "flat colors",
+        "rubberhose animation",
+        "expressive faces",
+        "clean vector art"
+      ],
+      "previewUrl": "./style-library/assets/a448bb54233eb5e3685ff754c03f779a-preview.jpg",
+      "sourceUrl": "./style-library/assets/a448bb54233eb5e3685ff754c03f779a-source.jpg"
+    },
+    {
+      "id": "a756f39574024f7ffe0de1f748695867",
+      "category": "动漫",
+      "name": "2D日漫",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "cel shading",
+          "coloring": "flat color blocks",
+          "outline": "bold black outlines",
+          "texture": "smooth, no grain"
+        },
+        "color": {
+          "saturation": 30,
+          "vibrance": 40,
+          "contrast": 20
+        },
+        "style_keywords": [
+          "anime style",
+          "cel shading",
+          "flat color",
+          "2D aesthetic",
+          "clean lines",
+          "bold outlines",
+          "vibrant colors",
+          "high quality illustration"
+        ]
+      },
+      "keywords": [
+        "anime style",
+        "cel shading",
+        "flat color",
+        "2D aesthetic",
+        "clean lines",
+        "bold outlines",
+        "vibrant colors",
+        "high quality illustration"
+      ],
+      "previewUrl": "./style-library/assets/a756f39574024f7ffe0de1f748695867-preview.jpg",
+      "sourceUrl": "./style-library/assets/a756f39574024f7ffe0de1f748695867-source.jpg"
+    },
+    {
+      "id": "754f79220c7c19aa63b23ee60694f3c2",
+      "category": "动漫",
+      "name": "双城之战/Arcane",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "semi-realistic 3D with painterly overlay",
+          "coloring": "thick coating",
+          "outline": "soft stylized edges",
+          "texture": "painterly with 3D depth"
+        },
+        "lighting": {
+          "type": "cinematic volumetric",
+          "atmosphere": "smoky/hazy",
+          "color_grading": "vibrant with deep shadows"
+        },
+        "style_keywords": [
+          "Arcane animation style",
+          "Fortiche Production aesthetic",
+          "semi-realistic 3D",
+          "thick coating",
+          "cinematic lighting",
+          "volumetric lighting",
+          "expressive face",
+          "vibrant hair color",
+          "8k"
+        ]
+      },
+      "keywords": [
+        "Arcane animation style",
+        "Fortiche Production aesthetic",
+        "semi-realistic 3D",
+        "thick coating",
+        "cinematic lighting",
+        "volumetric lighting",
+        "expressive face",
+        "vibrant hair color",
+        "8k"
+      ]
+    },
+    {
+      "id": "a993397c6053b472f6239aeada559eaf",
+      "category": "动漫",
+      "name": "装饰艺术",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "geometric decorative design",
+          "coloring": "gold, black, jewel tones",
+          "outline": "precise geometric patterns",
+          "texture": "metallic and glossy"
+        },
+        "style_keywords": [
+          "Art Deco style",
+          "1920s aesthetic",
+          "geometric patterns",
+          "gold and black",
+          "symmetrical design",
+          "luxurious elegance",
+          "Gatsby era",
+          "decorative motifs",
+          "streamlined forms"
+        ]
+      },
+      "keywords": [
+        "Art Deco style",
+        "1920s aesthetic",
+        "geometric patterns",
+        "gold and black",
+        "symmetrical design",
+        "luxurious elegance",
+        "Gatsby era",
+        "decorative motifs",
+        "streamlined forms"
+      ],
+      "previewUrl": "./style-library/assets/a993397c6053b472f6239aeada559eaf-preview.jpg",
+      "sourceUrl": "./style-library/assets/a993397c6053b472f6239aeada559eaf-source.jpg"
+    },
+    {
+      "id": "8fb2d89d539f8004f4276721807fcc42",
+      "category": "动漫",
+      "name": "新艺术运动",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "decorative illustration",
+          "coloring": "muted natural palette with gold accents",
+          "outline": "flowing organic lines",
+          "texture": "flat with decorative patterns"
+        },
+        "style_keywords": [
+          "Art Nouveau style",
+          "Alphonse Mucha influence",
+          "organic curves",
+          "flowing lines",
+          "botanical motifs",
+          "decorative borders",
+          "elegant feminine",
+          "natural forms",
+          "ornamental design"
+        ]
+      },
+      "keywords": [
+        "Art Nouveau style",
+        "Alphonse Mucha influence",
+        "organic curves",
+        "flowing lines",
+        "botanical motifs",
+        "decorative borders",
+        "elegant feminine",
+        "natural forms",
+        "ornamental design"
+      ],
+      "previewUrl": "./style-library/assets/8fb2d89d539f8004f4276721807fcc42-preview.jpg",
+      "sourceUrl": "./style-library/assets/8fb2d89d539f8004f4276721807fcc42-source.jpg"
+    },
+    {
+      "id": "a6f244c3520bfae4456844f17cc3c97a",
+      "category": "动漫",
+      "name": "赛璐璐透明",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "transparent layered illustration",
+          "coloring": "translucent overlapping colors",
+          "outline": "delicate thin lines",
+          "texture": "glass-like transparency"
+        },
+        "effects": {
+          "transparency": true,
+          "light_refraction": true,
+          "layered_depth": true
+        },
+        "style_keywords": [
+          "cel transparent style",
+          "glass-like aesthetic",
+          "translucent layers",
+          "light refraction",
+          "ethereal quality",
+          "delicate linework",
+          "dreamy transparency",
+          "layered composition",
+          "luminous colors"
+        ]
+      },
+      "keywords": [
+        "cel transparent style",
+        "glass-like aesthetic",
+        "translucent layers",
+        "light refraction",
+        "ethereal quality",
+        "delicate linework",
+        "dreamy transparency",
+        "layered composition",
+        "luminous colors"
+      ],
+      "previewUrl": "./style-library/assets/a6f244c3520bfae4456844f17cc3c97a-preview.jpg",
+      "sourceUrl": "./style-library/assets/a6f244c3520bfae4456844f17cc3c97a-source.jpg"
+    },
+    {
+      "id": "7eebaa8e4b8560b6b7a0142de6165eaf",
+      "category": "动漫",
+      "name": "CG渲染",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "game CG render",
+          "coloring": "rich saturated colors with deep stacked shadows",
+          "outline": "none",
+          "texture": "hyper-detailed, ultra HD"
+        },
+        "lighting": {
+          "type": "dramatic high contrast with Tyndall effect",
+          "god_rays": true,
+          "volumetric": true,
+          "shadow": "deep layered shadows"
+        },
+        "effects": {
+          "particles": "gold powder splash, tiny glowing particles",
+          "motion_blur": true,
+          "foreground_bokeh": true,
+          "background_bokeh": true,
+          "soft_bokeh_spots": true
+        },
+        "camera": {
+          "angle": "low-angle close-up",
+          "perspective": "strong forced perspective",
+          "depth": "extreme spatial depth"
+        },
+        "style_keywords": [
+          "game CG style",
+          "artistic and stunning",
+          "rich colors with deep stacked shadows",
+          "close-up shot ultra HD",
+          "gold powder splash",
+          "foreground bokeh with spatial depth",
+          "dynamic motion blur",
+          "background dynamic bokeh",
+          "tiny glowing particles floating in air",
+          "sunshine blue sky white clouds",
+          "soft bokeh spots",
+          "Tyndall effect",
+          "interleaving light and shadow",
+          "low-angle close-up",
+          "high contrast lighting",
+          "speed and visual impact",
+          "strong perspective"
+        ]
+      },
+      "keywords": [
+        "game CG style",
+        "artistic and stunning",
+        "rich colors with deep stacked shadows",
+        "close-up shot ultra HD",
+        "gold powder splash",
+        "foreground bokeh with spatial depth",
+        "dynamic motion blur",
+        "background dynamic bokeh",
+        "tiny glowing particles floating in air",
+        "sunshine blue sky white clouds",
+        "soft bokeh spots",
+        "Tyndall effect",
+        "interleaving light and shadow",
+        "low-angle close-up",
+        "high contrast lighting",
+        "speed and visual impact",
+        "strong perspective"
+      ],
+      "previewUrl": "./style-library/assets/7eebaa8e4b8560b6b7a0142de6165eaf-preview.jpg",
+      "sourceUrl": "./style-library/assets/7eebaa8e4b8560b6b7a0142de6165eaf-source.png"
+    },
+    {
+      "id": "2b4ffb30574df336631eb42986d51cd7",
+      "category": "动漫",
+      "name": "水墨画",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "ink wash painting",
+          "coloring": "monochrome black ink with subtle washes",
+          "outline": "calligraphic brushstrokes",
+          "texture": "rice paper texture"
+        },
+        "style_keywords": [
+          "Chinese ink wash style",
+          "sumi-e influence",
+          "brush painting",
+          "monochrome ink",
+          "negative space",
+          "calligraphic strokes",
+          "traditional Asian art",
+          "minimalist composition",
+          "meditative aesthetic"
+        ]
+      },
+      "keywords": [
+        "Chinese ink wash style",
+        "sumi-e influence",
+        "brush painting",
+        "monochrome ink",
+        "negative space",
+        "calligraphic strokes",
+        "traditional Asian art",
+        "minimalist composition",
+        "meditative aesthetic"
+      ],
+      "previewUrl": "./style-library/assets/2b4ffb30574df336631eb42986d51cd7-preview.jpg",
+      "sourceUrl": "./style-library/assets/2b4ffb30574df336631eb42986d51cd7-source.jpg"
+    },
+    {
+      "id": "294c98bbd415604f18facd84bdb301df",
+      "category": "动漫",
+      "name": "黏土动画",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "stop motion clay",
+          "coloring": "matte clay colors",
+          "outline": "none",
+          "texture": "fingerprint marks and clay imperfections"
+        },
+        "lighting": {
+          "type": "miniature set lighting",
+          "practical_lights": true
+        },
+        "style_keywords": [
+          "claymation style",
+          "stop motion animation",
+          "Aardman aesthetic",
+          "Laika Studios influence",
+          "clay texture",
+          "handmade feel",
+          "miniature set",
+          "practical lighting",
+          "tactile quality"
+        ]
+      },
+      "keywords": [
+        "claymation style",
+        "stop motion animation",
+        "Aardman aesthetic",
+        "Laika Studios influence",
+        "clay texture",
+        "handmade feel",
+        "miniature set",
+        "practical lighting",
+        "tactile quality"
+      ],
+      "previewUrl": "./style-library/assets/294c98bbd415604f18facd84bdb301df-preview.jpg",
+      "sourceUrl": "./style-library/assets/294c98bbd415604f18facd84bdb301df-source.jpg"
+    },
+    {
+      "id": "c2fd73c14b77934c4b1e9b9ff8c42ed1",
+      "category": "动漫",
+      "name": "立体主义",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "geometric fragmentation",
+          "coloring": "muted earth tones with color accents",
+          "outline": "angular geometric lines",
+          "texture": "flat painted surfaces"
+        },
+        "style_keywords": [
+          "Cubist style",
+          "Picasso influence",
+          "geometric fragmentation",
+          "multiple viewpoints",
+          "angular shapes",
+          "deconstructed forms",
+          "abstract geometry",
+          "analytical cubism",
+          "faceted surfaces"
+        ]
+      },
+      "keywords": [
+        "Cubist style",
+        "Picasso influence",
+        "geometric fragmentation",
+        "multiple viewpoints",
+        "angular shapes",
+        "deconstructed forms",
+        "abstract geometry",
+        "analytical cubism",
+        "faceted surfaces"
+      ],
+      "previewUrl": "./style-library/assets/c2fd73c14b77934c4b1e9b9ff8c42ed1-preview.jpg",
+      "sourceUrl": "./style-library/assets/c2fd73c14b77934c4b1e9b9ff8c42ed1-source.jpg"
+    },
+    {
+      "id": "87f4afcff5972e7c99d27175845af3f5",
+      "category": "动漫",
+      "name": "赛博动漫",
+      "styleJson": {
+        "instruction": "Apply a comprehensive aesthetic based on the specified cinematic/artistic direction. This is a set of visual components, not just a color grade.",
+        "cinematic_tech": {
+          "camera_and_lens": [
+            "Extreme perspective and foreshortening",
+            "Dynamic, often distorted anatomy as if shot with an ultra-wide lens"
+          ],
+          "film_stock_and_format": [
+            "Hand-drawn 2D animation aesthetic",
+            "High-energy frame rate",
+            "Deliberate frame-by-frame color shifts in action sequences"
+          ]
+        },
+        "lighting_setup": {
+          "philosophy": [
+            "Expressive, non-realistic lighting",
+            "Light as an emotional element"
+          ],
+          "key_techniques": [
+            "Dominant neon glow",
+            "Specualr lens flares and light leaks",
+            "High-contrast, graphic shadows",
+            "Stroboscopic lighting effects"
+          ]
+        },
+        "color_system": {
+          "palette_description": [
+            "Vibrant, oversaturated fluorescent palette",
+            "Signature 'Edgerunners Yellow' as a key accent"
+          ],
+          "key_color_relationships": [
+            "Strong triadic harmony of cyan, magenta, and yellow",
+            "Deliberate chromatic aberration and color fringing"
+          ]
+        },
+        "material_and_texture": {
+          "dominant_materials": [
+            "Glossy, reflective surfaces (like animation cels)",
+            "Polished chrome",
+            "Clean metal"
+          ],
+          "surface_properties": [
+            "Clean lines",
+            "Sharp, graphic textures",
+            "Texture used sparingly for impact (e.g., concrete damage, sparks)"
+          ]
+        },
+        "composition_and_framing": {
+          "shot_type": [
+            "Extreme close-ups on eyes and cybernetics",
+            "Dynamic, dutch angles",
+            "High-density, cluttered compositions"
+          ],
+          "key_principles": [
+            "Maximum visual information per frame",
+            "Kinetic energy",
+            "Rule of thirds is often broken for dynamic effect"
+          ]
+        }
+      },
+      "keywords": [],
+      "previewUrl": "./style-library/assets/87f4afcff5972e7c99d27175845af3f5-preview.jpg",
+      "sourceUrl": "./style-library/assets/87f4afcff5972e7c99d27175845af3f5-source.png"
+    },
+    {
+      "id": "7676c3e881392674ce3433809ed6c4b1",
+      "category": "动漫",
+      "name": "表现主义",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "expressive painting",
+          "coloring": "non-naturalistic emotional colors",
+          "outline": "distorted bold lines",
+          "texture": "aggressive brushwork"
+        },
+        "style_keywords": [
+          "Expressionist style",
+          "Edvard Munch influence",
+          "distorted forms",
+          "emotional color",
+          "bold brushstrokes",
+          "psychological intensity",
+          "non-naturalistic",
+          "raw emotion",
+          "angular distortion"
+        ]
+      },
+      "keywords": [
+        "Expressionist style",
+        "Edvard Munch influence",
+        "distorted forms",
+        "emotional color",
+        "bold brushstrokes",
+        "psychological intensity",
+        "non-naturalistic",
+        "raw emotion",
+        "angular distortion"
+      ],
+      "previewUrl": "./style-library/assets/7676c3e881392674ce3433809ed6c4b1-preview.jpg",
+      "sourceUrl": "./style-library/assets/7676c3e881392674ce3433809ed6c4b1-source.jpg"
+    },
+    {
+      "id": "95e31fa76294451a0f57e1edebc1a621",
+      "category": "动漫",
+      "name": "奇幻插画",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "epic fantasy painting",
+          "coloring": "rich saturated fantasy palette",
+          "outline": "soft painterly edges",
+          "texture": "oil painting with fine detail"
+        },
+        "lighting": {
+          "type": "dramatic fantasy lighting",
+          "magical_glow": true
+        },
+        "style_keywords": [
+          "fantasy illustration style",
+          "epic fantasy art",
+          "magical atmosphere",
+          "rich colors",
+          "dramatic lighting",
+          "heroic composition",
+          "detailed painting",
+          "book cover art",
+          "mythical aesthetic"
+        ]
+      },
+      "keywords": [
+        "fantasy illustration style",
+        "epic fantasy art",
+        "magical atmosphere",
+        "rich colors",
+        "dramatic lighting",
+        "heroic composition",
+        "detailed painting",
+        "book cover art",
+        "mythical aesthetic"
+      ],
+      "previewUrl": "./style-library/assets/95e31fa76294451a0f57e1edebc1a621-preview.jpg",
+      "sourceUrl": "./style-library/assets/95e31fa76294451a0f57e1edebc1a621-source.jpg"
+    },
+    {
+      "id": "afe679a3f86ef1e82637e97931d0f525",
+      "category": "动漫",
+      "name": "时尚手绘",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "hand-drawn illustration",
+          "coloring": "watercolor wash",
+          "outline": "pencil/ink lines",
+          "texture": "paper grain"
+        },
+        "style_keywords": [
+          "fashion croquis",
+          "fashion illustration",
+          "watercolor sketch",
+          "pencil lines",
+          "rough sketch",
+          "marker art",
+          "white background",
+          "minimalism",
+          "high fashion"
+        ]
+      },
+      "keywords": [
+        "fashion croquis",
+        "fashion illustration",
+        "watercolor sketch",
+        "pencil lines",
+        "rough sketch",
+        "marker art",
+        "white background",
+        "minimalism",
+        "high fashion"
+      ],
+      "previewUrl": "./style-library/assets/afe679a3f86ef1e82637e97931d0f525-preview.jpg",
+      "sourceUrl": "./style-library/assets/afe679a3f86ef1e82637e97931d0f525-source.jpg"
+    },
+    {
+      "id": "add0139964d36c4643a389c045a6233d",
+      "category": "动漫",
+      "name": "法式动画",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "artistic hand-drawn",
+          "coloring": "watercolor and gouache",
+          "outline": "sketchy organic lines",
+          "texture": "visible brushstrokes"
+        },
+        "style_keywords": [
+          "French animation style",
+          "European art film aesthetic",
+          "artistic hand-drawn",
+          "watercolor rendering",
+          "sketchy linework",
+          "Sylvain Chomet influence",
+          "artistic imperfection",
+          "painterly quality",
+          "indie animation"
+        ]
+      },
+      "keywords": [
+        "French animation style",
+        "European art film aesthetic",
+        "artistic hand-drawn",
+        "watercolor rendering",
+        "sketchy linework",
+        "Sylvain Chomet influence",
+        "artistic imperfection",
+        "painterly quality",
+        "indie animation"
+      ],
+      "previewUrl": "./style-library/assets/add0139964d36c4643a389c045a6233d-preview.jpg",
+      "sourceUrl": "./style-library/assets/add0139964d36c4643a389c045a6233d-source.jpg"
+    },
+    {
+      "id": "99f52536f6a2b932861872570c68c00e",
+      "category": "动漫",
+      "name": "哥特",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "dark romantic painting",
+          "coloring": "deep blacks, muted colors, occasional red accents",
+          "outline": "dramatic shadow edges",
+          "texture": "aged and weathered"
+        },
+        "style_keywords": [
+          "Gothic style",
+          "dark romantic aesthetic",
+          "Victorian gothic",
+          "deep shadows",
+          "mysterious atmosphere",
+          "ornate details",
+          "melancholic mood",
+          "candlelight ambiance",
+          "dramatic contrast"
+        ]
+      },
+      "keywords": [
+        "Gothic style",
+        "dark romantic aesthetic",
+        "Victorian gothic",
+        "deep shadows",
+        "mysterious atmosphere",
+        "ornate details",
+        "melancholic mood",
+        "candlelight ambiance",
+        "dramatic contrast"
+      ],
+      "previewUrl": "./style-library/assets/99f52536f6a2b932861872570c68c00e-preview.jpg",
+      "sourceUrl": "./style-library/assets/99f52536f6a2b932861872570c68c00e-source.jpg"
+    },
+    {
+      "id": "d24ab5010ff86d03cc404afb53367296",
+      "category": "动漫",
+      "name": "线稿",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "pure line drawing",
+          "coloring": "none or minimal",
+          "outline": "varied line weights",
+          "texture": "clean paper"
+        },
+        "style_keywords": [
+          "line art style",
+          "pen and ink",
+          "architectural drawing",
+          "clean linework",
+          "no color fill",
+          "technical illustration",
+          "cross-hatching for shading",
+          "minimalist lines",
+          "blueprint aesthetic"
+        ]
+      },
+      "keywords": [
+        "line art style",
+        "pen and ink",
+        "architectural drawing",
+        "clean linework",
+        "no color fill",
+        "technical illustration",
+        "cross-hatching for shading",
+        "minimalist lines",
+        "blueprint aesthetic"
+      ],
+      "previewUrl": "./style-library/assets/d24ab5010ff86d03cc404afb53367296-preview.jpg",
+      "sourceUrl": "./style-library/assets/d24ab5010ff86d03cc404afb53367296-source.jpg"
+    },
+    {
+      "id": "e47979fa7d6f78c6954bc359c4a0036b",
+      "category": "动漫",
+      "name": "低多边形",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "low polygon 3D",
+          "coloring": "flat shading per polygon",
+          "outline": "none or subtle edges",
+          "texture": "none, pure geometry"
+        },
+        "style_keywords": [
+          "low poly style",
+          "geometric art",
+          "polygon mesh",
+          "flat shading",
+          "minimalist 3D",
+          "faceted surfaces",
+          "indie game aesthetic",
+          "abstract geometry",
+          "clean edges"
+        ]
+      },
+      "keywords": [
+        "low poly style",
+        "geometric art",
+        "polygon mesh",
+        "flat shading",
+        "minimalist 3D",
+        "faceted surfaces",
+        "indie game aesthetic",
+        "abstract geometry",
+        "clean edges"
+      ],
+      "previewUrl": "./style-library/assets/e47979fa7d6f78c6954bc359c4a0036b-preview.jpg",
+      "sourceUrl": "./style-library/assets/e47979fa7d6f78c6954bc359c4a0036b-source.jpg"
+    },
+    {
+      "id": "9fe4e038e167dd04ba3fffa64dd8a198",
+      "category": "动漫",
+      "name": "新海诚",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "digital painting with photo-realistic backgrounds",
+          "coloring": "luminous gradients",
+          "outline": "soft anime lines",
+          "texture": "detailed environmental textures"
+        },
+        "lighting": {
+          "type": "dramatic backlighting",
+          "god_rays": true,
+          "lens_flare": true
+        },
+        "color": {
+          "dominant": "blue and orange",
+          "saturation": 40,
+          "sky_detail": "hyper-detailed clouds"
+        },
+        "style_keywords": [
+          "Makoto Shinkai style",
+          "Your Name aesthetic",
+          "hyper-detailed sky",
+          "dramatic lighting",
+          "lens flare",
+          "god rays",
+          "luminous atmosphere",
+          "anime realism",
+          "beautiful clouds",
+          "golden hour glow"
+        ]
+      },
+      "keywords": [
+        "Makoto Shinkai style",
+        "Your Name aesthetic",
+        "hyper-detailed sky",
+        "dramatic lighting",
+        "lens flare",
+        "god rays",
+        "luminous atmosphere",
+        "anime realism",
+        "beautiful clouds",
+        "golden hour glow"
+      ],
+      "previewUrl": "./style-library/assets/9fe4e038e167dd04ba3fffa64dd8a198-preview.jpg",
+      "sourceUrl": "./style-library/assets/9fe4e038e167dd04ba3fffa64dd8a198-source.jpg"
+    },
+    {
+      "id": "5fe56983e6cfee0c714a2430847a7333",
+      "category": "动漫",
+      "name": "3D皮克斯卡通",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "3D cartoon render",
+          "coloring": "soft gradients",
+          "outline": "none",
+          "texture": "smooth clay-like"
+        },
+        "lighting": {
+          "type": "soft diffused",
+          "shadow": "gentle",
+          "ambient_occlusion": true
+        },
+        "style_keywords": [
+          "Disney Pixar style",
+          "3D cartoon",
+          "clay render",
+          "soft lighting",
+          "cute",
+          "expressive",
+          "vibrant colors",
+          "smooth skin texture",
+          "rounded features",
+          "4k"
+        ]
+      },
+      "keywords": [
+        "Disney Pixar style",
+        "3D cartoon",
+        "clay render",
+        "soft lighting",
+        "cute",
+        "expressive",
+        "vibrant colors",
+        "smooth skin texture",
+        "rounded features",
+        "4k"
+      ],
+      "previewUrl": "./style-library/assets/5fe56983e6cfee0c714a2430847a7333-preview.jpg",
+      "sourceUrl": "./style-library/assets/5fe56983e6cfee0c714a2430847a7333-source.jpg"
+    },
+    {
+      "id": "82437fa6f4c30fa3ee3630b78af2739d",
+      "category": "动漫",
+      "name": "像素艺术",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "pixel art",
+          "coloring": "limited palette dithering",
+          "outline": "pixel-perfect edges",
+          "texture": "visible pixels"
+        },
+        "resolution": {
+          "style": "retro game",
+          "pixel_density": "visible individual pixels"
+        },
+        "style_keywords": [
+          "pixel art style",
+          "8-bit aesthetic",
+          "16-bit graphics",
+          "retro game art",
+          "limited color palette",
+          "dithering",
+          "nostalgic gaming",
+          "indie game style",
+          "crisp pixels"
+        ]
+      },
+      "keywords": [
+        "pixel art style",
+        "8-bit aesthetic",
+        "16-bit graphics",
+        "retro game art",
+        "limited color palette",
+        "dithering",
+        "nostalgic gaming",
+        "indie game style",
+        "crisp pixels"
+      ],
+      "previewUrl": "./style-library/assets/82437fa6f4c30fa3ee3630b78af2739d-preview.jpg",
+      "sourceUrl": "./style-library/assets/82437fa6f4c30fa3ee3630b78af2739d-source.jpg"
+    },
+    {
+      "id": "b3a65bf9b635f2662dd2bb8cd4e8213c",
+      "category": "动漫",
+      "name": "波普艺术",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "screen print aesthetic",
+          "coloring": "bold primary colors, high contrast",
+          "outline": "thick black outlines",
+          "texture": "Ben-Day dots and halftone"
+        },
+        "style_keywords": [
+          "Pop Art style",
+          "Andy Warhol influence",
+          "Roy Lichtenstein aesthetic",
+          "bold primary colors",
+          "Ben-Day dots",
+          "high contrast",
+          "commercial art",
+          "screen print look",
+          "graphic bold"
+        ]
+      },
+      "keywords": [
+        "Pop Art style",
+        "Andy Warhol influence",
+        "Roy Lichtenstein aesthetic",
+        "bold primary colors",
+        "Ben-Day dots",
+        "high contrast",
+        "commercial art",
+        "screen print look",
+        "graphic bold"
+      ],
+      "previewUrl": "./style-library/assets/b3a65bf9b635f2662dd2bb8cd4e8213c-preview.jpg",
+      "sourceUrl": "./style-library/assets/b3a65bf9b635f2662dd2bb8cd4e8213c-source.jpg"
+    },
+    {
+      "id": "0033d74e4b5f9447892b55117930e38e",
+      "category": "动漫",
+      "name": "科幻概念艺术",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "digital concept art",
+          "coloring": "cool industrial palette",
+          "outline": "clean technical edges",
+          "texture": "metallic and synthetic materials"
+        },
+        "style_keywords": [
+          "sci-fi concept art style",
+          "futuristic design",
+          "industrial aesthetic",
+          "cool color palette",
+          "sleek surfaces",
+          "advanced technology",
+          "concept design",
+          "matte painting influence",
+          "cinematic sci-fi"
+        ]
+      },
+      "keywords": [
+        "sci-fi concept art style",
+        "futuristic design",
+        "industrial aesthetic",
+        "cool color palette",
+        "sleek surfaces",
+        "advanced technology",
+        "concept design",
+        "matte painting influence",
+        "cinematic sci-fi"
+      ],
+      "previewUrl": "./style-library/assets/0033d74e4b5f9447892b55117930e38e-preview.jpg",
+      "sourceUrl": "./style-library/assets/0033d74e4b5f9447892b55117930e38e-source.jpg"
+    },
+    {
+      "id": "31abb32e8401995ee20b672d0f561270",
+      "category": "动漫",
+      "name": "2.5D游戏立绘",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "digital painting",
+          "coloring": "thick coating",
+          "outline": "soft edges",
+          "texture": "painterly brushstrokes"
+        },
+        "lighting": {
+          "type": "cinematic",
+          "shadow": "dramatic",
+          "rim_light": true
+        },
+        "style_keywords": [
+          "semi-realistic",
+          "digital painting",
+          "thick coating",
+          "Riot Games style",
+          "detailed shading",
+          "cinematic lighting",
+          "dramatic shadow",
+          "8k resolution",
+          "trending on ArtStation"
+        ]
+      },
+      "keywords": [
+        "semi-realistic",
+        "digital painting",
+        "thick coating",
+        "Riot Games style",
+        "detailed shading",
+        "cinematic lighting",
+        "dramatic shadow",
+        "8k resolution",
+        "trending on ArtStation"
+      ],
+      "previewUrl": "./style-library/assets/31abb32e8401995ee20b672d0f561270-preview.jpg",
+      "sourceUrl": "./style-library/assets/31abb32e8401995ee20b672d0f561270-source.jpg"
+    },
+    {
+      "id": "9dc556db13c8d004352264901e8c0595",
+      "category": "动漫",
+      "name": "少女漫画",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "manga illustration",
+          "coloring": "soft pastel tones",
+          "outline": "delicate thin lines",
+          "texture": "screen tone patterns"
+        },
+        "effects": {
+          "sparkles": true,
+          "flower_petals": true,
+          "soft_glow": true
+        },
+        "style_keywords": [
+          "shoujo manga style",
+          "sparkly eyes",
+          "flower petals",
+          "soft pastel colors",
+          "dreamy atmosphere",
+          "romantic aesthetic",
+          "delicate linework",
+          "screen tone shading",
+          "bishojo style"
+        ]
+      },
+      "keywords": [
+        "shoujo manga style",
+        "sparkly eyes",
+        "flower petals",
+        "soft pastel colors",
+        "dreamy atmosphere",
+        "romantic aesthetic",
+        "delicate linework",
+        "screen tone shading",
+        "bishojo style"
+      ],
+      "previewUrl": "./style-library/assets/9dc556db13c8d004352264901e8c0595-preview.jpg",
+      "sourceUrl": "./style-library/assets/9dc556db13c8d004352264901e8c0595-source.jpg"
+    },
+    {
+      "id": "34b2d7430680d92b874fb8ee03dd2b5d",
+      "category": "动漫",
+      "name": "少年漫画",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "manga illustration",
+          "coloring": "high contrast black and white or bold colors",
+          "outline": "thick dynamic lines",
+          "texture": "speed lines and impact effects"
+        },
+        "effects": {
+          "speed_lines": true,
+          "impact_frames": true,
+          "energy_aura": true
+        },
+        "style_keywords": [
+          "shounen manga style",
+          "dynamic action pose",
+          "speed lines",
+          "high contrast",
+          "bold linework",
+          "impact effects",
+          "energetic composition",
+          "battle manga aesthetic",
+          "dramatic shadows"
+        ]
+      },
+      "keywords": [
+        "shounen manga style",
+        "dynamic action pose",
+        "speed lines",
+        "high contrast",
+        "bold linework",
+        "impact effects",
+        "energetic composition",
+        "battle manga aesthetic",
+        "dramatic shadows"
+      ],
+      "previewUrl": "./style-library/assets/34b2d7430680d92b874fb8ee03dd2b5d-preview.jpg",
+      "sourceUrl": "./style-library/assets/34b2d7430680d92b874fb8ee03dd2b5d-source.jpg"
+    },
+    {
+      "id": "21a26650d2ee78b6ed4b606aa354277a",
+      "category": "动漫",
+      "name": "蜘蛛侠：平行宇宙",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "comic book with 3D depth",
+          "coloring": "halftone dots and bold colors",
+          "outline": "varied line weights",
+          "texture": "Ben-Day dots and print artifacts"
+        },
+        "effects": {
+          "motion_blur": "multi-frame",
+          "chromatic_aberration": true,
+          "halftone": true
+        },
+        "style_keywords": [
+          "Spider-Verse style",
+          "comic book aesthetic",
+          "halftone dots",
+          "Ben-Day dots",
+          "motion smear",
+          "chromatic aberration",
+          "pop art influence",
+          "dynamic composition",
+          "print texture"
+        ]
+      },
+      "keywords": [
+        "Spider-Verse style",
+        "comic book aesthetic",
+        "halftone dots",
+        "Ben-Day dots",
+        "motion smear",
+        "chromatic aberration",
+        "pop art influence",
+        "dynamic composition",
+        "print texture"
+      ],
+      "previewUrl": "./style-library/assets/21a26650d2ee78b6ed4b606aa354277a-preview.jpg",
+      "sourceUrl": "./style-library/assets/21a26650d2ee78b6ed4b606aa354277a-source.jpg"
+    },
+    {
+      "id": "0fb61893c79b7c1c665a546cb064ca0d",
+      "category": "动漫",
+      "name": "蒸汽朋克",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "detailed mechanical illustration",
+          "coloring": "sepia, brass, copper tones",
+          "outline": "precise technical lines",
+          "texture": "metal, leather, wood grain"
+        },
+        "color": {
+          "palette": "warm browns, brass gold, copper",
+          "patina": true
+        },
+        "style_keywords": [
+          "Steampunk style",
+          "Victorian sci-fi",
+          "brass and copper",
+          "clockwork mechanisms",
+          "industrial revolution aesthetic",
+          "retro-futuristic",
+          "mechanical details",
+          "rivets and gears",
+          "sepia tones"
+        ]
+      },
+      "keywords": [
+        "Steampunk style",
+        "Victorian sci-fi",
+        "brass and copper",
+        "clockwork mechanisms",
+        "industrial revolution aesthetic",
+        "retro-futuristic",
+        "mechanical details",
+        "rivets and gears",
+        "sepia tones"
+      ],
+      "previewUrl": "./style-library/assets/0fb61893c79b7c1c665a546cb064ca0d-preview.jpg",
+      "sourceUrl": "./style-library/assets/0fb61893c79b7c1c665a546cb064ca0d-source.jpg"
+    },
+    {
+      "id": "b9691d9a2f4ca02fa9cf955da98a9bca",
+      "category": "动漫",
+      "name": "吉卜力",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "traditional hand-painted animation",
+          "coloring": "watercolor wash",
+          "outline": "soft pencil lines",
+          "texture": "organic brushstrokes"
+        },
+        "color": {
+          "palette": "warm earth tones with soft greens",
+          "saturation": 20,
+          "warmth": 15
+        },
+        "style_keywords": [
+          "Studio Ghibli style",
+          "Hayao Miyazaki aesthetic",
+          "hand-painted animation",
+          "watercolor background",
+          "soft warm colors",
+          "whimsical atmosphere",
+          "naturalistic detail",
+          "healing aesthetic",
+          "nostalgic mood"
+        ]
+      },
+      "keywords": [
+        "Studio Ghibli style",
+        "Hayao Miyazaki aesthetic",
+        "hand-painted animation",
+        "watercolor background",
+        "soft warm colors",
+        "whimsical atmosphere",
+        "naturalistic detail",
+        "healing aesthetic",
+        "nostalgic mood"
+      ],
+      "previewUrl": "./style-library/assets/b9691d9a2f4ca02fa9cf955da98a9bca-preview.jpg",
+      "sourceUrl": "./style-library/assets/b9691d9a2f4ca02fa9cf955da98a9bca-source.jpg"
+    },
+    {
+      "id": "c0cc916df7484c1c62f4af5444e13ff1",
+      "category": "动漫",
+      "name": "超现实主义",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "hyper-realistic painting of impossible scenes",
+          "coloring": "realistic but dreamlike palette",
+          "outline": "precise detailed edges",
+          "texture": "smooth oil painting finish"
+        },
+        "style_keywords": [
+          "Surrealist style",
+          "Salvador Dali influence",
+          "dreamlike imagery",
+          "impossible physics",
+          "melting forms",
+          "hyper-detailed",
+          "subconscious imagery",
+          "bizarre juxtaposition",
+          "photorealistic fantasy"
+        ]
+      },
+      "keywords": [
+        "Surrealist style",
+        "Salvador Dali influence",
+        "dreamlike imagery",
+        "impossible physics",
+        "melting forms",
+        "hyper-detailed",
+        "subconscious imagery",
+        "bizarre juxtaposition",
+        "photorealistic fantasy"
+      ],
+      "previewUrl": "./style-library/assets/c0cc916df7484c1c62f4af5444e13ff1-preview.jpg",
+      "sourceUrl": "./style-library/assets/c0cc916df7484c1c62f4af5444e13ff1-source.jpg"
+    },
+    {
+      "id": "488563d14240b4664b1527aaa072aeac",
+      "category": "动漫",
+      "name": "浮世绘",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "woodblock print",
+          "coloring": "flat color areas",
+          "outline": "bold black contours",
+          "texture": "wood grain print texture"
+        },
+        "color": {
+          "palette": "traditional Japanese: indigo, vermillion, ochre",
+          "gradients": "minimal",
+          "flat_areas": true
+        },
+        "style_keywords": [
+          "ukiyo-e style",
+          "Japanese woodblock print",
+          "Hokusai influence",
+          "flat color areas",
+          "bold outlines",
+          "traditional Japanese art",
+          "wave patterns",
+          "Edo period aesthetic",
+          "decorative composition"
+        ]
+      },
+      "keywords": [
+        "ukiyo-e style",
+        "Japanese woodblock print",
+        "Hokusai influence",
+        "flat color areas",
+        "bold outlines",
+        "traditional Japanese art",
+        "wave patterns",
+        "Edo period aesthetic",
+        "decorative composition"
+      ],
+      "previewUrl": "./style-library/assets/488563d14240b4664b1527aaa072aeac-preview.jpg",
+      "sourceUrl": "./style-library/assets/488563d14240b4664b1527aaa072aeac-source.jpg"
+    },
+    {
+      "id": "fe8d90add048d0132fdeba1756476a2e",
+      "category": "动漫",
+      "name": "维多利亚植物画",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "botanical illustration",
+          "coloring": "soft watercolor washes",
+          "outline": "delicate ink linework",
+          "texture": "aged paper grain"
+        },
+        "color": {
+          "palette": "muted earth tones, sage green, dusty rose",
+          "saturation": 25,
+          "warmth": "warm golden undertone"
+        },
+        "style_keywords": [
+          "Victorian botanical illustration",
+          "19th century European art",
+          "hand-painted texture",
+          "soft watercolor edges",
+          "muted earth tones",
+          "romantic garden aesthetic",
+          "delicate linework",
+          "antique paper texture",
+          "natural history illustration"
+        ]
+      },
+      "keywords": [
+        "Victorian botanical illustration",
+        "19th century European art",
+        "hand-painted texture",
+        "soft watercolor edges",
+        "muted earth tones",
+        "romantic garden aesthetic",
+        "delicate linework",
+        "antique paper texture",
+        "natural history illustration"
+      ],
+      "previewUrl": "./style-library/assets/fe8d90add048d0132fdeba1756476a2e-preview.jpg",
+      "sourceUrl": "./style-library/assets/fe8d90add048d0132fdeba1756476a2e-source.jpg"
+    },
+    {
+      "id": "4e117cff305229b4fa55702a548e384c",
+      "category": "动漫",
+      "name": "水彩梦境",
+      "styleJson": {
+        "instruction": "Keep original image content unchanged, apply style transformation only",
+        "style_type": "non_realistic",
+        "rendering": {
+          "technique": "wet-on-wet watercolor",
+          "coloring": "transparent color washes",
+          "outline": "soft bleeding edges",
+          "texture": "watercolor paper grain"
+        },
+        "effects": {
+          "color_bleeding": true,
+          "soft_edges": true,
+          "transparency": true
+        },
+        "style_keywords": [
+          "watercolor painting",
+          "wet-on-wet technique",
+          "soft color bleeding",
+          "transparent washes",
+          "dreamy atmospheric haze",
+          "pastel color palette",
+          "impressionistic blur",
+          "ethereal quality",
+          "fluid color transitions"
+        ]
+      },
+      "keywords": [
+        "watercolor painting",
+        "wet-on-wet technique",
+        "soft color bleeding",
+        "transparent washes",
+        "dreamy atmospheric haze",
+        "pastel color palette",
+        "impressionistic blur",
+        "ethereal quality",
+        "fluid color transitions"
+      ],
+      "previewUrl": "./style-library/assets/4e117cff305229b4fa55702a548e384c-preview.jpg",
+      "sourceUrl": "./style-library/assets/4e117cff305229b4fa55702a548e384c-source.jpg"
+    }
+  ]
+}

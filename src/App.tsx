@@ -83,6 +83,7 @@ import type {
   ModelOption,
   PromptOptimizationPreset,
   ReferenceImage,
+  StyleCategory,
   StyleOption,
   ThemeMode,
 } from './types'
@@ -274,26 +275,10 @@ type WorkflowCanvas = {
   generationTaskUpdatedAt?: number
 }
 
-type PendingGenerationTaskRecord = {
-  taskId: string
-  prompt: string
-  model: string
-  size: string
-  quality: string
-  mode: 'text' | 'image'
-  referenceImageNames?: string[]
-  canvasId?: string
-  generateNodeId?: string
-  createdAt: number
-  status?: ImageGenerationTaskStatus
-  updatedAt?: number
-}
-
 type StateUpdater<T> = T | ((current: T) => T)
 
 const WORKFLOW_CANVASES_STORAGE_KEY = 'gpt-image-tools.workflow-canvases.v1'
 const ACTIVE_CANVAS_STORAGE_KEY = 'gpt-image-tools.active-canvas.v1'
-const PENDING_GENERATION_TASKS_STORAGE_KEY = 'gpt-image-tools.pending-generation-tasks.v1'
 const CANVAS_DRAWER_AUTO_OPEN_QUERY = '(min-width: 1120px)'
 
 const initialWorkflowNodes: WorkflowNode[] = [
@@ -959,20 +944,9 @@ function normalizeStoredCanvases(value: unknown): WorkflowCanvas[] {
       referenceImages: [],
       latestImageId:
         typeof canvas.latestImageId === 'string' ? canvas.latestImageId : undefined,
-      generationTaskId:
-        typeof canvas.generationTaskId === 'string' ? canvas.generationTaskId : undefined,
-      generationTaskStatus:
-        canvas.generationTaskStatus === 'queued' ||
-        canvas.generationTaskStatus === 'running' ||
-        canvas.generationTaskStatus === 'completed' ||
-        canvas.generationTaskStatus === 'failed' ||
-        canvas.generationTaskStatus === 'expired'
-          ? canvas.generationTaskStatus
-          : undefined,
-      generationTaskUpdatedAt:
-        typeof canvas.generationTaskUpdatedAt === 'number'
-          ? canvas.generationTaskUpdatedAt
-          : undefined,
+      generationTaskId: undefined,
+      generationTaskStatus: undefined,
+      generationTaskUpdatedAt: undefined,
     })
   })
 
@@ -983,8 +957,7 @@ function loadWorkflowCanvases() {
   try {
     const raw = window.localStorage.getItem(WORKFLOW_CANVASES_STORAGE_KEY)
     const stored = raw ? normalizeStoredCanvases(JSON.parse(raw)) : []
-    const baseCanvases = stored.length > 0 ? stored : [createWorkflowCanvas(1)]
-    return reconcileCanvasGenerationState(baseCanvases, loadPendingGenerationTasks())
+    return stored.length > 0 ? stored : [createWorkflowCanvas(1)]
   } catch {
     return [createWorkflowCanvas(1)]
   }
@@ -996,81 +969,6 @@ function loadActiveCanvasId() {
   } catch {
     return ''
   }
-}
-
-function loadPendingGenerationTasks() {
-  try {
-    const raw = window.localStorage.getItem(PENDING_GENERATION_TASKS_STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((item): item is PendingGenerationTaskRecord => {
-      return (
-        item &&
-        typeof item === 'object' &&
-        typeof item.taskId === 'string' &&
-        typeof item.prompt === 'string' &&
-        typeof item.model === 'string' &&
-        typeof item.size === 'string' &&
-        typeof item.quality === 'string' &&
-        (item.mode === 'text' || item.mode === 'image') &&
-        typeof item.createdAt === 'number'
-      )
-    })
-  } catch {
-    return []
-  }
-}
-
-function reconcileCanvasGenerationState(
-  canvases: WorkflowCanvas[],
-  tasks: PendingGenerationTaskRecord[]
-) {
-  const taskByCanvasId = new Map(
-    tasks
-      .filter((task) => task.canvasId)
-      .map((task) => [task.canvasId as string, task])
-  )
-
-  return canvases.map((canvas) => {
-    const task = taskByCanvasId.get(canvas.id)
-    if (!task) {
-      return canvas
-    }
-    const status =
-      task.status === 'queued' || task.status === 'running'
-        ? task.status
-        : task.status
-          ? undefined
-          : 'running'
-    return {
-      ...canvas,
-      generationTaskId: status ? task.taskId : undefined,
-      generationTaskStatus: status,
-      generationTaskUpdatedAt: status ? task.updatedAt || task.createdAt : undefined,
-    }
-  })
-}
-
-function savePendingGenerationTasks(tasks: PendingGenerationTaskRecord[]) {
-  window.localStorage.setItem(PENDING_GENERATION_TASKS_STORAGE_KEY, JSON.stringify(tasks))
-}
-
-function upsertPendingGenerationTask(record: PendingGenerationTaskRecord) {
-  const current = loadPendingGenerationTasks()
-  const next = current.filter((item) => item.taskId !== record.taskId)
-  next.push(record)
-  savePendingGenerationTasks(next)
-}
-
-function removePendingGenerationTask(taskId: string) {
-  const next = loadPendingGenerationTasks().filter((item) => item.taskId !== taskId)
-  savePendingGenerationTasks(next)
-}
-
-function removePendingGenerationTasksByCanvasId(canvasId: string) {
-  const next = loadPendingGenerationTasks().filter((item) => item.canvasId !== canvasId)
-  savePendingGenerationTasks(next)
 }
 
 function imageModelScore(model: ModelOption) {
@@ -1219,21 +1117,10 @@ async function imageSourceToDataUrl(src: string) {
     const response = await fetch(src)
     if (!response.ok) throw new Error(`Failed to download image: ${response.status}`)
     return blobToDataUrl(await response.blob())
-  } catch {
-    const response = await fetch('/api/image-url-to-data-url', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: src }),
-    })
-    const body = (await response.json()) as {
-      success?: boolean
-      message?: string
-      dataUrl?: string
-    }
-    if (!response.ok || !body.success || !body.dataUrl) {
-      throw new Error(body.message || '无法读取图库图片')
-    }
-    return body.dataUrl
+  } catch (error) {
+    throw new Error(
+      `无法读取图库图片。浏览器不能跨域下载该图片 URL，请优先使用 b64_json 响应格式。${error instanceof Error ? ` 原因：${error.message}` : ''}`
+    )
   }
 }
 
@@ -1352,11 +1239,11 @@ async function buildCommerceProductReferenceImage(images: ReferenceImage[]) {
 }
 
 function taskStatusLabel(status: ImageGenerationTask['status']) {
-  if (status === 'queued') return '任务已提交服务器后台'
-  if (status === 'running') return '服务器正在生成，结果会暂存在缓存区'
-  if (status === 'completed') return '服务器已返回结果，正在保存到本地'
-  if (status === 'expired') return '服务器临时缓存已过期'
-  return '服务器后台生成失败'
+  if (status === 'queued') return '生图请求已排队'
+  if (status === 'running') return '正在请求上游生成图片...'
+  if (status === 'completed') return '上游已返回结果，正在保存到本地'
+  if (status === 'expired') return '生图请求已过期'
+  return '上游生图失败'
 }
 
 function promptWithStyles(
@@ -1405,29 +1292,6 @@ function promptWithCreativity(prompt: string, creativity: AdvancedCreativity) {
   return `${prompt}\n\n【创意强度】\n${instructions[creativity]}`
 }
 
-async function readGenerationTask(taskId: string) {
-  const response = await fetch(`/api/openai/tasks/${encodeURIComponent(taskId)}`)
-  const text = await response.text()
-  let body: { success?: boolean; message?: string; data?: ImageGenerationTask } | null = null
-
-  if (text) {
-    try {
-      body = JSON.parse(text)
-    } catch {
-      throw new Error('查询服务器任务状态失败：返回了无效数据')
-    }
-  }
-
-  if (!response.ok) {
-    throw new Error(body?.message || `查询服务器任务状态失败：HTTP ${response.status}`)
-  }
-  if (!body?.success || !body.data) {
-    throw new Error(body?.message || '查询服务器任务状态失败')
-  }
-
-  return body.data
-}
-
 export function App() {
   const [currentView, setCurrentView] = useState<AppView>('home')
   const [textBaseUrl, setTextBaseUrl] = useState(DEFAULT_TEXT_BASE_URL)
@@ -1445,7 +1309,8 @@ export function App() {
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark')
   const [models, setModels] = useState<ModelOption[]>([])
   const [styles, setStyles] = useState<StyleOption[]>([])
-  const [styleCategories, setStyleCategories] = useState<Array<{ name: string; count: number }>>([])
+  const [styleSummaries, setStyleSummaries] = useState<StyleOption[]>([])
+  const [styleCategories, setStyleCategories] = useState<StyleCategory[]>([])
   const [isLoadingStyles, setIsLoadingStyles] = useState(false)
   const [model, setModel] = useState(DEFAULT_MODEL)
   const [textModel, setTextModel] = useState(DEFAULT_TEXT_MODEL)
@@ -1498,7 +1363,9 @@ export function App() {
   const [renamingCanvasId, setRenamingCanvasId] = useState<string | null>(null)
   const [renamingCanvasName, setRenamingCanvasName] = useState('')
   const [isLoadingModels, setIsLoadingModels] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [isQuickGenerating, setIsQuickGenerating] = useState(false)
+  const [isAdvancedGenerating, setIsAdvancedGenerating] = useState(false)
+  const [isCommerceGenerating, setIsCommerceGenerating] = useState(false)
   const [isOptimizingSimplePrompt, setIsOptimizingSimplePrompt] = useState(false)
   const [isOptimizingNegativePrompt, setIsOptimizingNegativePrompt] = useState(false)
   const [optimizingPromptNodeIds, setOptimizingPromptNodeIds] = useState<Set<string>>(
@@ -1522,7 +1389,8 @@ export function App() {
   )
   const [flowInstance, setFlowInstance] =
     useState<ReactFlowInstance<WorkflowNode, WorkflowEdge> | null>(null)
-  const generationTaskIdsRef = useRef(new Set<string>())
+  const loadedStyleCategoriesRef = useRef(new Set<string>())
+  const loadingStyleCategoriesRef = useRef(new Set<string>())
   const lastSavedReferenceImageBlobSignatureRef = useRef('')
   const hasManuallyToggledCanvasDrawerRef = useRef(false)
   const canvasListRenameInputRef = useRef<HTMLInputElement | null>(null)
@@ -1558,16 +1426,21 @@ export function App() {
     () => referenceImageBlobs.map((blob) => `${blob.id}:${blob.dataUrl}`).join('|'),
     [referenceImageBlobs]
   )
+  const styleOptions = useMemo(() => {
+    const loadedById = new Map(styles.map((style) => [style.id, style]))
+    return styleSummaries.map((style) => loadedById.get(style.id) || style)
+  }, [styleSummaries, styles])
+
   const advancedVisibleStyles = useMemo(
     () =>
       advancedStyleCategory
-        ? styles.filter((style) => style.category === advancedStyleCategory)
-        : styles,
-    [advancedStyleCategory, styles]
+        ? styleOptions.filter((style) => style.category === advancedStyleCategory)
+        : [],
+    [advancedStyleCategory, styleOptions]
   )
   const advancedSelectedStyle = useMemo(
-    () => styles.find((style) => style.id === advancedSelectedStyleId) || null,
-    [advancedSelectedStyleId, styles]
+    () => styleOptions.find((style) => style.id === advancedSelectedStyleId) || null,
+    [advancedSelectedStyleId, styleOptions]
   )
   const advancedStyleKeywords = advancedSelectedStyle?.keywords?.slice(0, 6) || []
   const isConfigured = Boolean(imageBaseUrl.trim() && apiKey.trim() && model.trim())
@@ -1684,10 +1557,46 @@ export function App() {
             : node
         ),
       }))
-      const style = styles.find((item) => item.id === selectedStyleId)
+      const style = styleOptions.find((item) => item.id === selectedStyleId)
       setStatus(style ? `已选择风格：${style.name}` : '风格已清空')
     },
-    [styles, updateActiveCanvas]
+    [styleOptions, updateActiveCanvas]
+  )
+
+  const loadStyleCategory = useCallback(
+    async (categoryName: string) => {
+      if (!categoryName) return
+      if (loadedStyleCategoriesRef.current.has(categoryName)) return
+      if (loadingStyleCategoriesRef.current.has(categoryName)) return
+
+      const category = styleCategories.find((item) => item.name === categoryName)
+      if (!category) return
+
+      loadingStyleCategoriesRef.current.add(categoryName)
+      setIsLoadingStyles(true)
+      try {
+        const result = await bridge.listStyleCategory(category)
+        const loadedStyles = result.styles
+        setStyles((current) => {
+          const nextById = new Map(current.map((style) => [style.id, style]))
+          loadedStyles.forEach((style) => nextById.set(style.id, style))
+          return [...nextById.values()]
+        })
+        setStyleSummaries((current) => {
+          const nextById = new Map(current.map((style) => [style.id, style]))
+          loadedStyles.forEach((style) => nextById.set(style.id, style))
+          return [...nextById.values()]
+        })
+        loadedStyleCategoriesRef.current.add(categoryName)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        setStatus(message)
+      } finally {
+        loadingStyleCategoriesRef.current.delete(categoryName)
+        setIsLoadingStyles(loadingStyleCategoriesRef.current.size > 0)
+      }
+    },
+    [styleCategories]
   )
 
   const onNodesChange = useCallback(
@@ -1775,7 +1684,10 @@ export function App() {
     void bridge.listStyles()
       .then((library) => {
         if (cancelled) return
-        setStyles(library.styles)
+        setStyles([])
+        setStyleSummaries(
+          library.styles.map((style) => ({ ...style, styleJson: style.styleJson || {} }))
+        )
         setStyleCategories(library.categories)
       })
       .catch((err) => {
@@ -1790,10 +1702,6 @@ export function App() {
     return () => {
       cancelled = true
     }
-  }, [])
-
-  useEffect(() => {
-    void resumePersistedGenerationTasks()
   }, [])
 
   useEffect(() => {
@@ -1824,6 +1732,11 @@ export function App() {
       setAdvancedStyleCategory(advancedSelectedStyle.category)
     }
   }, [advancedSelectedStyle, advancedStyleCategory])
+
+  useEffect(() => {
+    if (!advancedStyleCategory) return
+    void loadStyleCategory(advancedStyleCategory)
+  }, [advancedStyleCategory, loadStyleCategory])
 
   useEffect(() => {
     if (!advancedSelectedStyleId) return
@@ -1925,32 +1838,6 @@ export function App() {
 
   async function refreshImages() {
     setImages(await listImages())
-  }
-
-  function savePendingGenerationTaskRecord(
-    task: ImageGenerationTask,
-    context: {
-      prompt: string
-      model: string
-      size: string
-      quality: string
-      mode: 'text' | 'image'
-      referenceImageNames?: string[]
-      canvasId?: string
-      generateNodeId?: string
-    }
-  ) {
-    upsertPendingGenerationTask({
-      taskId: task.taskId,
-      createdAt: task.createdAt,
-      updatedAt: task.updatedAt,
-      status: task.status,
-      ...context,
-    })
-  }
-
-  function clearPendingGenerationTaskRecord(taskId: string) {
-    removePendingGenerationTask(taskId)
   }
 
   function setCanvasGenerationTask(
@@ -2057,98 +1944,7 @@ export function App() {
       )
     }
     await refreshImages()
-    clearPendingGenerationTaskRecord(taskId)
     return records
-  }
-
-  async function urlToDataUrlLocal(url: string) {
-    const response = await fetch(url)
-    if (!response.ok) throw new Error(`Failed to download image: ${response.status}`)
-    const blob = await response.blob()
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result))
-      reader.onerror = () => reject(reader.error)
-      reader.readAsDataURL(blob)
-    })
-  }
-
-  async function taskResultToGeneratedImages(taskResult: ImageGenerationTask['result']) {
-    const images: Array<{ src: string; revisedPrompt?: string }> = []
-    for (const item of taskResult?.data || []) {
-      if (item.b64_json) {
-        images.push({
-          src: `data:image/png;base64,${item.b64_json}`,
-          revisedPrompt: item.revised_prompt,
-        })
-      } else if (item.url) {
-        images.push({
-          src: await urlToDataUrlLocal(item.url),
-          revisedPrompt: item.revised_prompt,
-        })
-      }
-    }
-    return images
-  }
-
-  async function resumePersistedGenerationTasks() {
-    const pendingTasks = loadPendingGenerationTasks()
-    for (const task of pendingTasks) {
-      if (generationTaskIdsRef.current.has(task.taskId)) continue
-      generationTaskIdsRef.current.add(task.taskId)
-      if (!task.canvasId) {
-        clearPendingGenerationTaskRecord(task.taskId)
-        generationTaskIdsRef.current.delete(task.taskId)
-        continue
-      }
-
-      try {
-        setIsGenerating(true)
-        setStatus(taskStatusLabel('queued'))
-        setCanvasGenerationTask(task.canvasId, {
-          taskId: task.taskId,
-          status: task.status || 'queued',
-          updatedAt: task.updatedAt || task.createdAt,
-          createdAt: task.createdAt,
-        })
-
-        let currentTask = await readGenerationTask(task.taskId)
-        while (currentTask.status === 'queued' || currentTask.status === 'running') {
-          setStatus(taskStatusLabel(currentTask.status))
-          setCanvasGenerationTask(task.canvasId, currentTask)
-          await new Promise((resolve) => window.setTimeout(resolve, currentTask.pollAfterMs || 1500))
-          currentTask = await readGenerationTask(task.taskId)
-        }
-
-        if (currentTask.status === 'failed' || currentTask.status === 'expired') {
-          clearPendingGenerationTaskRecord(task.taskId)
-          clearCanvasGenerationTask(task.canvasId)
-          setError(currentTask.error || '服务器后台生图失败')
-          setStatus(taskStatusLabel(currentTask.status))
-          continue
-        }
-
-        if (!currentTask.result) {
-          clearPendingGenerationTaskRecord(task.taskId)
-          setError('服务器后台任务没有返回生成结果')
-          setStatus('生成失败')
-          continue
-        }
-
-        const generatedImages = await taskResultToGeneratedImages(currentTask.result)
-        await persistCompletedTaskResult(task.taskId, generatedImages, task)
-        setStatus('服务器缓存结果已恢复到本地图库')
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
-        setError(message)
-        clearCanvasGenerationTask(task.canvasId)
-        clearPendingGenerationTaskRecord(task.taskId)
-        setStatus('恢复后台任务失败')
-      } finally {
-        generationTaskIdsRef.current.delete(task.taskId)
-        setIsGenerating(false)
-      }
-    }
   }
 
   async function handleSaveSettings() {
@@ -2585,10 +2381,7 @@ export function App() {
       return
     }
     setError('')
-    setIsGenerating(true)
     const generatedRecordsByNode = new Map<string, LocalImageRecord[]>()
-    const activeTaskIds = new Set<string>()
-    let latestTaskId = ''
 
     const generateNodes = nodes.filter((node) => node.type === 'generate')
     const targetNode =
@@ -2623,6 +2416,27 @@ export function App() {
         if (!promptNode) throw new Error('请先创建文字描述节点并连接到图片生成节点')
         const finalPrompt = getWorkflowNodePrompt(promptNode).trim()
         if (!finalPrompt) throw new Error('请先输入提示词')
+
+        const styleNodes = nodes.filter((node) => node.type === 'style')
+        const selectedStyleIdsInCanvas = styleNodes
+          .map((node) => getWorkflowNodeSelectedStyleId(node))
+          .filter(Boolean)
+        const missingStyleCategoryNames = [
+          ...new Set(
+            selectedStyleIdsInCanvas
+              .map(
+                (styleId) =>
+                  styleSummaries.find((style) => style.id === styleId)?.category || ''
+              )
+              .filter(
+                (categoryName) =>
+                  categoryName && !loadedStyleCategoriesRef.current.has(categoryName)
+              )
+          ),
+        ]
+        for (const categoryName of missingStyleCategoryNames) {
+          await loadStyleCategory(categoryName)
+        }
 
         const upstreamGenerateEdges = edges.filter(
           (edge) =>
@@ -2670,6 +2484,9 @@ export function App() {
         const selectedStyles = selectedStyleIds
           .map((styleId) => styles.find((style) => style.id === styleId))
           .filter((style): style is StyleOption => Boolean(style))
+        if (selectedStyleIds.length > 0 && selectedStyles.length < selectedStyleIds.length) {
+          throw new Error('风格协议仍在加载，请稍后重试')
+        }
         const submittedPrompt = promptWithStyles(finalPrompt, selectedStyles)
         const flowReferenceImages = [...resolvedReferences.images, ...upstreamReferenceImages]
           .filter((image, index, list) => list.findIndex((item) => item.id === image.id) === index)
@@ -2714,10 +2531,6 @@ export function App() {
             effectiveGenerationMode === 'image' ? flowReferenceImages : undefined,
           onTaskUpdate: (task) => {
             currentTaskId = task.taskId
-            latestTaskId = task.taskId
-            activeTaskIds.add(task.taskId)
-            generationTaskIdsRef.current.add(task.taskId)
-            savePendingGenerationTaskRecord(task, generationContext)
             if (generationContext.canvasId) {
               if (task.status === 'queued' || task.status === 'running') {
                 setCanvasGenerationTask(generationContext.canvasId, task)
@@ -2743,16 +2556,12 @@ export function App() {
       }
 
       const records = await executeGenerateNode(targetNode, new Set())
-      setStatus(`已生成 ${records.length} 张图片，服务器缓存已同步到本地`)
+      setStatus(`已生成 ${records.length} 张图片，结果已保存到本地图库`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
-      if (latestTaskId) clearPendingGenerationTaskRecord(latestTaskId)
       if (generatingCanvasId) clearCanvasGenerationTask(generatingCanvasId)
       setStatus('生成失败')
-    } finally {
-      activeTaskIds.forEach((taskId) => generationTaskIdsRef.current.delete(taskId))
-      setIsGenerating(false)
     }
   }
 
@@ -3063,7 +2872,8 @@ ${description}`
 
     setError('')
     setGenerationSuccess(null)
-    setIsGenerating(true)
+    const setGenerating = includeAdvancedControls ? setIsAdvancedGenerating : setIsQuickGenerating
+    setGenerating(true)
     setStatus('正在生成图片...')
 
     try {
@@ -3117,7 +2927,7 @@ ${description}`
       setGenerationSuccess(null)
       setStatus('生成失败')
     } finally {
-      setIsGenerating(false)
+      setGenerating(false)
     }
   }
 
@@ -3198,7 +3008,7 @@ ${description}`
     const description = commerceDescription.trim()
 
     setError('')
-    setIsGenerating(true)
+    setIsCommerceGenerating(true)
     setStatus(`正在分析目标${isDetail ? '详情' : ''}风格图...`)
 
     try {
@@ -3263,7 +3073,7 @@ ${description}`
       setError(message)
       setStatus('生成失败')
     } finally {
-      setIsGenerating(false)
+      setIsCommerceGenerating(false)
     }
   }
 
@@ -3310,7 +3120,6 @@ ${description}`
     const deletedIndex = canvases.findIndex((canvas) => canvas.id === id)
     const nextCanvases = canvases.filter((canvas) => canvas.id !== id)
     setCanvases(nextCanvases)
-    removePendingGenerationTasksByCanvasId(id)
 
     if (id === activeCanvasId) {
       const nextActive =
@@ -3458,10 +3267,11 @@ ${description}`
     if (type === 'style') {
       return {
         onDeleteNode: deleteWorkflowNode,
-        styles,
+        styles: styleOptions,
         categories: styleCategories,
         selectedStyleId: getWorkflowNodeSelectedStyleId(node),
         setSelectedStyleId: (id: string) => setStyleNodeSelection(node.id, id),
+        loadCategory: (category: string) => void loadStyleCategory(category),
         isLoadingStyles,
       }
     }
@@ -3546,8 +3356,9 @@ ${description}`
       textBaseUrl,
       textModel,
       optimizingPromptNodeIds,
-      styles,
+      styleOptions,
       styleCategories,
+      loadStyleCategory,
       isLoadingStyles,
       setStyleNodeSelection,
       model,
@@ -3740,9 +3551,7 @@ ${description}`
     const id = `${type}-${Date.now()}`
     setNodes((currentNodes) => {
       const data =
-        type === 'style' && styles[0]
-          ? { selectedStyleId: styles[0].id }
-          : type === 'generate'
+        type === 'generate'
             ? {
                 outputTitle: createUniqueReferenceTitle(
                   `生成图${currentNodes.filter((node) => node.type === 'generate').length + 1}`,
@@ -4554,7 +4363,7 @@ ${description}`
                       type='button'
                       className='secondary simple-optimize-action'
                       onClick={() => void handleOptimizeSimplePrompt()}
-                      disabled={isGenerating || isOptimizingSimplePrompt || !simplePrompt.trim()}
+                      disabled={isOptimizingSimplePrompt || !simplePrompt.trim()}
                     >
                       {isOptimizingSimplePrompt ? (
                         <Loader2 className='spin' size={16} />
@@ -4567,10 +4376,10 @@ ${description}`
                       type='button'
                       className='primary-action'
                       onClick={() => void handleSimpleGenerate()}
-                      disabled={isGenerating || !isConfigured || !simplePrompt.trim()}
+                      disabled={isQuickGenerating || !isConfigured || !simplePrompt.trim()}
                     >
-                      {isGenerating ? <Loader2 className='spin' size={16} /> : <Sparkles size={16} />}
-                      {isConfigured ? (isGenerating ? '生成中' : '立即生成') : '先完成配置'}
+                      {isQuickGenerating ? <Loader2 className='spin' size={16} /> : <Sparkles size={16} />}
+                      {isConfigured ? (isQuickGenerating ? '生成中' : '立即生成') : '先完成配置'}
                     </button>
                   </div>
                 </section>
@@ -4594,7 +4403,7 @@ ${description}`
                       type='button'
                       className='secondary simple-optimize-action compact-action'
                       onClick={() => void handleOptimizeSimplePrompt('advanced')}
-                      disabled={isGenerating || isOptimizingSimplePrompt || !advancedPrompt.trim()}
+                      disabled={isOptimizingSimplePrompt || !advancedPrompt.trim()}
                     >
                       {isOptimizingSimplePrompt ? (
                         <Loader2 className='spin' size={16} />
@@ -4620,7 +4429,7 @@ ${description}`
                       className='secondary compact-action'
                       onClick={() => void handleOptimizeAdvancedNegativePrompt()}
                       disabled={
-                        isGenerating || isOptimizingNegativePrompt || !advancedPrompt.trim()
+                        isOptimizingNegativePrompt || !advancedPrompt.trim()
                       }
                     >
                       {isOptimizingNegativePrompt ? (
@@ -4681,9 +4490,10 @@ ${description}`
                           const nextCategory = event.target.value
                           setAdvancedStyleCategory(nextCategory)
                           setAdvancedSelectedStyleId('')
+                          if (nextCategory) void loadStyleCategory(nextCategory)
                         }}
                       >
-                        <option value=''>全部风格</option>
+                        <option value=''>选择分类</option>
                         {styleCategories.map((item) => (
                           <option key={item.name} value={item.name}>
                             {item.name} · {item.count}
@@ -4713,6 +4523,7 @@ ${description}`
                         <img
                           src={advancedSelectedStyle.previewUrl}
                           alt={`${advancedSelectedStyle.name} 风格示例`}
+                          loading='lazy'
                         />
                       ) : (
                         <div>
@@ -4897,13 +4708,13 @@ ${description}`
                       })
                     }
                     disabled={
-                      isGenerating ||
+                      isAdvancedGenerating ||
                       isAnalyzingAdvancedSketch ||
                       !isConfigured ||
                       !advancedPrompt.trim()
                     }
                   >
-                    {isGenerating || isAnalyzingAdvancedSketch ? (
+                    {isAdvancedGenerating || isAnalyzingAdvancedSketch ? (
                       <Loader2 className='spin' size={16} />
                     ) : (
                       <Sparkles size={16} />
@@ -4911,7 +4722,7 @@ ${description}`
                     {isConfigured
                       ? isAnalyzingAdvancedSketch
                         ? '识别草图'
-                        : isGenerating
+                        : isAdvancedGenerating
                           ? '生成中'
                           : '立即生成'
                       : '先完成配置'}
@@ -4995,10 +4806,10 @@ ${description}`
                     type='button'
                     className='primary-action'
                     onClick={() => void handleCommerceGenerate(commerceGenerateKind)}
-                    disabled={isGenerating || !commerceCanGenerate}
+                    disabled={isCommerceGenerating || !commerceCanGenerate}
                   >
-                    {isGenerating ? <Loader2 className='spin' size={16} /> : <Sparkles size={16} />}
-                    {isConfigured ? (isGenerating ? '生成中' : commerceCopy.action) : '先完成配置'}
+                    {isCommerceGenerating ? <Loader2 className='spin' size={16} /> : <Sparkles size={16} />}
+                    {isConfigured ? (isCommerceGenerating ? '生成中' : commerceCopy.action) : '先完成配置'}
                   </button>
                 </div>
               </section>
@@ -5231,7 +5042,7 @@ ${description}`
                       清空图库
                     </button>
                     <p>
-                      图片和设置保存在当前浏览器 IndexedDB。生成任务先提交到服务器后台，结果会短暂缓存在服务器再同步到本地图库；备份文件不包含 API Key。
+                      图片和设置保存在当前浏览器 IndexedDB。生成和提示词请求从当前浏览器直接发送到上游接口；备份文件不包含 API Key。
                     </p>
                   </section>
               </div>

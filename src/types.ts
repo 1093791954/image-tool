@@ -67,9 +67,24 @@ export type StyleOption = {
   keywords: string[]
 }
 
+export type StyleSummary = Omit<StyleOption, 'styleJson'> & {
+  styleJson?: Record<string, unknown>
+}
+
+export type StyleCategory = {
+  name: string
+  count: number
+  href?: string
+}
+
 export type StyleLibraryResult = {
   root: string
-  categories: Array<{ name: string; count: number }>
+  categories: StyleCategory[]
+  styles: StyleSummary[]
+}
+
+export type StyleCategoryResult = {
+  category: string
   styles: StyleOption[]
 }
 
@@ -186,6 +201,7 @@ export type ImageApiClient = {
   prepareCommerceMainPrompt: (payload: CommerceMainPromptPayload) => Promise<string>
   prepareCommerceDetailPrompt: (payload: CommerceDetailPromptPayload) => Promise<string>
   listStyles: () => Promise<StyleLibraryResult>
+  listStyleCategory: (category: StyleCategory) => Promise<StyleCategoryResult>
   generateImages: (
     payload: ImageGenerationPayload
   ) => Promise<ImageGenerationResult>

@@ -35,6 +35,7 @@ import type {
   LocalImageRecord,
   PromptOptimizationPreset,
   ReferenceImage,
+  StyleCategory,
   StyleOption,
 } from './types'
 
@@ -72,9 +73,10 @@ export type PromptNodeData = {
 
 export type StyleNodeData = {
   styles: StyleOption[]
-  categories: Array<{ name: string; count: number }>
+  categories: StyleCategory[]
   selectedStyleId: string
   setSelectedStyleId: (id: string) => void
+  loadCategory: (category: string) => void
   isLoadingStyles: boolean
 } & BaseNodeData
 
@@ -594,11 +596,6 @@ export function StyleNode({ id, data }: NodeProps<StyleFlowNode>) {
     data.styles.find((style) => style.id === data.selectedStyleId) || null
   const [category, setCategory] = useState(selectedStyle?.category || '')
   useEffect(() => {
-    if (!data.selectedStyleId && data.styles[0]) {
-      data.setSelectedStyleId(data.styles[0].id)
-    }
-  }, [data.selectedStyleId, data.setSelectedStyleId, data.styles])
-  useEffect(() => {
     if (selectedStyle && selectedStyle.category !== category) {
       setCategory(selectedStyle.category)
     }
@@ -636,13 +633,14 @@ export function StyleNode({ id, data }: NodeProps<StyleFlowNode>) {
             onChange={(event) => {
               const nextCategory = event.target.value
               setCategory(nextCategory)
+              if (nextCategory) data.loadCategory(nextCategory)
               const firstStyle = data.styles.find((style) =>
                 nextCategory ? style.category === nextCategory : true
               )
               data.setSelectedStyleId(firstStyle?.id || '')
             }}
           >
-            <option value=''>全部风格</option>
+            <option value=''>选择分类</option>
             {data.categories.map((item) => (
               <option key={item.name} value={item.name}>
                 {item.name} · {item.count}
@@ -672,7 +670,11 @@ export function StyleNode({ id, data }: NodeProps<StyleFlowNode>) {
 
         <div className='style-preview-frame'>
           {selectedStyle?.previewUrl ? (
-            <img src={selectedStyle.previewUrl} alt={`${selectedStyle.name} 风格示例`} />
+            <img
+              src={selectedStyle.previewUrl}
+              alt={`${selectedStyle.name} 风格示例`}
+              loading='lazy'
+            />
           ) : (
             <div>
               {data.isLoadingStyles ? <Loader2 className='spin' size={28} /> : <Palette size={32} />}
@@ -832,7 +834,7 @@ export function GenerateNode({ id, data }: NodeProps<GenerateFlowNode>) {
       <div className='node-action-bar nodrag'>
         <div>
           <strong>{data.isGenerating ? '等待生成结果' : '等待执行'}</strong>
-          <span>{data.isGenerating ? '服务器后台生成中' : '输入提示词后立即生成'}</span>
+          <span>{data.isGenerating ? '正在请求上游生成' : '输入提示词后立即生成'}</span>
         </div>
         <button type='button' onClick={data.onGenerate} disabled={!data.canGenerate}>
           {data.isGenerating ? <Loader2 className='spin' size={16} /> : <Play size={16} />}
