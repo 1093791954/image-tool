@@ -1026,18 +1026,49 @@ function resolvePromptReferenceImages(prompt: string, images: ReferenceImage[]) 
   return { mentions, images: matchedImages, missing }
 }
 
-function normalizeOptimizedPromptMentions(prompt: string, images: ReferenceImage[]) {
-  const orderedTitles = [...new Set(images.map((image) => normalizeReferenceTitle(image.title || image.name)).filter(Boolean))].sort(
-    (a, b) => b.length - a.length
-  )
-  if (orderedTitles.length === 0) return prompt.trim()
+function protectPromptMentionsForOptimization(prompt: string, images: ReferenceImage[]) {
+  const mentions = extractReferenceMentions(
+    prompt,
+    images.map((image) => image.title || image.name)
+  ).map((title) => `@${title}`)
+
+  return {
+    mentions,
+    prompt: mentions.length
+      ? `${prompt}\n\n【引用保护】\n以下 @引用 是工作流图片引用锚点，必须在优化后逐字保留，不能删除、改名、翻译、拆分或替换：${mentions.join('、')}`
+      : prompt,
+  }
+}
+
+function normalizeOptimizedPromptMentions(
+  prompt: string,
+  images: ReferenceImage[],
+  protectedMentions: string[] = []
+) {
+  const orderedMentions = [
+    ...new Set([
+      ...protectedMentions.map((mention) => `@${normalizeReferenceTitle(mention)}`).filter((mention) => mention !== '@'),
+      ...images
+        .map((image) => normalizeReferenceTitle(image.title || image.name))
+        .filter(Boolean)
+        .map((title) => `@${title}`),
+    ]),
+  ].sort((a, b) => b.length - a.length)
+  if (orderedMentions.length === 0) return prompt.trim()
 
   let next = prompt
-  orderedTitles.forEach((title) => {
-    const mention = `@${title}`
+  orderedMentions.forEach((mention) => {
     const pattern = new RegExp(escapeRegExp(mention), 'g')
     next = next.replace(pattern, ` ${mention} `)
   })
+
+  const missingMentions = protectedMentions.filter((mention) => {
+    const normalizedMention = `@${normalizeReferenceTitle(mention)}`
+    return normalizedMention !== '@' && !new RegExp(escapeRegExp(normalizedMention)).test(next)
+  })
+  if (missingMentions.length > 0) {
+    next = `${missingMentions.join(' ')} ${next}`
+  }
 
   return next
     .replace(/[ \t]{2,}/g, ' ')
@@ -2255,22 +2286,30 @@ export function App() {
     setOptimizingPromptNodeIds((current) => new Set(current).add(promptNodeId))
 
     try {
-      const optimizedPrompt = await bridge.optimizePrompt({
-        baseUrl: textBaseUrl,
-        apiKey: codexApiKey,
-        model: textModel.trim() || DEFAULT_TEXT_MODEL,
-        prompt: currentPrompt,
-        mode: generationMode,
-        optimizationPreset: promptOptimizationPreset,
-      })
       const promptReferenceImages = getPromptMentionReferenceImages(
         promptNodeId,
         activeCanvas,
         images
       )
+      const protectedPrompt = protectPromptMentionsForOptimization(
+        currentPrompt,
+        promptReferenceImages
+      )
+      const optimizedPrompt = await bridge.optimizePrompt({
+        baseUrl: textBaseUrl,
+        apiKey: codexApiKey,
+        model: textModel.trim() || DEFAULT_TEXT_MODEL,
+        prompt: protectedPrompt.prompt,
+        mode: generationMode,
+        optimizationPreset: promptOptimizationPreset,
+      })
       setPromptNodePrompt(
         promptNodeId,
-        normalizeOptimizedPromptMentions(optimizedPrompt, promptReferenceImages)
+        normalizeOptimizedPromptMentions(
+          optimizedPrompt,
+          promptReferenceImages,
+          protectedPrompt.mentions
+        )
       )
       setStatus('提示词已优化')
     } catch (err) {
