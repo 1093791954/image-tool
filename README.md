@@ -17,7 +17,7 @@
 - 设置和图库保存在当前浏览器 IndexedDB
 - API Key 默认不保存；只有勾选后才写入当前浏览器本地存储
 - 支持导出 / 导入 JSON 备份，备份不会包含 API Key
-- 服务端会先接收生成任务并后台处理，结果会短暂写入服务器缓存，再同步到浏览器图库
+- 生成和提示词优化由当前浏览器直接请求上游接口；中转站登录取 Key 通过同源代理避免跨域 Cookie 限制
 - 支持 URL 和 `b64_json` 两种图片返回格式
 
 ## 内置提示词工程
@@ -35,6 +35,17 @@
 
 ```bash
 npm install
+```
+
+终端 1：
+
+```bash
+npm run backend
+```
+
+终端 2：
+
+```bash
 npm run dev
 ```
 
@@ -50,9 +61,26 @@ npm run build
 npm run preview
 ```
 
+## 生产部署
+
+线上需要部署前端静态文件和同源登录代理。推荐让后端服务同时托管 `dist`：
+
+```bash
+npm run build
+IMAGE_TOOLS_STATIC_DIR=dist HOST=127.0.0.1 PORT=19080 python server/server.py
+```
+
+然后用 Nginx、Caddy 或宝塔把公网域名反向代理到 `127.0.0.1:19080`。用户访问同一个域名时：
+
+- `/`、`/assets/*` 等路径返回前端静态文件。
+- `/api/newapi/login-key` 由后端代理登录中转站并返回两个 API Key。
+- 生图、获取模型和提示词优化请求使用拿到的 API Key，从用户浏览器直接请求配置的 Base URL。
+
+可用 `/api/health` 检查后端是否可达。
+
 ## 本地数据说明
 
-- 图片、提示词、模型、生成参数保存在浏览器 IndexedDB。未完成的生成任务会在浏览器重新打开后继续轮询服务器缓存结果。
+- 图片、提示词、模型、生成参数保存在浏览器 IndexedDB。
 - 清理浏览器站点数据会删除本地图库。
 - 建议用户定期使用“导出备份”保存 JSON 备份文件。
 - 导入备份会恢复设置和图库，但不会恢复 API Key。
@@ -70,6 +98,15 @@ npm run preview
 - Base URL: `https://hotapi.top`
 - 推荐模型: `gpt-image-2`
 - 默认价格不会在工具内计费，实际扣费由 API 站点处理。
+
+## 中转站登录代理
+
+“登录中转站”会通过同源 `POST /api/newapi/login-key` 代理登录 New API 站点，并自动查找或创建两个分组秘钥：
+
+- `gpt-image-2 生图低价`：用于生图。
+- `codex 满血高速`：用于提示词优化。
+
+本地开发时，Vite 会把 `/api` 代理到 `http://127.0.0.1:19080`。线上部署时，需要在前端同源域名下提供兼容的 `/api/newapi/login-key` 代理接口。
 
 ## 开源协议
 

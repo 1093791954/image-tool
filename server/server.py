@@ -1353,6 +1353,17 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed_path = urllib.parse.urlparse(self.path)
+        if parsed_path.path == "/api/health":
+            json_response(
+                self,
+                HTTPStatus.OK,
+                {
+                    "success": True,
+                    "service": "gpt-image-tools",
+                    "features": ["newapi-login-key"],
+                },
+            )
+            return
         if parsed_path.path == "/api/style-library":
             self.handle_style_library()
             return

@@ -24,14 +24,7 @@ import {
 } from './promptEngineering'
 
 const NEW_API_BASE_URL = 'https://hotapi.top'
-const IMAGE_GROUP = 'gpt-image-2 生图低价'
-const IMAGE_MODEL = 'gpt-image-2'
-const IMAGE_TOKEN_NAME = 'GPT Image Tools - gpt-image-2'
-const CODEX_GROUP = 'codex 满血高速'
-const CODEX_MODEL = 'gpt-5.5'
-const CODEX_TOKEN_NAME = 'GPT Image Tools - codex'
-const TOKEN_LIST_PAGE_SIZE = 100
-const TOKEN_LIST_MAX_PAGES = 50
+const NEW_API_LOGIN_PROXY_PATH = '/api/newapi/login-key'
 
 function normalizeBaseUrl(baseUrl: string) {
   const trimmed = baseUrl.trim().replace(/\/+$/, '')
@@ -90,7 +83,7 @@ function cleanErrorMessage(message: string) {
 
   const title = normalized.match(/<title>\s*([\s\S]*?)\s*<\/title>/i)?.[1]
   const source = title || normalized
-  return (
+  const cleaned =
     source
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -98,7 +91,12 @@ function cleanErrorMessage(message: string) {
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 240) || normalized.slice(0, 240)
-  )
+
+  if (/origin web server returned an invalid or incomplete response/i.test(cleaned)) {
+    return 'Cloudflare 无法从上游源站拿到完整响应，通常是中转站/模型上游临时过载或配置异常。请稍后重试，或切换图片 API Base URL/模型后再试。'
+  }
+
+  return cleaned
 }
 
 function parseEventStreamBody(text: string) {
@@ -165,20 +163,8 @@ async function parseJsonResponse<T>(response: Response, prefix: string) {
   return body as T
 }
 
-async function parseNewApiResponse(
-  response: Response,
-  prefix: string
-): Promise<{ success?: boolean; message?: string; data?: any }> {
-  try {
-    return await parseJsonResponse(response, prefix)
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error(
-        `${prefix}: 浏览器无法直连中转站登录接口，可能是对方未开放跨域。请在控制台手动填写 API Key。`
-      )
-    }
-    throw error
-  }
+function newApiProxyFetchErrorMessage(prefix: string) {
+  return `${prefix}: 登录代理不可用。请确认已部署或启动同源接口 ${NEW_API_LOGIN_PROXY_PATH}。`
 }
 
 function assertApiSuccess<T>(
@@ -194,206 +180,39 @@ function assertApiSuccess<T>(
   return body.data
 }
 
-function splitModelLimits(value: unknown) {
-  return new Set(
-    String(value || '')
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean)
-  )
-}
-
-async function newApiRequest(
-  baseUrl: string,
-  method: string,
-  path: string,
-  options: { payload?: Record<string, unknown>; userId?: number } = {}
-) {
-  const requestHeaders: Record<string, string> = {
-    Accept: 'application/json',
-  }
-  if (options.payload) {
-    requestHeaders['Content-Type'] = 'application/json'
-  }
-  if (options.userId !== undefined) {
-    requestHeaders['New-Api-User'] = String(options.userId)
-  }
-
-  const response = await fetch(`${baseUrl}${path}`, {
-    method,
-    credentials: 'include',
-    headers: requestHeaders,
-    body: options.payload ? JSON.stringify(options.payload) : undefined,
-  })
-  const body = await parseNewApiResponse(response, 'New API request failed')
-  if (!body.success) {
-    throw new Error(String(body.message || '中转站请求失败'))
-  }
-  return body.data
-}
-
-async function loginNewApiBrowser(baseUrl: string, username: string, password: string) {
-  if (!username.trim() || !password) throw new Error('请输入账号和密码')
-  const data = await newApiRequest(baseUrl, 'POST', '/api/user/login?turnstile=', {
-    payload: { username: username.trim(), password },
-  })
-  if (data?.require_2fa) {
-    throw new Error('该账号开启了 2FA，请先在控制台登录并处理安全验证')
-  }
-  const userId = data?.id
-  if (typeof userId !== 'number') {
-    throw new Error('登录成功但没有返回用户 ID')
-  }
-  return userId
-}
-
-async function listNewApiTokens(baseUrl: string, userId: number) {
-  const firstPage = await newApiRequest(
-    baseUrl,
-    'GET',
-    `/api/token/?p=1&size=${TOKEN_LIST_PAGE_SIZE}`,
-    { userId }
-  )
-  const items = Array.isArray(firstPage?.items) ? firstPage.items : []
-  const tokens = items.filter((item: unknown): item is Record<string, any> => {
-    return Boolean(item && typeof item === 'object')
-  })
-  const total = typeof firstPage?.total === 'number' ? firstPage.total : tokens.length
-
-  for (let page = 2; tokens.length < total && page <= TOKEN_LIST_MAX_PAGES; page += 1) {
-    const data = await newApiRequest(
-      baseUrl,
-      'GET',
-      `/api/token/?p=${page}&size=${TOKEN_LIST_PAGE_SIZE}`,
-      { userId }
-    )
-    const pageItems = Array.isArray(data?.items) ? data.items : []
-    if (pageItems.length === 0) break
-    tokens.push(
-      ...pageItems.filter((item: unknown): item is Record<string, any> =>
-        Boolean(item && typeof item === 'object')
-      )
-    )
-  }
-
-  return tokens
-}
-
-async function findNewApiToken(baseUrl: string, userId: number, group: string, model: string) {
-  const tokens = await listNewApiTokens(baseUrl, userId)
-  return (
-    tokens.find((token: Record<string, any>) => {
-      if (token.group !== group) return false
-      if (token.status !== undefined && token.status !== 1) return false
-      if (token.model_limits_enabled && !splitModelLimits(token.model_limits).has(model)) {
-        return false
-      }
-      return true
-    }) || null
-  )
-}
-
-async function createNewApiToken(
-  baseUrl: string,
-  userId: number,
-  name: string,
-  group: string,
-  model: string
-) {
-  const data = await newApiRequest(baseUrl, 'POST', '/api/token/', {
-    userId,
-    payload: {
-      name,
-      remain_quota: 0,
-      expired_time: -1,
-      unlimited_quota: true,
-      model_limits_enabled: true,
-      model_limits: model,
-      allow_ips: '',
-      group,
-      cross_group_retry: false,
-    },
-  })
-
-  const candidates = [data, data?.token, data?.item]
-  const createdToken = candidates.find((item) => item && typeof item.id === 'number')
-  if (createdToken) return createdToken
-
-  const token = await findNewApiToken(baseUrl, userId, group, model)
-  if (!token) throw new Error(`${group} 秘钥已创建，但重新查询时没有找到`)
-  return token
-}
-
-async function getNewApiFullKey(baseUrl: string, userId: number, tokenId: number, group: string) {
-  const data = await newApiRequest(baseUrl, 'POST', `/api/token/${tokenId}/key`, { userId })
-  const key = data?.key
-  if (typeof key !== 'string' || !key) {
-    throw new Error(`中转站没有返回“${group}”可用秘钥`)
-  }
-  return key
-}
-
-async function obtainNewApiTokenKey(
-  baseUrl: string,
-  userId: number,
-  name: string,
-  group: string,
-  model: string
-) {
-  let token = await findNewApiToken(baseUrl, userId, group, model)
-  let created = false
-  if (!token) {
-    token = await createNewApiToken(baseUrl, userId, name, group, model)
-    created = true
-  }
-
-  const tokenId = token.id
-  if (typeof tokenId !== 'number') throw new Error(`${group} 目标秘钥缺少 ID`)
-
-  return {
-    apiKey: await getNewApiFullKey(baseUrl, userId, tokenId, group),
-    group,
-    model,
-    tokenName: token.name || name,
-    created,
-  }
-}
-
 async function obtainManagedNewApiKey(payload: {
   baseUrl: string
   username: string
   password: string
 }): Promise<ManagedNewApiLoginResult> {
   const baseUrl = normalizeNewApiBaseUrl(payload.baseUrl)
-  const userId = await loginNewApiBrowser(baseUrl, payload.username, payload.password)
-  const imageKey = await obtainNewApiTokenKey(
-    baseUrl,
-    userId,
-    IMAGE_TOKEN_NAME,
-    IMAGE_GROUP,
-    IMAGE_MODEL
-  )
-  const codexKey = await obtainNewApiTokenKey(
-    baseUrl,
-    userId,
-    CODEX_TOKEN_NAME,
-    CODEX_GROUP,
-    CODEX_MODEL
-  )
-
-  return {
-    baseUrl,
-    apiKey: imageKey.apiKey,
-    group: imageKey.group,
-    model: imageKey.model,
-    tokenName: imageKey.tokenName,
-    created: imageKey.created,
-    codexApiKey: codexKey.apiKey,
-    codexGroup: codexKey.group,
-    codexModel: codexKey.model,
-    codexTokenName: codexKey.tokenName,
-    codexCreated: codexKey.created,
+  let response: Response
+  try {
+    response = await fetch(NEW_API_LOGIN_PROXY_PATH, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        baseUrl,
+        username: payload.username,
+        password: payload.password,
+      }),
+    })
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(newApiProxyFetchErrorMessage('中转站登录失败'))
+    }
+    throw error
   }
+
+  const body = await parseJsonResponse<{
+    success?: boolean
+    message?: string
+    data?: ManagedNewApiLoginResult
+  }>(response, '中转站登录代理失败')
+  return assertApiSuccess(body, '中转站登录失败')
 }
 
 function delay(ms: number) {
@@ -407,7 +226,15 @@ function normalizeRetryCount(value: unknown) {
 }
 
 function isTransientUpstreamStatus(status: number) {
-  return status === 502 || status === 503 || status === 504
+  return (
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    status === 520 ||
+    status === 522 ||
+    status === 523 ||
+    status === 524
+  )
 }
 
 async function fetchJsonWithRetry<T>(
