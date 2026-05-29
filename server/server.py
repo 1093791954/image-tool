@@ -2,12 +2,8 @@
 from __future__ import annotations
 
 import http.cookiejar
-import base64
-import binascii
-import ipaddress
 import json
 import logging
-import mimetypes
 import os
 import posixpath
 import re
@@ -15,7 +11,6 @@ import socket
 import sqlite3
 import threading
 import time
-import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -47,29 +42,15 @@ CODEX_GROUP = "codex 满血高速"
 CODEX_MODEL = "gpt-5.5"
 CODEX_TOKEN_NAME = "GPT Image Tools - codex"
 MAX_JSON_BODY = 16 * 1024
-MAX_IMAGE_BODY = 32 * 1024 * 1024
-MAX_PROXY_BODY = 96 * 1024 * 1024
 TOKEN_LIST_PAGE_SIZE = 100
 TOKEN_LIST_MAX_PAGES = 50
 REQUEST_TIMEOUT = env_int("IMAGE_TOOLS_REQUEST_TIMEOUT", 25)
-IMAGE_REQUEST_TIMEOUT = env_int("IMAGE_TOOLS_IMAGE_REQUEST_TIMEOUT", 600)
-IMAGE_UPSTREAM_RETRY_COUNT = max(0, env_int("IMAGE_TOOLS_IMAGE_UPSTREAM_RETRY_COUNT", 1))
-IMAGE_UPSTREAM_RETRY_DELAY = max(0, env_int("IMAGE_TOOLS_IMAGE_UPSTREAM_RETRY_DELAY", 3))
-CACHE_MAX_BYTES = env_int("IMAGE_TOOLS_CACHE_MAX_BYTES", 1024 * 1024 * 1024)
 LOG_MAX_ROWS = env_int("IMAGE_TOOLS_LOG_MAX_ROWS", 5000)
 DB_MAX_BYTES = env_int("IMAGE_TOOLS_DB_MAX_BYTES", 64 * 1024 * 1024)
 DEFAULT_LOCAL_PROXY = "http://127.0.0.1:7897"
 DEFAULT_LOCAL_PROXY_HOST = "127.0.0.1"
 DEFAULT_LOCAL_PROXY_PORT = 7897
-TASK_POLL_SECONDS = 1.5
-TRANSIENT_UPSTREAM_STATUSES = {502, 503, 504}
-OPENAI_IMAGE_PROXY_PATHS = {
-    "/api/openai/v1/images/generations": "/v1/images/generations",
-    "/api/openai/v1/images/edits": "/v1/images/edits",
-}
-
 DATA_DIR = Path(os.environ.get("IMAGE_TOOLS_DATA_DIR", "server-data")).resolve()
-CACHE_DIR = Path(os.environ.get("IMAGE_TOOLS_CACHE_DIR", str(DATA_DIR / "image-cache"))).resolve()
 DB_PATH = Path(os.environ.get("IMAGE_TOOLS_DB_PATH", str(DATA_DIR / "image-tools.sqlite3"))).resolve()
 DEFAULT_STYLE_LIBRARY_DIR = (
     r"D:\tmp\image-tool-lib\风格" if os.name == "nt" else "/opt/image-tool-lib/风格"
@@ -83,18 +64,6 @@ LOGGER = logging.getLogger("image-tools")
 
 
 class NewApiError(Exception):
-    pass
-
-
-class ImageFetchError(Exception):
-    pass
-
-
-class OpenAIProxyError(Exception):
-    pass
-
-
-class ImageTaskError(Exception):
     pass
 
 
@@ -136,96 +105,13 @@ def open_url(request: urllib.request.Request, timeout: float | None = None):
     return build_url_opener().open(request, timeout=timeout)
 
 
-def extract_upstream_error_message(status: int, response_body: bytes) -> str:
-    raw = response_body.decode("utf-8", errors="replace").strip()
-    if not raw:
-        return ""
-
-    try:
-        body = json.loads(raw)
-        if isinstance(body, dict):
-            error = body.get("error")
-            if isinstance(error, dict):
-                message = error.get("message")
-                if isinstance(message, str) and message.strip():
-                    return message.strip()[:1000]
-            message = body.get("message")
-            if isinstance(message, str) and message.strip():
-                return message.strip()[:1000]
-    except json.JSONDecodeError:
-        pass
-
-    title_match = re.search(r"<title>\s*(.*?)\s*</title>", raw, flags=re.I | re.S)
-    if title_match:
-        return re.sub(r"\s+", " ", title_match.group(1)).strip()[:1000]
-
-    text = re.sub(r"<[^>]+>", " ", raw)
-    text = re.sub(r"\s+", " ", text).strip()
-    if text:
-        return text[:1000]
-
-    return f"HTTP {status}"
-
-
-def upstream_failure_message(
-    status: int,
-    response_body: bytes,
-    retry_count: int,
-) -> str:
-    upstream_message = extract_upstream_error_message(status, response_body)
-    retry_text = f"，已自动重试 {retry_count} 次" if retry_count > 0 else ""
-    if status == 504:
-        return (
-            "上游生图网关超时（HTTP 504）。"
-            "这通常表示中转站或模型服务排队/生成时间超过它自己的网关限制，"
-            f"不是本站服务宕机{retry_text}。请稍后重试，或切换到更稳定的生图中转地址。"
-        )
-    if status in {502, 503}:
-        return (
-            f"上游生图服务暂时不可用（HTTP {status}）{retry_text}。"
-            "请稍后重试，或切换到更稳定的生图中转地址。"
-        )
-    if upstream_message:
-        return f"上游生图失败：HTTP {status} {upstream_message}"
-    return f"上游生图失败：HTTP {status}"
-
-
-def normalize_retry_count(value: Any, default: int = IMAGE_UPSTREAM_RETRY_COUNT) -> int:
-    try:
-        count = int(str(value).strip())
-    except (TypeError, ValueError):
-        count = default
-    return max(0, min(5, count))
-
-
 def now_ts() -> float:
     return time.time()
 
 
 def init_storage() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
     with DB_LOCK, sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS generation_tasks (
-                id TEXT PRIMARY KEY,
-                status TEXT NOT NULL,
-                created_at REAL NOT NULL,
-                updated_at REAL NOT NULL,
-                completed_at REAL,
-                base_url TEXT NOT NULL,
-                upstream_path TEXT NOT NULL,
-                request_content_type TEXT NOT NULL,
-                request_size INTEGER NOT NULL,
-                model TEXT,
-                prompt TEXT,
-                error TEXT,
-                result_json TEXT,
-                cache_bytes INTEGER NOT NULL DEFAULT 0
-            )
-            """
-        )
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS service_logs (
@@ -239,25 +125,7 @@ def init_storage() -> None:
             )
             """
         )
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON generation_tasks(status)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_completed ON generation_tasks(completed_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_ts ON service_logs(ts)")
-        conn.commit()
-
-
-def recover_incomplete_tasks() -> None:
-    with DB_LOCK, connect_db() as conn:
-        conn.execute(
-            """
-            UPDATE generation_tasks
-            SET status = 'failed',
-                updated_at = ?,
-                completed_at = ?,
-                error = '服务器重启导致任务中断，请重新生成'
-            WHERE status IN ('queued', 'running')
-            """,
-            (now_ts(), now_ts()),
-        )
         conn.commit()
 
 
@@ -326,185 +194,6 @@ def write_log(
     compact_db_if_needed()
 
 
-def parse_generation_metadata(content_type: str, body: bytes) -> dict[str, Any]:
-    if content_type.startswith("multipart/form-data"):
-        metadata: dict[str, Any] = {
-            "model": None,
-            "prompt": None,
-            "image_count": 0,
-            "image_bytes": 0,
-            "image_fields": [],
-            "field_names": [],
-            "size": None,
-            "quality": None,
-            "input_fidelity": None,
-        }
-        boundary_match = re.search(r'boundary="?([^";]+)"?', content_type)
-        if not boundary_match:
-            return metadata
-
-        delimiter = f"--{boundary_match.group(1)}".encode("utf-8")
-        for raw_part in body.split(delimiter):
-            part = raw_part.strip(b"\r\n")
-            if not part or part == b"--":
-                continue
-            if part.endswith(b"--"):
-                part = part[:-2].rstrip(b"\r\n")
-
-            headers_blob, separator, payload = part.partition(b"\r\n\r\n")
-            if not separator:
-                continue
-            if payload.endswith(b"\r\n"):
-                payload = payload[:-2]
-
-            headers_text = headers_blob.decode("utf-8", errors="replace")
-            name_match = re.search(r'name="([^"]+)"', headers_text)
-            if not name_match:
-                continue
-            name = name_match.group(1)
-            if name not in metadata["field_names"]:
-                metadata["field_names"].append(name)
-            has_filename = bool(re.search(r'filename="[^"]*"', headers_text))
-
-            if has_filename or name.startswith("image"):
-                metadata["image_count"] += 1
-                metadata["image_bytes"] += len(payload)
-                if name not in metadata["image_fields"]:
-                    metadata["image_fields"].append(name)
-                continue
-
-            if name in {"model", "prompt", "size", "quality", "input_fidelity"}:
-                value = payload.decode("utf-8", errors="replace").strip()
-                limit = 2000 if name == "prompt" else 200
-                metadata[name] = value[:limit] or None
-
-        return metadata
-
-    if not content_type.startswith("application/json"):
-        return {"model": None, "prompt": None}
-    try:
-        payload = json.loads(body.decode("utf-8"))
-    except Exception:
-        return {"model": None, "prompt": None}
-    return {
-        "model": str(payload.get("model") or "")[:200] or None,
-        "prompt": str(payload.get("prompt") or "")[:2000] or None,
-        "size": str(payload.get("size") or "")[:200] or None,
-        "quality": str(payload.get("quality") or "")[:200] or None,
-        "count": payload.get("n"),
-        "response_format": str(payload.get("response_format") or "")[:200] or None,
-    }
-
-
-def task_cache_dir(task_id: str) -> Path:
-    return CACHE_DIR / task_id
-
-
-def safe_cache_path(task_id: str, filename: str) -> Path:
-    root = task_cache_dir(task_id).resolve()
-    path = (root / filename).resolve()
-    try:
-        path.relative_to(root)
-    except ValueError:
-        raise ImageTaskError("缓存文件路径不安全")
-    return path
-
-
-def cache_public_url(task_id: str, filename: str) -> str:
-    return f"/api/image-cache/{urllib.parse.quote(task_id)}/{urllib.parse.quote(filename)}"
-
-
-def guess_extension(content_type: str) -> str:
-    content_type = (content_type or "image/png").split(";")[0].strip().lower()
-    return mimetypes.guess_extension(content_type) or ".png"
-
-
-def write_task_file(task_id: str, filename: str, data: bytes) -> str:
-    root = task_cache_dir(task_id)
-    root.mkdir(parents=True, exist_ok=True)
-    path = safe_cache_path(task_id, filename)
-    path.write_bytes(data)
-    return filename
-
-
-def cache_dir_size(path: Path) -> int:
-    total = 0
-    if not path.exists():
-        return total
-    for item in path.rglob("*"):
-        if item.is_file():
-            try:
-                total += item.stat().st_size
-            except OSError:
-                continue
-    return total
-
-
-def total_cache_size() -> int:
-    return cache_dir_size(CACHE_DIR)
-
-
-def remove_cache_tree(path: Path) -> None:
-    if not path.exists():
-        return
-    entries = sorted(
-        path.rglob("*"),
-        key=lambda item: (len(item.parts), item.is_dir()),
-        reverse=True,
-    )
-    for item in entries:
-        if item.is_file() or item.is_symlink():
-            item.unlink(missing_ok=True)
-        elif item.is_dir():
-            item.rmdir()
-    path.rmdir()
-
-
-def evict_cache_if_needed(skip_task_id: str | None = None) -> None:
-    current_size = total_cache_size()
-    if current_size <= CACHE_MAX_BYTES:
-        return
-
-    evicted_task_ids: list[str] = []
-    with DB_LOCK, connect_db() as conn:
-        rows = conn.execute(
-            """
-            SELECT id FROM generation_tasks
-            WHERE status = 'completed' AND cache_bytes > 0
-            ORDER BY COALESCE(completed_at, updated_at), created_at
-            """
-        ).fetchall()
-
-        for row in rows:
-            task_id = str(row["id"])
-            if task_id == skip_task_id:
-                continue
-            try:
-                remove_cache_tree(task_cache_dir(task_id))
-            except OSError:
-                LOGGER.exception("failed to remove cache for task %s", task_id)
-            conn.execute(
-                """
-                UPDATE generation_tasks
-                SET status = 'expired',
-                    updated_at = ?,
-                    error = '服务器临时缓存已过期，请重新生成',
-                    result_json = NULL,
-                    cache_bytes = 0
-                WHERE id = ?
-                """,
-                (now_ts(), task_id),
-            )
-            evicted_task_ids.append(task_id)
-            current_size = total_cache_size()
-            if current_size <= CACHE_MAX_BYTES:
-                break
-        conn.commit()
-
-    for task_id in evicted_task_ids:
-        write_log("INFO", "cache_evict", "已清理旧生成缓存", task_id)
-
-
 def json_response(handler: SimpleHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
@@ -523,162 +212,8 @@ def normalize_new_api_base_url(value: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
-def normalize_public_base_url(value: str) -> str:
-    raw = (value or "").strip().rstrip("/")
-    parsed = urllib.parse.urlparse(raw)
-    if parsed.scheme != "https" or not parsed.netloc:
-        raise OpenAIProxyError("Base URL 必须是 https 地址")
-    if parsed.username or parsed.password:
-        raise OpenAIProxyError("Base URL 不允许包含账号密码")
-    if not is_public_hostname(parsed.hostname):
-        raise OpenAIProxyError("Base URL 不是可公开访问地址")
-    return f"{parsed.scheme}://{parsed.netloc}"
-
-
 def split_model_limits(value: str | None) -> set[str]:
     return {item.strip() for item in (value or "").split(",") if item.strip()}
-
-
-def is_public_hostname(hostname: str | None) -> bool:
-    if not hostname:
-        return False
-    if hostname.lower() in {"localhost"}:
-        return False
-
-    try:
-        infos = socket.getaddrinfo(hostname, None)
-    except socket.gaierror:
-        return False
-
-    for info in infos:
-        address = info[4][0]
-        try:
-            ip = ipaddress.ip_address(address)
-        except ValueError:
-            return False
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_multicast
-            or ip.is_reserved
-            or ip.is_unspecified
-        ):
-            return False
-    return True
-
-
-def fetch_image_as_data_url(url: str) -> str:
-    parsed = urllib.parse.urlparse((url or "").strip())
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise ImageFetchError("图片 URL 格式不正确")
-    if parsed.username or parsed.password:
-        raise ImageFetchError("图片 URL 不允许包含账号密码")
-    if not is_public_hostname(parsed.hostname):
-        raise ImageFetchError("图片 URL 不是可公开访问地址")
-
-    request = urllib.request.Request(
-        urllib.parse.urlunparse(parsed),
-        headers={
-            "Accept": "image/*,*/*;q=0.8",
-            "User-Agent": "GPT-Image-Tools/1.0",
-        },
-    )
-    try:
-        with open_url(request, timeout=REQUEST_TIMEOUT) as response:
-            content_type = response.headers.get("Content-Type", "image/png").split(";")[0].strip()
-            if not content_type.startswith("image/"):
-                raise ImageFetchError("返回内容不是图片")
-
-            chunks: list[bytes] = []
-            total = 0
-            while True:
-                chunk = response.read(1024 * 256)
-                if not chunk:
-                    break
-                total += len(chunk)
-                if total > MAX_IMAGE_BODY:
-                    raise ImageFetchError("图片过大，无法保存到浏览器")
-                chunks.append(chunk)
-    except urllib.error.URLError as exc:
-        raise ImageFetchError(f"无法下载生成图片：{exc.reason}") from exc
-
-    encoded = base64.b64encode(b"".join(chunks)).decode("ascii")
-    return f"data:{content_type};base64,{encoded}"
-
-
-def fetch_image_bytes(url: str) -> tuple[bytes, str]:
-    parsed = urllib.parse.urlparse((url or "").strip())
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise ImageFetchError("图片 URL 格式不正确")
-    if parsed.username or parsed.password:
-        raise ImageFetchError("图片 URL 不允许包含账号密码")
-    if not is_public_hostname(parsed.hostname):
-        raise ImageFetchError("图片 URL 不是可公开访问地址")
-
-    request = urllib.request.Request(
-        urllib.parse.urlunparse(parsed),
-        headers={
-            "Accept": "image/*,*/*;q=0.8",
-            "User-Agent": "GPT-Image-Tools/1.0",
-        },
-    )
-    with open_url(request, timeout=REQUEST_TIMEOUT) as response:
-        content_type = response.headers.get("Content-Type", "image/png").split(";")[0].strip()
-        if not content_type.startswith("image/"):
-            raise ImageFetchError("返回内容不是图片")
-
-        chunks: list[bytes] = []
-        total = 0
-        while True:
-            chunk = response.read(1024 * 256)
-            if not chunk:
-                break
-            total += len(chunk)
-            if total > MAX_IMAGE_BODY:
-                raise ImageFetchError("图片过大，无法缓存到服务器")
-            chunks.append(chunk)
-    return b"".join(chunks), content_type
-
-
-def cache_openai_image_response(task_id: str, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    cached = dict(body)
-    cached_data: list[dict[str, Any]] = []
-    cache_bytes = 0
-
-    for index, item in enumerate(body.get("data") or []):
-        if not isinstance(item, dict):
-            continue
-
-        next_item = dict(item)
-        try:
-            if item.get("b64_json"):
-                raw = base64.b64decode(str(item["b64_json"]), validate=True)
-                filename = f"image-{index + 1}.png"
-                write_task_file(task_id, filename, raw)
-                cache_bytes += len(raw)
-                next_item.pop("b64_json", None)
-                next_item["url"] = cache_public_url(task_id, filename)
-            elif item.get("url"):
-                raw, content_type = fetch_image_bytes(str(item["url"]))
-                filename = f"image-{index + 1}{guess_extension(content_type)}"
-                write_task_file(task_id, filename, raw)
-                cache_bytes += len(raw)
-                next_item["url"] = cache_public_url(task_id, filename)
-        except (binascii.Error, ImageFetchError, urllib.error.URLError, ValueError) as exc:
-            write_log(
-                "WARN",
-                "image_cache_miss",
-                "生成结果已返回，但服务器缓存其中一张图片失败",
-                task_id,
-                {"index": index, "error": str(exc)},
-            )
-        cached_data.append(next_item)
-
-    cached["data"] = cached_data
-    result_bytes = json.dumps(cached, ensure_ascii=False).encode("utf-8")
-    cache_bytes += len(result_bytes)
-    return cached, cache_bytes
 
 
 class NewApiSession:
@@ -897,292 +432,6 @@ def obtain_managed_key(base_url: str, username: str, password: str) -> dict[str,
     }
 
 
-def create_generation_task(
-    base_url: str,
-    upstream_path: str,
-    content_type: str,
-    body: bytes,
-    retry_count: int,
-) -> str:
-    task_id = uuid.uuid4().hex
-    metadata = parse_generation_metadata(content_type, body)
-    timestamp = now_ts()
-    with DB_LOCK, connect_db() as conn:
-        conn.execute(
-            """
-            INSERT INTO generation_tasks (
-                id, status, created_at, updated_at, base_url, upstream_path,
-                request_content_type, request_size, model, prompt
-            )
-            VALUES (?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                task_id,
-                timestamp,
-                timestamp,
-                base_url,
-                upstream_path,
-                content_type,
-                len(body),
-                metadata["model"],
-                metadata["prompt"],
-            ),
-        )
-        conn.commit()
-    write_log(
-        "INFO",
-        "task_created",
-        "生图任务已投递到服务器后台",
-        task_id,
-        {
-            "upstream_path": upstream_path,
-            "request_size": len(body),
-            "model": metadata["model"],
-            "image_count": metadata.get("image_count"),
-            "image_bytes": metadata.get("image_bytes"),
-            "image_fields": metadata.get("image_fields"),
-            "field_names": metadata.get("field_names"),
-            "size": metadata.get("size"),
-            "quality": metadata.get("quality"),
-            "count": metadata.get("count"),
-            "response_format": metadata.get("response_format"),
-            "input_fidelity": metadata.get("input_fidelity"),
-            "retry_count": retry_count,
-        },
-    )
-    return task_id
-
-
-def update_task_status(
-    task_id: str,
-    status: str,
-    *,
-    error: str | None = None,
-    result: dict[str, Any] | None = None,
-    cache_bytes: int | None = None,
-    completed: bool = False,
-) -> None:
-    result_json = json.dumps(result, ensure_ascii=False) if result is not None else None
-    timestamp = now_ts()
-    with DB_LOCK, connect_db() as conn:
-        conn.execute(
-            """
-            UPDATE generation_tasks
-            SET status = ?,
-                updated_at = ?,
-                completed_at = CASE WHEN ? THEN ? ELSE completed_at END,
-                error = ?,
-                result_json = COALESCE(?, result_json),
-                cache_bytes = COALESCE(?, cache_bytes)
-            WHERE id = ?
-            """,
-            (
-                status,
-                timestamp,
-                1 if completed else 0,
-                timestamp,
-                error,
-                result_json,
-                cache_bytes,
-                task_id,
-            ),
-        )
-        conn.commit()
-
-
-def read_task(task_id: str) -> dict[str, Any] | None:
-    with DB_LOCK, connect_db() as conn:
-        row = conn.execute(
-            """
-            SELECT id, status, created_at, updated_at, completed_at, model, prompt,
-                   error, result_json, cache_bytes
-            FROM generation_tasks
-            WHERE id = ?
-            """,
-            (task_id,),
-        ).fetchone()
-    if row is None:
-        return None
-
-    result = None
-    if row["result_json"]:
-        try:
-            result = json.loads(str(row["result_json"]))
-        except json.JSONDecodeError:
-            result = None
-    return {
-        "id": row["id"],
-        "status": row["status"],
-        "createdAt": int(float(row["created_at"]) * 1000),
-        "updatedAt": int(float(row["updated_at"]) * 1000),
-        "completedAt": int(float(row["completed_at"]) * 1000) if row["completed_at"] else None,
-        "model": row["model"],
-        "prompt": row["prompt"],
-        "error": row["error"],
-        "result": result,
-        "cacheBytes": row["cache_bytes"],
-    }
-
-
-def run_generation_task(
-    task_id: str,
-    base_url: str,
-    upstream_path: str,
-    auth_header: str,
-    content_type: str,
-    body: bytes,
-    retry_count: int,
-) -> None:
-    update_task_status(task_id, "running")
-    write_log("INFO", "task_running", "生图任务开始请求上游", task_id)
-    request = urllib.request.Request(
-        f"{base_url}{upstream_path}",
-        data=body,
-        method="POST",
-        headers={
-            "Accept": "application/json",
-            "Authorization": auth_header,
-            "Content-Type": content_type,
-            "User-Agent": "GPT-Image-Tools/1.0",
-        },
-    )
-
-    try:
-        max_attempts = retry_count + 1
-        completed_retries = 0
-        for attempt in range(1, max_attempts + 1):
-            try:
-                with open_url(request, timeout=IMAGE_REQUEST_TIMEOUT) as response:
-                    response_body = response.read()
-                    status = response.status
-            except urllib.error.HTTPError as exc:
-                response_body = exc.read()
-                status = exc.code
-
-            if status < 200 or status >= 300:
-                upstream_message = extract_upstream_error_message(status, response_body)
-                can_retry = status in TRANSIENT_UPSTREAM_STATUSES and attempt < max_attempts
-                write_log(
-                    "WARN" if can_retry else "ERROR",
-                    "upstream_image_failed",
-                    f"上游生图返回 HTTP {status}: {upstream_message or '无错误正文'}",
-                    task_id,
-                    {
-                        "attempt": attempt,
-                        "max_attempts": max_attempts,
-                        "status": status,
-                        "base_url": base_url,
-                        "upstream_path": upstream_path,
-                        "will_retry": can_retry,
-                    },
-                )
-                if can_retry:
-                    completed_retries += 1
-                    if IMAGE_UPSTREAM_RETRY_DELAY:
-                        time.sleep(IMAGE_UPSTREAM_RETRY_DELAY)
-                    continue
-                raise ImageTaskError(
-                    upstream_failure_message(status, response_body, completed_retries)
-                )
-            break
-
-        if completed_retries:
-            write_log(
-                "INFO",
-                "upstream_image_retry_recovered",
-                f"上游生图在自动重试 {completed_retries} 次后成功",
-                task_id,
-                {
-                    "retry_count": completed_retries,
-                    "base_url": base_url,
-                    "upstream_path": upstream_path,
-                },
-            )
-
-        try:
-            upstream_result = json.loads(response_body.decode("utf-8"))
-        except json.JSONDecodeError as exc:
-            raise ImageTaskError("上游返回了无法解析的 JSON") from exc
-
-        cached_result, cache_bytes = cache_openai_image_response(task_id, upstream_result)
-        update_task_status(
-            task_id,
-            "completed",
-            result=cached_result,
-            cache_bytes=cache_bytes,
-            completed=True,
-        )
-        write_log(
-            "INFO",
-            "task_completed",
-            "生图任务已完成并写入服务器临时缓存",
-            task_id,
-            {"cache_bytes": cache_bytes},
-        )
-        evict_cache_if_needed(skip_task_id=task_id)
-    except (TimeoutError, socket.timeout):
-        message = (
-            f"上游生图请求超过 {IMAGE_REQUEST_TIMEOUT} 秒仍未返回，"
-            "请稍后重试或调大 IMAGE_TOOLS_IMAGE_REQUEST_TIMEOUT"
-        )
-        update_task_status(task_id, "failed", error=message, completed=True)
-        write_log("ERROR", "task_failed", message, task_id)
-    except urllib.error.URLError as exc:
-        if isinstance(exc.reason, (TimeoutError, socket.timeout)):
-            message = (
-                f"上游生图请求超过 {IMAGE_REQUEST_TIMEOUT} 秒仍未返回，"
-                "请稍后重试或调大 IMAGE_TOOLS_IMAGE_REQUEST_TIMEOUT"
-            )
-        else:
-            message = f"无法连接中转站：{exc.reason}"
-        update_task_status(task_id, "failed", error=message, completed=True)
-        write_log("ERROR", "task_failed", message, task_id)
-    except Exception as exc:
-        message = str(exc) or "后台生图任务失败"
-        update_task_status(task_id, "failed", error=message, completed=True)
-        write_log(
-            "ERROR",
-            "task_failed",
-            message,
-            task_id,
-            traceback.format_exc(limit=8),
-        )
-
-
-def start_generation_worker(
-    task_id: str,
-    base_url: str,
-    upstream_path: str,
-    auth_header: str,
-    content_type: str,
-    body: bytes,
-    retry_count: int,
-) -> None:
-    thread = threading.Thread(
-        target=run_generation_task,
-        args=(task_id, base_url, upstream_path, auth_header, content_type, body, retry_count),
-        name=f"image-task-{task_id[:8]}",
-        daemon=True,
-    )
-    thread.start()
-
-
-def task_response_payload(task: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "success": True,
-        "data": {
-            "taskId": task["id"],
-            "status": task["status"],
-            "createdAt": task["createdAt"],
-            "updatedAt": task["updatedAt"],
-            "completedAt": task["completedAt"],
-            "error": task["error"],
-            "result": task["result"],
-            "pollAfterMs": int(TASK_POLL_SECONDS * 1000),
-        },
-    }
-
-
 def xlsx_column_index(cell_ref: str) -> int:
     letters = "".join(char for char in cell_ref if char.isalpha()).upper()
     index = 0
@@ -1370,24 +619,10 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
         if parsed_path.path.startswith("/api/style-library/images/"):
             self.handle_style_image(parsed_path)
             return
-        if parsed_path.path.startswith("/api/openai/tasks/"):
-            self.handle_openai_task_status(parsed_path)
-            return
-        if parsed_path.path.startswith("/api/image-cache/"):
-            self.handle_cache_file(parsed_path)
-            return
         super().do_GET()
 
     def do_POST(self) -> None:
         parsed_path = urllib.parse.urlparse(self.path)
-        if parsed_path.path in OPENAI_IMAGE_PROXY_PATHS:
-            self.handle_openai_image_proxy(parsed_path)
-            return
-
-        if parsed_path.path == "/api/image-url-to-data-url":
-            self.handle_image_url_to_data_url()
-            return
-
         if parsed_path.path != "/api/newapi/login-key":
             json_response(self, HTTPStatus.NOT_FOUND, {"success": False, "message": "Not found"})
             return
@@ -1420,36 +655,6 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 self,
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 {"success": False, "message": "登录中转站失败，请稍后重试"},
-            )
-
-    def handle_image_url_to_data_url(self) -> None:
-        try:
-            body_length = int(self.headers.get("Content-Length", "0"))
-        except ValueError:
-            body_length = 0
-        if body_length <= 0 or body_length > MAX_JSON_BODY:
-            json_response(
-                self,
-                HTTPStatus.BAD_REQUEST,
-                {"success": False, "message": "请求体为空或过大"},
-            )
-            return
-
-        try:
-            payload = json.loads(self.rfile.read(body_length).decode("utf-8"))
-            data_url = fetch_image_as_data_url(str(payload.get("url") or ""))
-            json_response(
-                self,
-                HTTPStatus.OK,
-                {"success": True, "message": "", "dataUrl": data_url},
-            )
-        except ImageFetchError as exc:
-            json_response(self, HTTPStatus.OK, {"success": False, "message": str(exc)})
-        except Exception:
-            json_response(
-                self,
-                HTTPStatus.INTERNAL_SERVER_ERROR,
-                {"success": False, "message": "下载生成图片失败，请稍后重试"},
             )
 
     def handle_style_library(self) -> None:
@@ -1496,98 +701,6 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def handle_openai_task_status(self, parsed_path: urllib.parse.ParseResult) -> None:
-        task_id = parsed_path.path.removeprefix("/api/openai/tasks/").strip("/")
-        if not task_id:
-            json_response(self, HTTPStatus.BAD_REQUEST, {"success": False, "message": "缺少任务 ID"})
-            return
-
-        task = read_task(task_id)
-        if task is None:
-            json_response(self, HTTPStatus.NOT_FOUND, {"success": False, "message": "任务不存在"})
-            return
-
-        json_response(self, HTTPStatus.OK, task_response_payload(task))
-
-    def handle_cache_file(self, parsed_path: urllib.parse.ParseResult) -> None:
-        prefix = "/api/image-cache/"
-        relative = parsed_path.path[len(prefix):]
-        parts = [urllib.parse.unquote(part) for part in relative.split("/") if part]
-        if len(parts) != 2:
-            self.send_error(HTTPStatus.NOT_FOUND)
-            return
-
-        task_id, filename = parts
-        task = read_task(task_id)
-        if task is None or task["status"] != "completed":
-            self.send_error(HTTPStatus.NOT_FOUND)
-            return
-
-        path = safe_cache_path(task_id, filename)
-        if not path.exists() or not path.is_file():
-            self.send_error(HTTPStatus.NOT_FOUND)
-            return
-
-        data = path.read_bytes()
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", self.guess_type(str(path)))
-        self.send_header("Cache-Control", "private, max-age=300")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
-
-    def handle_openai_image_proxy(self, parsed_path: urllib.parse.ParseResult) -> None:
-        try:
-            query = urllib.parse.parse_qs(parsed_path.query)
-            base_url = normalize_public_base_url((query.get("base_url") or [""])[0])
-            upstream_path = OPENAI_IMAGE_PROXY_PATHS[parsed_path.path]
-            auth_header = self.headers.get("Authorization", "")
-            if not auth_header.startswith("Bearer "):
-                raise OpenAIProxyError("缺少 API Key")
-
-            try:
-                body_length = int(self.headers.get("Content-Length", "0"))
-            except ValueError:
-                body_length = 0
-            if body_length <= 0 or body_length > MAX_PROXY_BODY:
-                raise OpenAIProxyError("请求体为空或过大")
-
-            body = self.rfile.read(body_length)
-            content_type = self.headers.get("Content-Type", "application/json")
-            retry_count = normalize_retry_count(self.headers.get("X-Image-Tools-Retry-Count"))
-            task_id = create_generation_task(
-                base_url,
-                upstream_path,
-                content_type,
-                body,
-                retry_count,
-            )
-            start_generation_worker(
-                task_id,
-                base_url,
-                upstream_path,
-                auth_header,
-                content_type,
-                body,
-                retry_count,
-            )
-            task = read_task(task_id)
-            if task is None:
-                raise OpenAIProxyError("任务创建成功，但读取任务状态失败")
-            json_response(self, HTTPStatus.ACCEPTED, task_response_payload(task))
-        except OpenAIProxyError as exc:
-            json_response(
-                self,
-                HTTPStatus.BAD_GATEWAY,
-                {"error": {"message": str(exc)}},
-            )
-        except Exception:
-            json_response(
-                self,
-                HTTPStatus.INTERNAL_SERVER_ERROR,
-                {"error": {"message": "转发生图请求失败，请稍后重试"}},
-            )
-
     def translate_path(self, path: str) -> str:
         root = Path(self.directory).resolve()
         parsed = urllib.parse.urlparse(path)
@@ -1610,8 +723,6 @@ def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
     init_storage()
-    recover_incomplete_tasks()
-    evict_cache_if_needed()
     outbound_proxy = resolve_outbound_proxy()
     if outbound_proxy:
         LOGGER.info("Using outbound proxy %s", outbound_proxy)

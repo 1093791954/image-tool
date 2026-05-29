@@ -4,7 +4,6 @@ import type {
   ImageApiClient,
   ImageGenerationPayload,
   ImageGenerationResult,
-  ImageGenerationTask,
   ManagedNewApiLoginResult,
   ModelOption,
   NegativePromptOptimizationPayload,
@@ -227,13 +226,27 @@ function normalizeRetryCount(value: unknown) {
 
 function isTransientUpstreamStatus(status: number) {
   return (
+    status === 408 ||
+    status === 429 ||
+    status === 500 ||
     status === 502 ||
     status === 503 ||
     status === 504 ||
     status === 520 ||
+    status === 521 ||
     status === 522 ||
     status === 523 ||
-    status === 524
+    status === 524 ||
+    status === 525 ||
+    status === 526
+  )
+}
+
+function isRetryableUpstreamError(error: unknown) {
+  if (error instanceof TypeError) return true
+  const message = error instanceof Error ? error.message : String(error || '')
+  return /cloudflare|proxy read timeout|120-second|origin web server|invalid or incomplete response|upstream returned an empty response|networkerror|failed to fetch/i.test(
+    message
   )
 }
 
@@ -256,10 +269,20 @@ async function fetchJsonWithRetry<T>(
         await delay(800)
         continue
       }
-      return await parseJsonResponse<T>(response, prefix)
+      try {
+        return await parseJsonResponse<T>(response, prefix)
+      } catch (error) {
+        lastError = error
+        if (attempt < maxAttempts && isRetryableUpstreamError(error)) {
+          onRetry?.(attempt, maxAttempts, response.status)
+          await delay(800)
+          continue
+        }
+        throw error
+      }
     } catch (error) {
       lastError = error
-      if (error instanceof TypeError && attempt < maxAttempts) {
+      if (attempt < maxAttempts && isRetryableUpstreamError(error)) {
         onRetry?.(attempt, maxAttempts, 0)
         await delay(800)
         continue
