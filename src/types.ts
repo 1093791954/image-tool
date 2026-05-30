@@ -110,6 +110,20 @@ export type ImageGenerationTask = {
     data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>
   } | null
   pollAfterMs?: number
+  fallbackUsed?: boolean
+  fallbackReason?: string | null
+  request?: {
+    prompt?: string
+    model?: string
+    size?: string
+    quality?: string
+    mode?: 'text' | 'image'
+    responseFormat?: 'url' | 'b64_json'
+    count?: number
+    canvasId?: string
+    generateNodeId?: string
+    referenceImageNames?: string[]
+  }
 }
 
 export type ManagedNewApiLoginPayload = {
@@ -181,6 +195,7 @@ export type LocalImageRecord = {
   revisedPrompt?: string
   mode?: 'text' | 'image'
   referenceImageNames?: string[]
+  generationTaskId?: string
 }
 
 export type BackupFile = {
@@ -205,5 +220,7 @@ export type ImageApiClient = {
   generateImages: (
     payload: ImageGenerationPayload
   ) => Promise<ImageGenerationResult>
+  getImageTask: (taskId: string) => Promise<ImageGenerationTask>
+  listImageTasks: () => Promise<ImageGenerationTask[]>
   openExternal: (url: string) => Promise<void>
 }

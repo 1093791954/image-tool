@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import http.client
 import http.cookiejar
+import base64
 import json
 import logging
 import os
 import posixpath
+import queue
 import re
 import socket
 import sqlite3
@@ -42,9 +45,17 @@ CODEX_GROUP = "codex 满血高速"
 CODEX_MODEL = "gpt-5.5"
 CODEX_TOKEN_NAME = "GPT Image Tools - codex"
 MAX_JSON_BODY = 16 * 1024
+MAX_OPENAI_PROXY_BODY = env_int("IMAGE_TOOLS_OPENAI_PROXY_MAX_BODY", 64 * 1024 * 1024)
+OPENAI_PROXY_CACHE_MAX_BYTES = env_int(
+    "IMAGE_TOOLS_OPENAI_PROXY_CACHE_MAX_BYTES", 1024 * 1024 * 1024
+)
+OPENAI_PROXY_CACHE_MAX_AGE_SECONDS = env_int(
+    "IMAGE_TOOLS_OPENAI_PROXY_CACHE_MAX_AGE_SECONDS", 30 * 24 * 60 * 60
+)
 TOKEN_LIST_PAGE_SIZE = 100
 TOKEN_LIST_MAX_PAGES = 50
 REQUEST_TIMEOUT = env_int("IMAGE_TOOLS_REQUEST_TIMEOUT", 25)
+OPENAI_PROXY_TIMEOUT = env_int("IMAGE_TOOLS_OPENAI_PROXY_TIMEOUT", 500)
 LOG_MAX_ROWS = env_int("IMAGE_TOOLS_LOG_MAX_ROWS", 5000)
 DB_MAX_BYTES = env_int("IMAGE_TOOLS_DB_MAX_BYTES", 64 * 1024 * 1024)
 DEFAULT_LOCAL_PROXY = "http://127.0.0.1:7897"
@@ -52,6 +63,12 @@ DEFAULT_LOCAL_PROXY_HOST = "127.0.0.1"
 DEFAULT_LOCAL_PROXY_PORT = 7897
 DATA_DIR = Path(os.environ.get("IMAGE_TOOLS_DATA_DIR", "server-data")).resolve()
 DB_PATH = Path(os.environ.get("IMAGE_TOOLS_DB_PATH", str(DATA_DIR / "image-tools.sqlite3"))).resolve()
+OPENAI_PROXY_CACHE_DIR = Path(
+    os.environ.get(
+        "IMAGE_TOOLS_OPENAI_PROXY_CACHE_DIR",
+        str(DATA_DIR / "openai-proxy-cache"),
+    )
+).resolve()
 DEFAULT_STYLE_LIBRARY_DIR = (
     r"D:\tmp\image-tool-lib\风格" if os.name == "nt" else "/opt/image-tool-lib/风格"
 )
@@ -60,6 +77,8 @@ STYLE_LIBRARY_DIR = Path(
 ).resolve()
 
 DB_LOCK = threading.RLock()
+TASKS_LOCK = threading.RLock()
+TASK_SECRETS: dict[str, str] = {}
 LOGGER = logging.getLogger("image-tools")
 
 
@@ -127,6 +146,59 @@ def init_storage() -> None:
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_ts ON service_logs(ts)")
         conn.commit()
+    scrub_task_secrets_from_disk()
+    fail_interrupted_image_tasks()
+
+
+def scrub_task_secrets_from_disk() -> None:
+    tasks_root = OPENAI_PROXY_CACHE_DIR / "tasks"
+    if not tasks_root.exists():
+        return
+    for meta_path in tasks_root.glob("*/task.json"):
+        try:
+            task = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        changed = False
+        for key in ("upstream", "fallbackUpstream"):
+            value = task.get(key)
+            if isinstance(value, dict) and "apiKey" in value:
+                value.pop("apiKey", None)
+                changed = True
+        if not changed:
+            continue
+        try:
+            meta_path.write_text(json.dumps(task, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            LOGGER.exception("failed to scrub task secret")
+
+
+def fail_interrupted_image_tasks() -> None:
+    tasks_root = OPENAI_PROXY_CACHE_DIR / "tasks"
+    if not tasks_root.exists():
+        return
+    for meta_path in tasks_root.glob("*/task.json"):
+        try:
+            task = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if task.get("status") not in {"queued", "running"}:
+            continue
+        task_id = str(task.get("taskId") or meta_path.parent.name)
+        task["status"] = "failed"
+        task["completedAt"] = now_ts() * 1000
+        task["updatedAt"] = task["completedAt"]
+        task["error"] = "后端服务已重启，任务密钥只保存在内存中，该任务无法继续；请重新生成。"
+        try:
+            write_image_task(task_id, task)
+            write_log(
+                "WARN",
+                "image_task_interrupted",
+                f"{task_id} marked failed after backend restart",
+                task_id=task_id,
+            )
+        except Exception:
+            LOGGER.exception("failed to mark interrupted image task")
 
 
 def connect_db() -> sqlite3.Connection:
@@ -167,6 +239,595 @@ def compact_db_if_needed() -> None:
         LOGGER.exception("failed to compact sqlite database")
 
 
+def prune_openai_proxy_cache() -> None:
+    if OPENAI_PROXY_CACHE_MAX_BYTES <= 0:
+        return
+
+    try:
+        OPENAI_PROXY_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        now = now_ts()
+        all_files = [path for path in OPENAI_PROXY_CACHE_DIR.rglob("*") if path.is_file()]
+        for path in all_files:
+            try:
+                if now - path.stat().st_mtime > OPENAI_PROXY_CACHE_MAX_AGE_SECONDS:
+                    path.unlink(missing_ok=True)
+            except OSError:
+                continue
+
+        for path in sorted(OPENAI_PROXY_CACHE_DIR.rglob("*"), reverse=True):
+            if path.is_dir():
+                try:
+                    path.rmdir()
+                except OSError:
+                    pass
+
+        body_files = [
+            path for path in OPENAI_PROXY_CACHE_DIR.rglob("*") if path.is_file()
+        ]
+        entries: list[tuple[float, int, Path]] = []
+        total = 0
+        for path in body_files:
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            total += stat.st_size
+            entries.append((stat.st_mtime, stat.st_size, path))
+
+        for _, size, path in sorted(entries, key=lambda item: item[0]):
+            if total <= OPENAI_PROXY_CACHE_MAX_BYTES:
+                break
+            try:
+                path.unlink(missing_ok=True)
+                (OPENAI_PROXY_CACHE_DIR / f"{path.stem}.meta.json").unlink(missing_ok=True)
+                total -= size
+            except OSError:
+                continue
+    except Exception:
+        LOGGER.exception("failed to prune openai proxy cache")
+
+
+def cache_openai_proxy_response(
+    proxy_path: str,
+    status: int,
+    headers: Any,
+    body: bytes,
+    target_url: str,
+) -> str | None:
+    if OPENAI_PROXY_CACHE_MAX_BYTES <= 0 or not body:
+        return None
+    if not proxy_path.startswith("/api/openai/v1/images/"):
+        return None
+
+    try:
+        OPENAI_PROXY_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        prune_openai_proxy_cache()
+        cache_id = f"{int(now_ts() * 1000)}-{uuid.uuid4().hex}"
+        body_path = OPENAI_PROXY_CACHE_DIR / f"{cache_id}.body"
+        meta_path = OPENAI_PROXY_CACHE_DIR / f"{cache_id}.meta.json"
+        body_path.write_bytes(body)
+        target = urllib.parse.urlparse(target_url)
+        metadata = {
+            "id": cache_id,
+            "createdAt": now_ts(),
+            "status": status,
+            "path": proxy_path,
+            "target": urllib.parse.urlunparse(
+                (target.scheme, target.netloc, target.path, "", "", "")
+            ),
+            "contentType": headers.get("Content-Type") if headers else None,
+            "bytes": len(body),
+        }
+        meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+        prune_openai_proxy_cache()
+        return cache_id
+    except Exception:
+        LOGGER.exception("failed to cache openai proxy response")
+        return None
+
+
+def image_task_dir(task_id: str) -> Path:
+    return OPENAI_PROXY_CACHE_DIR / "tasks" / task_id
+
+
+def read_image_task(task_id: str) -> dict[str, Any] | None:
+    if not re.fullmatch(r"[a-zA-Z0-9_-]{8,80}", task_id):
+        return None
+    meta_path = image_task_dir(task_id) / "task.json"
+    try:
+        return json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def write_image_task(task_id: str, task: dict[str, Any]) -> None:
+    task_dir = image_task_dir(task_id)
+    task_dir.mkdir(parents=True, exist_ok=True)
+    (task_dir / "task.json").write_text(
+        json.dumps(task, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def public_image_task(task: dict[str, Any]) -> dict[str, Any]:
+    payload = {
+        "taskId": task["taskId"],
+        "status": task["status"],
+        "createdAt": task["createdAt"],
+        "updatedAt": task["updatedAt"],
+        "completedAt": task.get("completedAt"),
+        "error": task.get("error"),
+        "result": task.get("result"),
+        "pollAfterMs": 1500 if task["status"] in {"queued", "running"} else 0,
+        "request": task.get("request"),
+        "fallbackUsed": task.get("fallbackUsed", False),
+        "fallbackReason": task.get("fallbackReason"),
+    }
+    return payload
+
+
+def list_public_image_tasks(limit: int = 30) -> list[dict[str, Any]]:
+    tasks_root = OPENAI_PROXY_CACHE_DIR / "tasks"
+    if not tasks_root.exists():
+        return []
+    tasks: list[dict[str, Any]] = []
+    for meta_path in tasks_root.glob("*/task.json"):
+        try:
+            task = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        tasks.append(public_image_task(task))
+    tasks.sort(key=lambda task: task.get("updatedAt") or task.get("createdAt") or 0, reverse=True)
+    return tasks[:limit]
+
+
+def update_image_task(task_id: str, **updates: Any) -> dict[str, Any]:
+    with TASKS_LOCK:
+        task = read_image_task(task_id)
+        if task is None:
+            raise KeyError(task_id)
+        task.update(updates)
+        task["updatedAt"] = now_ts() * 1000
+        write_image_task(task_id, task)
+        return task
+
+
+def decode_data_url(data_url: str) -> tuple[str, bytes]:
+    header, _, payload = data_url.partition(",")
+    match = re.match(r"^data:([^;,]+);base64$", header)
+    content_type = match.group(1) if match else "image/png"
+    return content_type, base64.b64decode(payload)
+
+
+def build_image_task_request(task: dict[str, Any]) -> urllib.request.Request:
+    upstream = task["upstream"]
+    target_url = openai_proxy_target_url(
+        upstream["baseUrl"],
+        f"/api/openai{upstream['path']}",
+        "",
+    )
+    api_key = TASK_SECRETS.get(task["taskId"]) or upstream.get("apiKey")
+    if not api_key:
+        raise RuntimeError("任务密钥只保存在内存中，服务重启后无法继续该任务")
+    if upstream["kind"] == "json":
+        body = json.dumps(upstream["body"]).encode("utf-8")
+        request_headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "GPT-Image-Tools/1.0",
+        }
+        return urllib.request.Request(
+            target_url,
+            data=body,
+            method="POST",
+            headers=request_headers,
+        )
+
+    boundary = f"----GPTImageTools{uuid.uuid4().hex}"
+    chunks: list[bytes] = []
+
+    def add_field(name: str, value: str) -> None:
+        chunks.extend(
+            [
+                f"--{boundary}\r\n".encode("utf-8"),
+                f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"),
+                str(value).encode("utf-8"),
+                b"\r\n",
+            ]
+        )
+
+    def add_file(name: str, filename: str, content_type: str, data: bytes) -> None:
+        chunks.extend(
+            [
+                f"--{boundary}\r\n".encode("utf-8"),
+                (
+                    f'Content-Disposition: form-data; name="{name}"; '
+                    f'filename="{filename}"\r\n'
+                ).encode("utf-8"),
+                f"Content-Type: {content_type}\r\n\r\n".encode("utf-8"),
+                data,
+                b"\r\n",
+            ]
+        )
+
+    for name, value in upstream["fields"].items():
+        add_field(name, str(value))
+    for image in upstream["images"]:
+        content_type, data = decode_data_url(str(image["dataUrl"]))
+        add_file("image", str(image.get("name") or "reference.png"), content_type, data)
+    chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
+    body = b"".join(chunks)
+
+    return urllib.request.Request(
+        target_url,
+        data=body,
+        method="POST",
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "User-Agent": "GPT-Image-Tools/1.0",
+        },
+    )
+
+
+def normalized_image_api_size(model: str, size: str) -> str:
+    normalized_model = (model or "").strip().lower()
+    if not normalized_model.startswith("gpt-image"):
+        return size
+    if size == "auto":
+        return size
+    supported_sizes = {"1024x1024", "1024x1536", "1536x1024"}
+    if size in supported_sizes:
+        return size
+    match = re.fullmatch(r"(\d{2,5})x(\d{2,5})", size or "")
+    if not match:
+        return size
+    width = int(match.group(1))
+    height = int(match.group(2))
+    if abs(width - height) / max(width, height) < 0.08:
+        return "1024x1024"
+    return "1024x1536" if height > width else "1536x1024"
+
+
+def synthesize_image_task_fallback(task: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    upstream = task.get("upstream") or {}
+    request_meta = task.get("request") or {}
+    prompt = str(request_meta.get("prompt") or "")
+    reference_names = [
+        str(name)
+        for name in request_meta.get("referenceImageNames") or []
+        if str(name).strip()
+    ]
+    if reference_names:
+        prompt = "\n".join(
+            [
+                prompt,
+                "",
+                f"参考图名称：{'、'.join(reference_names)}。当前上游图生图接口不可用，请根据提示词中对参考图主体、风格、构图和细节的描述完成文生图降级生成。",
+            ]
+        )
+    model = str(request_meta.get("model") or upstream.get("fields", {}).get("model") or IMAGE_MODEL)
+    size = str(request_meta.get("size") or upstream.get("fields", {}).get("size") or "1024x1024")
+    quality = str(request_meta.get("quality") or upstream.get("fields", {}).get("quality") or "auto")
+    response_format = str(request_meta.get("responseFormat") or "b64_json")
+    fallback_request = {
+        **request_meta,
+        "prompt": prompt,
+        "mode": "text",
+        "count": 1,
+        "responseFormat": response_format,
+    }
+    body = {
+        "model": model,
+        "prompt": prompt,
+        "size": normalized_image_api_size(model, size),
+        "n": 1,
+        "response_format": response_format,
+    }
+    if quality != "auto":
+        body["quality"] = quality
+    fallback_upstream = {
+        "kind": "json",
+        "baseUrl": upstream.get("baseUrl"),
+        "path": "/v1/images/generations",
+        "body": body,
+    }
+    return fallback_request, fallback_upstream
+
+
+def read_openai_image_response(
+    request: urllib.request.Request,
+    upstream_path: str,
+    target_url: str,
+) -> tuple[int, dict[str, Any]]:
+    with open_url(request, timeout=OPENAI_PROXY_TIMEOUT) as response:
+        response_body = response.read()
+        body_text = response_body.decode("utf-8", errors="replace")
+        try:
+            result = json.loads(body_text) if body_text else {}
+        except json.JSONDecodeError:
+            result = {
+                "error": {
+                    "message": f"上游没有返回 JSON：{response_body[:240].decode('utf-8', errors='replace')}"
+                }
+            }
+        cache_openai_proxy_response(
+            f"/api/openai{upstream_path}",
+            response.status,
+            response.headers,
+            response_body,
+            target_url,
+        )
+        return response.status, result
+
+
+def execute_openai_image_response(
+    request: urllib.request.Request,
+    upstream_path: str,
+    target_url: str,
+) -> tuple[int, dict[str, Any]]:
+    result_queue: queue.Queue[tuple[str, Any]] = queue.Queue(maxsize=1)
+
+    def worker() -> None:
+        try:
+            result_queue.put(("ok", read_openai_image_response(request, upstream_path, target_url)))
+        except BaseException as exc:
+            result_queue.put(("error", exc))
+
+    thread = threading.Thread(target=worker, name="openai-image-request", daemon=True)
+    thread.start()
+    thread.join(OPENAI_PROXY_TIMEOUT + 10)
+    if thread.is_alive():
+        raise TimeoutError(f"超过 {OPENAI_PROXY_TIMEOUT} 秒没有收到完整上游响应")
+
+    kind, payload = result_queue.get_nowait()
+    if kind == "error":
+        raise payload
+    return payload
+
+
+def activate_image_task_fallback(
+    task_id: str,
+    reason: str,
+    response_status: int | None = None,
+) -> bool:
+    with TASKS_LOCK:
+        task = read_image_task(task_id)
+        if task is None or task.get("fallbackUsed"):
+            return False
+        upstream = task.get("upstream") or {}
+        if upstream.get("path") != "/v1/images/edits":
+            return False
+        request_meta = task.get("request") or {}
+        if not request_meta.get("allowTextFallback"):
+            return False
+        fallback_upstream = task.get("fallbackUpstream")
+        fallback_request = task.get("fallbackRequest")
+        if not isinstance(fallback_upstream, dict):
+            fallback_request, fallback_upstream = synthesize_image_task_fallback(task)
+
+        task["fallbackUsed"] = True
+        task["fallbackReason"] = reason
+        task["upstream"] = fallback_upstream
+        if isinstance(fallback_request, dict):
+            task["request"] = fallback_request
+        task["status"] = "running"
+        task["error"] = "图生图上游不可用，已自动降级为文生图生成"
+        task["updatedAt"] = now_ts() * 1000
+        write_image_task(task_id, task)
+
+    write_log(
+        "WARN",
+        "image_task_fallback",
+        f"{task_id} switched to /v1/images/generations: {reason}",
+        task_id=task_id,
+        details={
+            "reason": reason,
+            "status": response_status,
+            "fallbackPath": "/v1/images/generations",
+        },
+    )
+    return True
+
+
+def run_image_task(task_id: str) -> None:
+    try:
+        while True:
+            task = update_image_task(task_id, status="running", error=None)
+            upstream = task["upstream"]
+            request_meta = task.get("request", {})
+            retry_count = max(0, min(5, int(request_meta.get("retryCount") or 0)))
+            max_attempts = retry_count + 1
+            write_log(
+                "INFO",
+                "image_task_running",
+                f"{task_id} started",
+                task_id=task_id,
+                details={
+                    "path": upstream.get("path"),
+                    "model": request_meta.get("model"),
+                    "mode": request_meta.get("mode"),
+                    "maxAttempts": max_attempts,
+                    "fallbackUsed": task.get("fallbackUsed", False),
+                },
+            )
+            started_at = now_ts()
+            last_error_message = ""
+            fallback_activated = False
+            for attempt in range(1, max_attempts + 1):
+                request = build_image_task_request(task)
+                target_url = request.full_url
+                try:
+                    if attempt > 1:
+                        update_image_task(
+                            task_id,
+                            status="running",
+                            error=f"上游请求超时，正在重试 {attempt - 1}/{retry_count}",
+                        )
+                        write_log(
+                            "WARN",
+                            "image_task_retry",
+                            f"{task_id} retry {attempt}/{max_attempts}",
+                            task_id=task_id,
+                            details={
+                                "path": upstream.get("path"),
+                                "model": request_meta.get("model"),
+                                "mode": request_meta.get("mode"),
+                            },
+                        )
+
+                    response_status, result = execute_openai_image_response(
+                        request,
+                        upstream["path"],
+                        target_url,
+                    )
+                    update_image_task(
+                        task_id,
+                        status="completed",
+                        completedAt=now_ts() * 1000,
+                        result=result,
+                        responseStatus=response_status,
+                    )
+                    write_log(
+                        "INFO",
+                        "image_task_completed",
+                        f"{task_id} -> HTTP {response_status}",
+                        task_id=task_id,
+                        details={
+                            "elapsedMs": round((now_ts() - started_at) * 1000),
+                            "path": upstream["path"],
+                            "fallbackUsed": task.get("fallbackUsed", False),
+                        },
+                    )
+                    TASK_SECRETS.pop(task_id, None)
+                    return
+                except urllib.error.HTTPError as exc:
+                    response_body = exc.read()
+                    body_text = response_body.decode("utf-8", errors="replace")
+                    try:
+                        result = json.loads(body_text) if body_text else {}
+                    except json.JSONDecodeError:
+                        result = {"error": {"message": response_snippet(body_text, 500) or exc.reason}}
+                    message = (
+                        result.get("error", {}).get("message")
+                        if isinstance(result.get("error"), dict)
+                        else result.get("message")
+                    ) or f"上游返回 HTTP {exc.code}"
+                    last_error_message = f"HTTP {exc.code}: {message}"
+                    if is_transient_upstream_status(exc.code) and attempt < max_attempts:
+                        write_log(
+                            "WARN",
+                            "image_task_retry",
+                            f"{task_id} transient HTTP {exc.code}, retry {attempt}/{retry_count}",
+                            task_id=task_id,
+                            details={
+                                "path": upstream.get("path"),
+                                "model": request_meta.get("model"),
+                                "mode": request_meta.get("mode"),
+                                "status": exc.code,
+                                "attempt": attempt,
+                                "maxAttempts": max_attempts,
+                            },
+                        )
+                        update_image_task(
+                            task_id,
+                            status="running",
+                            error=f"上游返回 HTTP {exc.code}，正在重试 {attempt}/{retry_count}",
+                        )
+                        continue
+                    if activate_image_task_fallback(task_id, last_error_message, exc.code):
+                        fallback_activated = True
+                        break
+                    update_image_task(
+                        task_id,
+                        status="failed",
+                        completedAt=now_ts() * 1000,
+                        error=last_error_message,
+                        result=result,
+                        responseStatus=exc.code,
+                    )
+                    write_log(
+                        "WARN",
+                        "image_task_failed",
+                        f"{task_id} -> {last_error_message}",
+                        task_id=task_id,
+                        details={
+                            "path": upstream.get("path"),
+                            "model": request_meta.get("model"),
+                            "mode": request_meta.get("mode"),
+                        },
+                    )
+                    TASK_SECRETS.pop(task_id, None)
+                    return
+                except urllib.error.URLError as exc:
+                    last_error_message = f"无法连接上游：{exc.reason}"
+                except (
+                    TimeoutError,
+                    socket.timeout,
+                    http.client.RemoteDisconnected,
+                    http.client.BadStatusLine,
+                    ConnectionError,
+                    OSError,
+                ) as exc:
+                    if isinstance(exc, (TimeoutError, socket.timeout)):
+                        last_error_message = f"上游读取超时：超过 {OPENAI_PROXY_TIMEOUT} 秒没有返回响应"
+                    else:
+                        last_error_message = f"上游连接中断：{exc}"
+
+                if attempt < max_attempts:
+                    continue
+
+                if activate_image_task_fallback(task_id, last_error_message):
+                    fallback_activated = True
+                    break
+
+                update_image_task(
+                    task_id,
+                    status="failed",
+                    completedAt=now_ts() * 1000,
+                    error=last_error_message,
+                )
+                write_log(
+                    "WARN",
+                    "image_task_failed",
+                    f"{task_id} -> {last_error_message}",
+                    task_id=task_id,
+                    details={
+                        "path": upstream.get("path"),
+                        "model": request_meta.get("model"),
+                        "mode": request_meta.get("mode"),
+                        "attempts": max_attempts,
+                        "timeoutSeconds": OPENAI_PROXY_TIMEOUT,
+                    },
+                )
+                TASK_SECRETS.pop(task_id, None)
+                return
+
+            if fallback_activated:
+                continue
+            return
+    except Exception as exc:
+        LOGGER.exception("image task failed")
+        try:
+            update_image_task(
+                task_id,
+                status="failed",
+                completedAt=now_ts() * 1000,
+                error=f"本地任务执行失败：{exc}",
+            )
+            write_log(
+                "ERROR",
+                "image_task_failed",
+                f"{task_id} -> 本地任务执行失败：{exc}",
+                task_id=task_id,
+            )
+            TASK_SECRETS.pop(task_id, None)
+        except Exception:
+            LOGGER.exception("failed to persist image task failure")
+
+
 def write_log(
     level: str,
     event: str,
@@ -194,6 +855,60 @@ def write_log(
     compact_db_if_needed()
 
 
+def read_logs(
+    limit: int = 100,
+    level: str | None = None,
+    event: str | None = None,
+    task_id: str | None = None,
+) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if level:
+        clauses.append("level = ?")
+        params.append(level.upper())
+    if event:
+        clauses.append("event = ?")
+        params.append(event)
+    if task_id:
+        clauses.append("task_id = ?")
+        params.append(task_id)
+
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    params.append(max(1, min(500, limit)))
+    with DB_LOCK, connect_db() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT id, ts, level, event, task_id, message, details
+            FROM service_logs
+            {where}
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            params,
+        ).fetchall()
+
+    logs: list[dict[str, Any]] = []
+    for row in rows:
+        details: Any = None
+        if row["details"]:
+            try:
+                details = json.loads(row["details"])
+            except json.JSONDecodeError:
+                details = row["details"]
+        logs.append(
+            {
+                "id": row["id"],
+                "ts": row["ts"],
+                "level": row["level"],
+                "event": row["event"],
+                "taskId": row["task_id"],
+                "message": row["message"],
+                "details": details,
+            }
+        )
+    return logs
+
+
 def json_response(handler: SimpleHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
@@ -210,6 +925,79 @@ def normalize_new_api_base_url(value: str) -> str:
     if parsed.scheme != "https" or parsed.netloc != ALLOWED_NEW_API_HOST:
         raise NewApiError("当前只允许登录 https://hotapi.top/")
     return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def normalize_openai_proxy_base_url(value: str) -> str:
+    raw = (value or "").strip().rstrip("/")
+    if not raw:
+        raise ValueError("缺少上游 Base URL")
+
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("上游 Base URL 必须是 http 或 https 地址")
+    if parsed.username or parsed.password or parsed.fragment:
+        raise ValueError("上游 Base URL 不能包含账号、密码或片段")
+    return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "", ""))
+
+
+def openai_proxy_target_url(base_url: str, proxy_path: str, query: str) -> str:
+    normalized_base = normalize_openai_proxy_base_url(base_url)
+    target_path = proxy_path.removeprefix("/api/openai")
+    if not target_path.startswith("/v1/"):
+        raise ValueError("只允许代理 OpenAI-compatible /v1/* 接口")
+    target = f"{normalized_base}{target_path}"
+    if query:
+        target = f"{target}?{query}"
+    return target
+
+
+def sanitized_forward_headers(headers: Any) -> dict[str, str]:
+    blocked = {
+        "accept-encoding",
+        "connection",
+        "content-length",
+        "host",
+        "origin",
+        "referer",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "transfer-encoding",
+    }
+    forwarded: dict[str, str] = {}
+    for name, value in headers.items():
+        lowered = name.lower()
+        if lowered in blocked or lowered.startswith("proxy-"):
+            continue
+        forwarded[name] = value
+    forwarded.setdefault("User-Agent", "GPT-Image-Tools/1.0")
+    return forwarded
+
+
+def response_snippet(text: str, limit: int = 240) -> str:
+    cleaned = re.sub(r"<script[\s\S]*?</script>", " ", text, flags=re.IGNORECASE)
+    cleaned = re.sub(r"<style[\s\S]*?</style>", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned[:limit] or "空响应"
+
+
+def is_transient_upstream_status(status: int) -> bool:
+    return status in {
+        408,
+        429,
+        500,
+        502,
+        503,
+        504,
+        520,
+        521,
+        522,
+        523,
+        524,
+        525,
+        526,
+    }
 
 
 def split_model_limits(value: str | None) -> set[str]:
@@ -609,9 +1397,21 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 {
                     "success": True,
                     "service": "gpt-image-tools",
-                    "features": ["newapi-login-key"],
+                    "features": ["newapi-login-key", "openai-proxy", "image-tasks", "logs"],
                 },
             )
+            return
+        if parsed_path.path == "/api/logs":
+            self.handle_list_logs(parsed_path)
+            return
+        if parsed_path.path == "/api/image-tasks":
+            self.handle_list_image_tasks()
+            return
+        if parsed_path.path.startswith("/api/image-tasks/"):
+            self.handle_get_image_task(parsed_path)
+            return
+        if parsed_path.path.startswith("/api/openai/"):
+            self.handle_openai_proxy(parsed_path)
             return
         if parsed_path.path == "/api/style-library":
             self.handle_style_library()
@@ -623,6 +1423,12 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed_path = urllib.parse.urlparse(self.path)
+        if parsed_path.path == "/api/image-tasks":
+            self.handle_create_image_task()
+            return
+        if parsed_path.path.startswith("/api/openai/"):
+            self.handle_openai_proxy(parsed_path)
+            return
         if parsed_path.path != "/api/newapi/login-key":
             json_response(self, HTTPStatus.NOT_FOUND, {"success": False, "message": "Not found"})
             return
@@ -656,6 +1462,242 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 {"success": False, "message": "登录中转站失败，请稍后重试"},
             )
+
+    def read_json_body(self, max_bytes: int) -> dict[str, Any]:
+        try:
+            body_length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            body_length = 0
+        if body_length <= 0 or body_length > max_bytes:
+            raise ValueError("请求体为空或过大")
+        body = self.rfile.read(body_length).decode("utf-8")
+        payload = json.loads(body)
+        if not isinstance(payload, dict):
+            raise ValueError("请求体必须是 JSON 对象")
+        return payload
+
+    def handle_create_image_task(self) -> None:
+        try:
+            payload = self.read_json_body(MAX_OPENAI_PROXY_BODY)
+            task_id = f"img_{int(now_ts() * 1000)}_{uuid.uuid4().hex[:12]}"
+            created_at = now_ts() * 1000
+            upstream = payload.get("upstream")
+            if not isinstance(upstream, dict):
+                raise ValueError("缺少 upstream 配置")
+            if upstream.get("kind") not in {"json", "multipart"}:
+                raise ValueError("不支持的 upstream.kind")
+            if upstream.get("path") not in {"/v1/images/generations", "/v1/images/edits"}:
+                raise ValueError("图片任务只允许 /v1/images/generations 或 /v1/images/edits")
+            if not str(upstream.get("apiKey") or "").strip():
+                raise ValueError("缺少 API Key")
+            api_key = str(upstream.pop("apiKey")).strip()
+            fallback_upstream = payload.get("fallbackUpstream")
+            if isinstance(fallback_upstream, dict):
+                fallback_upstream.pop("apiKey", None)
+                if fallback_upstream.get("kind") not in {"json", "multipart"}:
+                    raise ValueError("不支持的 fallbackUpstream.kind")
+                if fallback_upstream.get("path") not in {"/v1/images/generations", "/v1/images/edits"}:
+                    raise ValueError("图片降级任务只允许 /v1/images/generations 或 /v1/images/edits")
+            else:
+                fallback_upstream = None
+            fallback_request = (
+                payload.get("fallbackRequest") if isinstance(payload.get("fallbackRequest"), dict) else None
+            )
+
+            task = {
+                "taskId": task_id,
+                "status": "queued",
+                "createdAt": created_at,
+                "updatedAt": created_at,
+                "completedAt": None,
+                "error": None,
+                "result": None,
+                "request": payload.get("request") if isinstance(payload.get("request"), dict) else {},
+                "upstream": upstream,
+            }
+            if fallback_upstream:
+                task["fallbackUpstream"] = fallback_upstream
+            if fallback_request:
+                task["fallbackRequest"] = fallback_request
+            with TASKS_LOCK:
+                TASK_SECRETS[task_id] = api_key
+                write_image_task(task_id, task)
+            write_log(
+                "INFO",
+                "image_task_created",
+                f"{task_id} queued",
+                task_id=task_id,
+                details={
+                    "path": upstream.get("path"),
+                    "model": task.get("request", {}).get("model"),
+                    "mode": task.get("request", {}).get("mode"),
+                    "size": task.get("request", {}).get("size"),
+                    "responseFormat": task.get("request", {}).get("responseFormat"),
+                },
+            )
+            thread = threading.Thread(
+                target=run_image_task,
+                args=(task_id,),
+                name=f"image-task-{task_id}",
+                daemon=True,
+            )
+            thread.start()
+            json_response(self, HTTPStatus.ACCEPTED, public_image_task(task))
+        except json.JSONDecodeError:
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": {"message": "请求体不是有效 JSON"}})
+        except ValueError as exc:
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": {"message": str(exc)}})
+        except Exception:
+            LOGGER.exception("failed to create image task")
+            json_response(
+                self,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"error": {"message": "创建生图任务失败"}},
+            )
+
+    def handle_get_image_task(self, parsed_path: urllib.parse.ParseResult) -> None:
+        task_id = parsed_path.path.removeprefix("/api/image-tasks/").strip("/")
+        task = read_image_task(task_id)
+        if task is None:
+            json_response(self, HTTPStatus.NOT_FOUND, {"error": {"message": "生图任务不存在或已过期"}})
+            return
+        json_response(self, HTTPStatus.OK, public_image_task(task))
+
+    def handle_list_image_tasks(self) -> None:
+        try:
+            parsed = urllib.parse.urlparse(self.path)
+            query = urllib.parse.parse_qs(parsed.query)
+            limit = int(query.get("limit", ["30"])[0])
+        except ValueError:
+            limit = 30
+        json_response(
+            self,
+            HTTPStatus.OK,
+            {"data": list_public_image_tasks(max(1, min(100, limit)))},
+        )
+
+    def handle_list_logs(self, parsed_path: urllib.parse.ParseResult) -> None:
+        query = urllib.parse.parse_qs(parsed_path.query)
+        try:
+            limit = int(query.get("limit", ["100"])[0])
+        except ValueError:
+            limit = 100
+        level = query.get("level", [""])[0].strip().upper() or None
+        event = query.get("event", [""])[0].strip() or None
+        task_id = query.get("taskId", [""])[0].strip() or None
+        json_response(
+            self,
+            HTTPStatus.OK,
+            {
+                "success": True,
+                "data": read_logs(
+                    limit=max(1, min(500, limit)),
+                    level=level,
+                    event=event,
+                    task_id=task_id,
+                ),
+            },
+        )
+
+    def handle_openai_proxy(self, parsed_path: urllib.parse.ParseResult) -> None:
+        query = urllib.parse.parse_qs(parsed_path.query, keep_blank_values=True)
+        base_url = query.pop("baseUrl", [""])[0]
+        target_query = urllib.parse.urlencode(query, doseq=True)
+        try:
+            target_url = openai_proxy_target_url(base_url, parsed_path.path, target_query)
+        except ValueError as exc:
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": {"message": str(exc)}})
+            return
+
+        try:
+            body_length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            body_length = 0
+        if body_length < 0 or body_length > MAX_OPENAI_PROXY_BODY:
+            json_response(
+                self,
+                HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                {"error": {"message": "代理请求体过大"}},
+            )
+            return
+
+        body = self.rfile.read(body_length) if body_length else None
+        request = urllib.request.Request(
+            target_url,
+            data=body,
+            method=self.command,
+            headers=sanitized_forward_headers(self.headers),
+        )
+
+        started_at = now_ts()
+        try:
+            with open_url(request, timeout=OPENAI_PROXY_TIMEOUT) as response:
+                response_body = response.read()
+                self.send_response(response.status)
+                self.forward_openai_response_headers(response.headers, len(response_body))
+                self.end_headers()
+                self.wfile.write(response_body)
+                write_log(
+                    "INFO",
+                    "openai_proxy",
+                    f"{self.command} {parsed_path.path} -> HTTP {response.status}",
+                    details={
+                        "target": urllib.parse.urlparse(target_url)._replace(query="").geturl(),
+                        "elapsedMs": round((now_ts() - started_at) * 1000),
+                    },
+                )
+        except urllib.error.HTTPError as exc:
+            response_body = exc.read()
+            self.send_response(exc.code)
+            self.forward_openai_response_headers(exc.headers, len(response_body))
+            self.end_headers()
+            self.wfile.write(response_body)
+            write_log(
+                "WARN",
+                "openai_proxy_http_error",
+                f"{self.command} {parsed_path.path} -> HTTP {exc.code}",
+                details={
+                    "target": urllib.parse.urlparse(target_url)._replace(query="").geturl(),
+                    "elapsedMs": round((now_ts() - started_at) * 1000),
+                },
+            )
+        except urllib.error.URLError as exc:
+            message = f"无法连接上游：{exc.reason}"
+            write_log(
+                "WARN",
+                "openai_proxy_network_error",
+                message,
+                details={
+                    "target": urllib.parse.urlparse(target_url)._replace(query="").geturl(),
+                    "elapsedMs": round((now_ts() - started_at) * 1000),
+                },
+            )
+            json_response(
+                self,
+                HTTPStatus.BAD_GATEWAY,
+                {"error": {"message": message}},
+            )
+        except Exception:
+            LOGGER.exception("openai proxy failed")
+            json_response(
+                self,
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"error": {"message": "本地 OpenAI 代理请求失败"}},
+            )
+
+    def forward_openai_response_headers(self, headers: Any, body_length: int) -> None:
+        blocked = {
+            "connection",
+            "content-encoding",
+            "content-length",
+            "transfer-encoding",
+            "strict-transport-security",
+        }
+        for name, value in headers.items():
+            if name.lower() in blocked:
+                continue
+            self.send_header(name, value)
+        self.send_header("Content-Length", str(body_length))
 
     def handle_style_library(self) -> None:
         try:

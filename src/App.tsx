@@ -1670,6 +1670,11 @@ export function App() {
   }, [])
 
   useEffect(() => {
+    if (!hasLoadedSettings) return
+    void recoverImageTasks()
+  }, [hasLoadedSettings])
+
+  useEffect(() => {
     if (!hasLoadedSettings || isConfigured || currentView === 'console') return
     setError('')
     setCurrentView('console')
@@ -1912,6 +1917,7 @@ export function App() {
       quality: string
       mode: 'text' | 'image'
       referenceImageNames?: string[]
+      generationTaskId?: string
     }
   ) {
     const createdAt = Date.now()
@@ -1926,6 +1932,7 @@ export function App() {
       revisedPrompt: item.revisedPrompt,
       mode: context.mode,
       referenceImageNames: context.referenceImageNames,
+      generationTaskId: context.generationTaskId,
     }))
   }
 
@@ -1941,6 +1948,7 @@ export function App() {
       referenceImageNames?: string[]
       canvasId?: string
       generateNodeId?: string
+      generationTaskId?: string
     }
   ) {
     const records = buildLocalImageRecords(generatedImages, context)
@@ -1976,6 +1984,91 @@ export function App() {
     }
     await refreshImages()
     return records
+  }
+
+  async function imageTaskResultToImages(task: ImageGenerationTask) {
+    const generatedImages: Array<{ src: string; revisedPrompt?: string }> = []
+    for (const item of task.result?.data || []) {
+      if (item.b64_json) {
+        generatedImages.push({
+          src: `data:image/png;base64,${item.b64_json}`,
+          revisedPrompt: item.revised_prompt,
+        })
+      } else if (item.url) {
+        generatedImages.push({
+          src: await imageSourceToDataUrl(item.url),
+          revisedPrompt: item.revised_prompt,
+        })
+      }
+    }
+    return generatedImages
+  }
+
+  async function importCompletedImageTask(
+    task: ImageGenerationTask,
+    savedTaskIds: Set<string>
+  ) {
+    if (savedTaskIds.has(task.taskId)) return 0
+    if (task.status !== 'completed' || !task.result || !task.request?.prompt) return 0
+    if (task.fallbackUsed && task.request.mode === 'text' && task.request.referenceImageNames?.length) {
+      savedTaskIds.add(task.taskId)
+      return 0
+    }
+
+    const generatedImages = await imageTaskResultToImages(task)
+    if (generatedImages.length === 0) return 0
+
+    await saveImages(
+      buildLocalImageRecords(generatedImages, {
+        prompt: task.request.prompt || '',
+        model: task.request.model || model,
+        size: task.request.size || selectedGenerationSize() || 'auto',
+        quality: task.request.quality || quality,
+        mode: task.request.mode || 'text',
+        referenceImageNames: task.request.referenceImageNames,
+        generationTaskId: task.taskId,
+      })
+    )
+    savedTaskIds.add(task.taskId)
+    return generatedImages.length
+  }
+
+  async function monitorRecoveredImageTask(
+    initialTask: ImageGenerationTask,
+    savedTaskIds: Set<string>
+  ) {
+    let task = initialTask
+    while (task.status === 'queued' || task.status === 'running') {
+      await new Promise((resolve) => window.setTimeout(resolve, task.pollAfterMs || 1500))
+      task = await bridge.getImageTask(task.taskId)
+      setStatus(taskStatusLabel(task.status))
+    }
+    if (await importCompletedImageTask(task, savedTaskIds)) {
+      await refreshImages()
+      setStatus('已恢复后台完成的图片任务，结果已保存到图库')
+    }
+  }
+
+  async function recoverImageTasks() {
+    try {
+      const [tasks, currentImages] = await Promise.all([bridge.listImageTasks(), listImages()])
+      const savedTaskIds = new Set(
+        currentImages
+          .map((image) => image.generationTaskId)
+          .filter((taskId): taskId is string => Boolean(taskId))
+      )
+
+      for (const task of tasks) {
+        if (task.status === 'completed') {
+          await importCompletedImageTask(task, savedTaskIds)
+        } else if (task.status === 'queued' || task.status === 'running') {
+          void monitorRecoveredImageTask(task, savedTaskIds)
+        }
+      }
+      await refreshImages()
+    } catch (err) {
+      console.warn('Failed to recover image tasks:', err)
+    }
   }
 
   async function handleSaveSettings() {
@@ -2587,7 +2680,7 @@ export function App() {
         const records = await persistCompletedTaskResult(
           currentTaskId,
           result.images,
-          generationContext
+          { ...generationContext, generationTaskId: currentTaskId }
         )
         generatedRecordsByNode.set(generateNode.id, records)
         visiting.delete(generateNode.id)
@@ -2932,6 +3025,7 @@ ${description}`
       const selectedStyles =
         options?.includeAdvancedStyle && advancedSelectedStyle ? [advancedSelectedStyle] : []
       const finalPrompt = promptWithStyles(sketchPrompt, selectedStyles, advancedStyleWeight)
+      let currentTaskId = ''
       const result = await bridge.generateImages({
         baseUrl: imageBaseUrl,
         apiKey,
@@ -2944,7 +3038,10 @@ ${description}`
         responseFormat: includeAdvancedControls ? advancedResponseFormat : responseFormat,
         background: includeAdvancedControls ? advancedBackground : undefined,
         retryCount: imageRetryCount,
-        onTaskUpdate: (task) => setStatus(taskStatusLabel(task.status)),
+        onTaskUpdate: (task) => {
+          currentTaskId = task.taskId
+          setStatus(taskStatusLabel(task.status))
+        },
       })
       const records = buildLocalImageRecords(result.images, {
         prompt: finalPrompt,
@@ -2952,6 +3049,7 @@ ${description}`
         size: generationSize,
         quality: includeAdvancedControls ? advancedQuality : quality,
         mode: 'text',
+        generationTaskId: currentTaskId || undefined,
       })
       await saveImages(records)
       await refreshImages()
@@ -3081,6 +3179,7 @@ ${description}`
       const referenceImages = [productReferenceImage, commerceStyleImage]
       setStatus(`正在生成${outputLabel}...`)
 
+      let currentTaskId = ''
       const result = await bridge.generateImages({
         baseUrl: imageBaseUrl,
         apiKey,
@@ -3094,7 +3193,10 @@ ${description}`
         inputFidelity,
         retryCount: imageRetryCount,
         referenceImages,
-        onTaskUpdate: (task) => setStatus(taskStatusLabel(task.status)),
+        onTaskUpdate: (task) => {
+          currentTaskId = task.taskId
+          setStatus(taskStatusLabel(task.status))
+        },
       })
       const records = buildLocalImageRecords(result.images, {
         prompt,
@@ -3103,6 +3205,7 @@ ${description}`
         quality,
         mode: 'image',
         referenceImageNames: referenceImages.map((image) => image.title || image.name),
+        generationTaskId: currentTaskId || undefined,
       })
       await saveImages(records)
       await refreshImages()

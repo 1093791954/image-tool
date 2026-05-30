@@ -4,10 +4,12 @@ import type {
   ImageApiClient,
   ImageGenerationPayload,
   ImageGenerationResult,
+  ImageGenerationTask,
   ManagedNewApiLoginResult,
   ModelOption,
   NegativePromptOptimizationPayload,
   PromptOptimizationPayload,
+  ReferenceImage,
   SketchDescriptionPayload,
   StyleCategory,
   StyleCategoryResult,
@@ -24,11 +26,17 @@ import {
 
 const NEW_API_BASE_URL = 'https://hotapi.top'
 const NEW_API_LOGIN_PROXY_PATH = '/api/newapi/login-key'
+const OPENAI_PROXY_PATH = '/api/openai'
 
 function normalizeBaseUrl(baseUrl: string) {
   const trimmed = baseUrl.trim().replace(/\/+$/, '')
   if (!trimmed) throw new Error('Base URL is required')
   return trimmed
+}
+
+function openAiProxyUrl(baseUrl: string, path: string) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `${OPENAI_PROXY_PATH}${normalizedPath}?baseUrl=${encodeURIComponent(normalizeBaseUrl(baseUrl))}`
 }
 
 function normalizeNewApiBaseUrl(value: string) {
@@ -355,6 +363,49 @@ async function parseImageResult(
 
   if (images.length === 0) throw new Error('No image returned by upstream')
   return { images }
+}
+
+async function parseImageTaskResponse(response: Response, prefix: string) {
+  return parseJsonResponse<ImageGenerationTask>(response, prefix)
+}
+
+async function waitForImageTask(
+  task: ImageGenerationTask,
+  onTaskUpdate?: (task: ImageGenerationTask) => void
+) {
+  let currentTask = task
+  onTaskUpdate?.(currentTask)
+  while (currentTask.status === 'queued' || currentTask.status === 'running') {
+    await delay(currentTask.pollAfterMs || 1500)
+    const response = await fetch(`/api/image-tasks/${encodeURIComponent(currentTask.taskId)}`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    })
+    currentTask = await parseImageTaskResponse(response, 'Image task polling failed')
+    onTaskUpdate?.(currentTask)
+  }
+
+  if (currentTask.status !== 'completed') {
+    throw new Error(currentTask.error || 'Image generation task failed')
+  }
+  if (!currentTask.result) {
+    throw new Error('Image generation task completed without a result')
+  }
+  return parseImageResult(currentTask.result)
+}
+
+function shouldFallbackImageEdit(error: unknown) {
+  return false
+}
+
+function fallbackPromptForImageEdit(payload: ImageGenerationPayload, references: ReferenceImage[]) {
+  const referenceNames = references.map((image) => image.title || image.name).filter(Boolean)
+  if (referenceNames.length === 0) return payload.prompt
+  return [
+    payload.prompt,
+    '',
+    `参考图名称：${referenceNames.join('、')}。当前上游图生图接口不可用，请根据提示词中对参考图主体、风格、构图和细节的描述完成文生图降级生成。`,
+  ].join('\n')
 }
 
 function extractTextContent(value: unknown): string {
@@ -758,7 +809,7 @@ export const bridge: ImageApiClient = {
   },
 
   async listModels(args) {
-    const response = await fetch(`${normalizeBaseUrl(args.baseUrl)}/v1/models`, {
+    const response = await fetch(openAiProxyUrl(args.baseUrl, '/v1/models'), {
       method: 'GET',
       headers: headers(args.apiKey),
     })
@@ -770,8 +821,7 @@ export const bridge: ImageApiClient = {
   },
 
   async optimizePrompt(payload) {
-    const baseUrl = normalizeBaseUrl(payload.baseUrl)
-    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+    const response = await fetch(openAiProxyUrl(payload.baseUrl, '/v1/chat/completions'), {
       method: 'POST',
       headers: headers(payload.apiKey),
       body: JSON.stringify(promptOptimizationRequestBody(payload)),
@@ -785,7 +835,7 @@ export const bridge: ImageApiClient = {
       if (!isEmptyPromptOptimizationError(error)) throw error
       const chatErrorMessage = error instanceof Error ? error.message : String(error)
 
-      const fallbackResponse = await fetch(`${baseUrl}/v1/responses`, {
+      const fallbackResponse = await fetch(openAiProxyUrl(payload.baseUrl, '/v1/responses'), {
         method: 'POST',
         headers: headers(payload.apiKey),
         body: JSON.stringify(promptOptimizationResponsesRequestBody(payload)),
@@ -811,8 +861,7 @@ export const bridge: ImageApiClient = {
   },
 
   async optimizeNegativePrompt(payload) {
-    const baseUrl = normalizeBaseUrl(payload.baseUrl)
-    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+    const response = await fetch(openAiProxyUrl(payload.baseUrl, '/v1/chat/completions'), {
       method: 'POST',
       headers: headers(payload.apiKey),
       body: JSON.stringify(negativePromptOptimizationRequestBody(payload)),
@@ -826,7 +875,7 @@ export const bridge: ImageApiClient = {
       if (!isEmptyPromptOptimizationError(error)) throw error
       const chatErrorMessage = error instanceof Error ? error.message : String(error)
 
-      const fallbackResponse = await fetch(`${baseUrl}/v1/responses`, {
+      const fallbackResponse = await fetch(openAiProxyUrl(payload.baseUrl, '/v1/responses'), {
         method: 'POST',
         headers: headers(payload.apiKey),
         body: JSON.stringify(negativePromptOptimizationResponsesRequestBody(payload)),
@@ -852,8 +901,7 @@ export const bridge: ImageApiClient = {
   },
 
   async describeSketch(payload) {
-    const baseUrl = normalizeBaseUrl(payload.baseUrl)
-    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+    const response = await fetch(openAiProxyUrl(payload.baseUrl, '/v1/chat/completions'), {
       method: 'POST',
       headers: headers(payload.apiKey),
       body: JSON.stringify(sketchDescriptionRequestBody(payload)),
@@ -871,7 +919,7 @@ export const bridge: ImageApiClient = {
       if (!isEmptyPromptOptimizationError(error)) throw error
       const chatErrorMessage = error instanceof Error ? error.message : String(error)
 
-      const fallbackResponse = await fetch(`${baseUrl}/v1/responses`, {
+      const fallbackResponse = await fetch(openAiProxyUrl(payload.baseUrl, '/v1/responses'), {
         method: 'POST',
         headers: headers(payload.apiKey),
         body: JSON.stringify(sketchDescriptionResponsesRequestBody(payload)),
@@ -897,8 +945,7 @@ export const bridge: ImageApiClient = {
   },
 
   async prepareCommerceMainPrompt(payload) {
-    const baseUrl = normalizeBaseUrl(payload.baseUrl)
-    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+    const response = await fetch(openAiProxyUrl(payload.baseUrl, '/v1/chat/completions'), {
       method: 'POST',
       headers: headers(payload.apiKey),
       body: JSON.stringify(commerceMainPromptRequestBody(payload)),
@@ -916,7 +963,7 @@ export const bridge: ImageApiClient = {
       if (!isEmptyPromptOptimizationError(error)) throw error
       const chatErrorMessage = error instanceof Error ? error.message : String(error)
 
-      const fallbackResponse = await fetch(`${baseUrl}/v1/responses`, {
+      const fallbackResponse = await fetch(openAiProxyUrl(payload.baseUrl, '/v1/responses'), {
         method: 'POST',
         headers: headers(payload.apiKey),
         body: JSON.stringify(commerceMainPromptResponsesRequestBody(payload)),
@@ -942,8 +989,7 @@ export const bridge: ImageApiClient = {
   },
 
   async prepareCommerceDetailPrompt(payload) {
-    const baseUrl = normalizeBaseUrl(payload.baseUrl)
-    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+    const response = await fetch(openAiProxyUrl(payload.baseUrl, '/v1/chat/completions'), {
       method: 'POST',
       headers: headers(payload.apiKey),
       body: JSON.stringify(commerceDetailPromptRequestBody(payload)),
@@ -961,7 +1007,7 @@ export const bridge: ImageApiClient = {
       if (!isEmptyPromptOptimizationError(error)) throw error
       const chatErrorMessage = error instanceof Error ? error.message : String(error)
 
-      const fallbackResponse = await fetch(`${baseUrl}/v1/responses`, {
+      const fallbackResponse = await fetch(openAiProxyUrl(payload.baseUrl, '/v1/responses'), {
         method: 'POST',
         headers: headers(payload.apiKey),
         body: JSON.stringify(commerceDetailPromptResponsesRequestBody(payload)),
@@ -999,6 +1045,26 @@ export const bridge: ImageApiClient = {
     return parseJsonResponse<StyleCategoryResult>(response, 'Style category failed')
   },
 
+  async getImageTask(taskId) {
+    const response = await fetch(`/api/image-tasks/${encodeURIComponent(taskId)}`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    })
+    return parseImageTaskResponse(response, 'Image task fetch failed')
+  },
+
+  async listImageTasks() {
+    const response = await fetch('/api/image-tasks?limit=50', {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    })
+    const body = await parseJsonResponse<{ data?: ImageGenerationTask[] }>(
+      response,
+      'Image task list failed'
+    )
+    return body.data || []
+  },
+
   async generateImages(payload: ImageGenerationPayload) {
     const startedAt = Date.now()
     const taskId = `local-${startedAt}-${Math.random().toString(36).slice(2, 10)}`
@@ -1017,69 +1083,67 @@ export const bridge: ImageApiClient = {
       }
 
       const apiSize = normalizedImageApiSize(payload.model, payload.size)
-      const form = new FormData()
-      form.set('model', payload.model)
-      form.set('prompt', payload.prompt)
-      form.set('size', apiSize)
+      const fields: Record<string, string> = {
+        model: payload.model,
+        prompt: payload.prompt,
+        size: apiSize,
+        n: String(payload.count),
+        response_format: payload.responseFormat,
+      }
       if (payload.quality !== 'auto') {
-        form.set('quality', payload.quality)
+        fields.quality = payload.quality
       }
-      form.set('n', String(payload.count))
-      form.set('response_format', payload.responseFormat)
       if (payload.inputFidelity && payload.model.trim().toLowerCase() !== 'gpt-image-2') {
-        form.set('input_fidelity', payload.inputFidelity)
+        fields.input_fidelity = payload.inputFidelity
       }
-      references.forEach((image) => {
-        form.append('image[]', blobFromDataUrl(image.dataUrl), image.name)
-      })
 
       try {
-        const result = await fetchJsonWithRetry<{
-          data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>
-        }>(
-          `${normalizeBaseUrl(payload.baseUrl)}/v1/images/edits`,
-          {
-            method: 'POST',
-            headers: imageTaskAuthHeaders(payload.apiKey),
-            body: form,
+        const response = await fetch('/api/image-tasks', {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
           },
-          'Image edit failed',
-          payload.retryCount,
-          (attempt, maxAttempts, status) => {
-            payload.onTaskUpdate?.({
-              taskId,
-              status: 'running',
-              createdAt: startedAt,
-              updatedAt: Date.now(),
-              pollAfterMs: 0,
-              error: status
-                ? `上游返回 HTTP ${status}，正在重试 ${attempt}/${maxAttempts - 1}`
-                : `上游请求失败，正在重试 ${attempt}/${maxAttempts - 1}`,
-            })
-          }
-        )
-        const parsed = await parseImageResult(result)
-        payload.onTaskUpdate?.({
-          taskId,
-          status: 'completed',
-          createdAt: startedAt,
-          updatedAt: Date.now(),
-          completedAt: Date.now(),
-          result,
-          pollAfterMs: 0,
+          body: JSON.stringify({
+            request: {
+              prompt: payload.prompt,
+              model: payload.model,
+              size: payload.size,
+              quality: payload.quality,
+              mode: 'image',
+              responseFormat: payload.responseFormat,
+              count: payload.count,
+              retryCount: normalizeRetryCount(payload.retryCount),
+              referenceImageNames: references.map((image) => image.title || image.name),
+            },
+            upstream: {
+              kind: 'multipart',
+              baseUrl: payload.baseUrl,
+              apiKey: payload.apiKey,
+              path: '/v1/images/edits',
+              fields,
+              images: references.map((image) => ({
+                name: image.name,
+                dataUrl: image.dataUrl,
+              })),
+            },
+          }),
         })
-        return parsed
+        const createdTask = await parseImageTaskResponse(response, 'Image edit task failed')
+        return await waitForImageTask(createdTask, payload.onTaskUpdate)
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        const imageEditMessage = `图生图失败：上游没有成功处理参考图，不能降级为文生图，否则会丢失参考图主体。${message}`
         payload.onTaskUpdate?.({
           taskId,
           status: 'failed',
           createdAt: startedAt,
           updatedAt: Date.now(),
           completedAt: Date.now(),
-          error: error instanceof Error ? error.message : String(error),
+          error: imageEditMessage,
           pollAfterMs: 0,
         })
-        throw error
+        throw new Error(imageEditMessage)
       }
     }
 
@@ -1089,38 +1153,50 @@ export const bridge: ImageApiClient = {
 
     try {
       for (let index = 0; index < requestedCount; index += 1) {
-        const result = await fetchJsonWithRetry<{
-          data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>
-        }>(
-          `${normalizeBaseUrl(payload.baseUrl)}/v1/images/generations`,
-          {
-            method: 'POST',
-            headers: imageTaskHeaders(payload.apiKey),
-            body: JSON.stringify({
-              model: payload.model,
-              prompt: payload.prompt,
-              size: apiSize,
-              ...(payload.quality !== 'auto' ? { quality: payload.quality } : {}),
-              n: 1,
-              response_format: payload.responseFormat,
-            }),
+        const response = await fetch('/api/image-tasks', {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
           },
-          'Image generation failed',
-          payload.retryCount,
-          (attempt, maxAttempts, status) => {
-            payload.onTaskUpdate?.({
-              taskId,
-              status: 'running',
-              createdAt: startedAt,
-              updatedAt: Date.now(),
-              pollAfterMs: 0,
-              error: status
-                ? `第 ${index + 1}/${requestedCount} 张上游返回 HTTP ${status}，正在重试 ${attempt}/${maxAttempts - 1}`
-                : `第 ${index + 1}/${requestedCount} 张上游请求失败，正在重试 ${attempt}/${maxAttempts - 1}`,
-            })
-          }
-        )
-        const parsed = await parseImageResult(result)
+          body: JSON.stringify({
+            request: {
+              prompt: payload.prompt,
+              model: payload.model,
+              size: payload.size,
+              quality: payload.quality,
+              mode: 'text',
+              responseFormat: payload.responseFormat,
+              count: 1,
+              retryCount: normalizeRetryCount(payload.retryCount),
+            },
+            upstream: {
+              kind: 'json',
+              baseUrl: payload.baseUrl,
+              apiKey: payload.apiKey,
+              path: '/v1/images/generations',
+              body: {
+                model: payload.model,
+                prompt: payload.prompt,
+                size: apiSize,
+                ...(payload.quality !== 'auto' ? { quality: payload.quality } : {}),
+                n: 1,
+                response_format: payload.responseFormat,
+              },
+            },
+          }),
+        })
+        const createdTask = await parseImageTaskResponse(response, 'Image generation task failed')
+        const parsed = await waitForImageTask(createdTask, (task) => {
+          payload.onTaskUpdate?.({
+            ...task,
+            error:
+              task.error ||
+              (task.status === 'running' && requestedCount > 1
+                ? `正在生成第 ${index + 1}/${requestedCount} 张`
+                : task.error),
+          })
+        })
         images.push(...parsed.images)
       }
       payload.onTaskUpdate?.({
