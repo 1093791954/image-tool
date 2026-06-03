@@ -82,6 +82,10 @@ DB_LOCK = threading.RLock()
 TASKS_LOCK = threading.RLock()
 TASK_SECRETS: dict[str, str] = {}
 LOGGER = logging.getLogger("image-tools")
+TASK_SECRET_KEY_PATH = Path(
+    os.environ.get("IMAGE_TOOLS_TASK_SECRET_KEY_PATH", str(DATA_DIR / "task-secret.key"))
+).resolve()
+TASK_SECRET_VERSION = "v1"
 
 
 class NewApiError(Exception):
@@ -149,7 +153,115 @@ def init_storage() -> None:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_ts ON service_logs(ts)")
         conn.commit()
     scrub_task_secrets_from_disk()
-    fail_interrupted_image_tasks()
+    resume_interrupted_image_tasks()
+
+
+def load_task_secret_key() -> bytes:
+    try:
+        raw = TASK_SECRET_KEY_PATH.read_bytes()
+        if len(raw) >= 32:
+            return raw[:32]
+    except OSError:
+        pass
+
+    key = secrets.token_bytes(32)
+    TASK_SECRET_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        if hasattr(os, "O_BINARY"):
+            flags |= os.O_BINARY
+        fd = os.open(str(TASK_SECRET_KEY_PATH), flags, 0o600)
+        with os.fdopen(fd, "wb") as file:
+            file.write(key)
+    except FileExistsError:
+        raw = TASK_SECRET_KEY_PATH.read_bytes()
+        if len(raw) >= 32:
+            return raw[:32]
+        raise RuntimeError(f"任务密钥文件无效：{TASK_SECRET_KEY_PATH}")
+    except OSError as exc:
+        raise RuntimeError(f"无法创建任务密钥文件：{TASK_SECRET_KEY_PATH}") from exc
+    return key
+
+
+def task_secret_keystream(key: bytes, nonce: bytes, length: int) -> bytes:
+    chunks: list[bytes] = []
+    counter = 0
+    while sum(len(chunk) for chunk in chunks) < length:
+        chunks.append(
+            hashlib.sha256(
+                key + nonce + counter.to_bytes(8, "big", signed=False)
+            ).digest()
+        )
+        counter += 1
+    return b"".join(chunks)[:length]
+
+
+def encrypt_task_api_key(api_key: str) -> str:
+    key = load_task_secret_key()
+    nonce = secrets.token_bytes(16)
+    plain = api_key.encode("utf-8")
+    stream = task_secret_keystream(key, nonce, len(plain))
+    cipher = bytes(left ^ right for left, right in zip(plain, stream))
+    mac = hashlib.blake2b(nonce + cipher, key=key, digest_size=32).digest()
+    return ".".join(
+        [
+            TASK_SECRET_VERSION,
+            base64.urlsafe_b64encode(nonce).decode("ascii").rstrip("="),
+            base64.urlsafe_b64encode(cipher).decode("ascii").rstrip("="),
+            base64.urlsafe_b64encode(mac).decode("ascii").rstrip("="),
+        ]
+    )
+
+
+def decode_urlsafe_base64(value: str) -> bytes:
+    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+
+
+def decrypt_task_api_key(value: str) -> str:
+    version, nonce_text, cipher_text, mac_text = value.split(".", 3)
+    if version != TASK_SECRET_VERSION:
+        raise ValueError("unsupported task secret version")
+    key = load_task_secret_key()
+    nonce = decode_urlsafe_base64(nonce_text)
+    cipher = decode_urlsafe_base64(cipher_text)
+    mac = decode_urlsafe_base64(mac_text)
+    expected_mac = hashlib.blake2b(nonce + cipher, key=key, digest_size=32).digest()
+    if not secrets.compare_digest(mac, expected_mac):
+        raise ValueError("invalid task secret mac")
+    stream = task_secret_keystream(key, nonce, len(cipher))
+    plain = bytes(left ^ right for left, right in zip(cipher, stream))
+    return plain.decode("utf-8")
+
+
+def task_has_persisted_secret(task: dict[str, Any]) -> bool:
+    return bool(str(task.get("apiKeyEncrypted") or ""))
+
+
+def resolve_task_api_key(task: dict[str, Any]) -> str | None:
+    task_id = str(task.get("taskId") or "")
+    api_key = TASK_SECRETS.get(task_id)
+    if api_key:
+        return api_key
+    encrypted = str(task.get("apiKeyEncrypted") or "")
+    if not encrypted:
+        return None
+    api_key = decrypt_task_api_key(encrypted)
+    if task_id:
+        TASK_SECRETS[task_id] = api_key
+    return api_key
+
+
+def clear_image_task_secret(task_id: str) -> None:
+    TASK_SECRETS.pop(task_id, None)
+    with TASKS_LOCK:
+        task = read_image_task(task_id)
+        if task is None:
+            return
+        if "apiKeyEncrypted" not in task:
+            return
+        task.pop("apiKeyEncrypted", None)
+        task["updatedAt"] = now_ts() * 1000
+        write_image_task(task_id, task)
 
 
 def scrub_task_secrets_from_disk() -> None:
@@ -175,7 +287,7 @@ def scrub_task_secrets_from_disk() -> None:
             LOGGER.exception("failed to scrub task secret")
 
 
-def fail_interrupted_image_tasks() -> None:
+def resume_interrupted_image_tasks() -> None:
     tasks_root = OPENAI_PROXY_CACHE_DIR / "tasks"
     if not tasks_root.exists():
         return
@@ -187,20 +299,43 @@ def fail_interrupted_image_tasks() -> None:
         if task.get("status") not in {"queued", "running"}:
             continue
         task_id = str(task.get("taskId") or meta_path.parent.name)
-        task["status"] = "failed"
-        task["completedAt"] = now_ts() * 1000
-        task["updatedAt"] = task["completedAt"]
-        task["error"] = "后端服务已重启，任务密钥只保存在内存中，该任务无法继续；请重新生成。"
+        if not task_has_persisted_secret(task):
+            task["status"] = "failed"
+            task["completedAt"] = now_ts() * 1000
+            task["updatedAt"] = task["completedAt"]
+            task["error"] = "后端服务已重启，旧版本任务没有持久化密钥，该任务无法继续；请重新生成。"
+            try:
+                write_image_task(task_id, task)
+                write_log(
+                    "WARN",
+                    "image_task_interrupted_missing_secret",
+                    f"{task_id} marked failed after backend restart without persisted secret",
+                    task_id=task_id,
+                )
+            except Exception:
+                LOGGER.exception("failed to mark interrupted image task")
+            continue
+
+        task["status"] = "queued"
+        task["error"] = "后端服务已重启，任务已自动恢复执行"
+        task["updatedAt"] = now_ts() * 1000
         try:
             write_image_task(task_id, task)
+            thread = threading.Thread(
+                target=run_image_task,
+                args=(task_id,),
+                name=f"image-task-resume-{task_id}",
+                daemon=True,
+            )
+            thread.start()
             write_log(
                 "WARN",
-                "image_task_interrupted",
-                f"{task_id} marked failed after backend restart",
+                "image_task_resumed",
+                f"{task_id} resumed after backend restart",
                 task_id=task_id,
             )
         except Exception:
-            LOGGER.exception("failed to mark interrupted image task")
+            LOGGER.exception("failed to resume interrupted image task")
 
 
 def connect_db() -> sqlite3.Connection:
@@ -414,9 +549,9 @@ def build_image_task_request(task: dict[str, Any]) -> urllib.request.Request:
         f"/api/openai{upstream['path']}",
         "",
     )
-    api_key = TASK_SECRETS.get(task["taskId"]) or upstream.get("apiKey")
+    api_key = resolve_task_api_key(task) or upstream.get("apiKey")
     if not api_key:
-        raise RuntimeError("任务密钥只保存在内存中，服务重启后无法继续该任务")
+        raise RuntimeError("任务缺少可用 API Key，请重新生成")
     if upstream["kind"] == "json":
         body = json.dumps(upstream["body"]).encode("utf-8")
         request_headers = {
@@ -709,7 +844,7 @@ def run_image_task(task_id: str) -> None:
                             "fallbackUsed": task.get("fallbackUsed", False),
                         },
                     )
-                    TASK_SECRETS.pop(task_id, None)
+                    clear_image_task_secret(task_id)
                     return
                 except urllib.error.HTTPError as exc:
                     response_body = exc.read()
@@ -767,7 +902,7 @@ def run_image_task(task_id: str) -> None:
                             "mode": request_meta.get("mode"),
                         },
                     )
-                    TASK_SECRETS.pop(task_id, None)
+                    clear_image_task_secret(task_id)
                     return
                 except urllib.error.URLError as exc:
                     last_error_message = f"无法连接上游：{exc.reason}"
@@ -810,7 +945,7 @@ def run_image_task(task_id: str) -> None:
                         "timeoutSeconds": OPENAI_PROXY_TIMEOUT,
                     },
                 )
-                TASK_SECRETS.pop(task_id, None)
+                clear_image_task_secret(task_id)
                 return
 
             if fallback_activated:
@@ -831,7 +966,7 @@ def run_image_task(task_id: str) -> None:
                 f"{task_id} -> 本地任务执行失败：{exc}",
                 task_id=task_id,
             )
-            TASK_SECRETS.pop(task_id, None)
+            clear_image_task_secret(task_id)
         except Exception:
             LOGGER.exception("failed to persist image task failure")
 
@@ -1523,6 +1658,7 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 "result": None,
                 "request": payload.get("request") if isinstance(payload.get("request"), dict) else {},
                 "upstream": upstream,
+                "apiKeyEncrypted": encrypt_task_api_key(api_key),
                 "accessTokenHash": hash_task_access_token(access_token),
             }
             if fallback_upstream:
