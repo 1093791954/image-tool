@@ -101,6 +101,7 @@ export type ImageGenerationTaskStatus = 'queued' | 'running' | 'completed' | 'fa
 
 export type ImageGenerationTask = {
   taskId: string
+  accessToken?: string
   status: ImageGenerationTaskStatus
   createdAt: number
   updatedAt: number

@@ -379,9 +379,15 @@ async function waitForImageTask(
     await delay(currentTask.pollAfterMs || 1500)
     const response = await fetch(`/api/image-tasks/${encodeURIComponent(currentTask.taskId)}`, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        ...(currentTask.accessToken ? { 'X-Image-Task-Token': currentTask.accessToken } : {}),
+      },
     })
-    currentTask = await parseImageTaskResponse(response, 'Image task polling failed')
+    currentTask = {
+      ...(await parseImageTaskResponse(response, 'Image task polling failed')),
+      accessToken: currentTask.accessToken,
+    }
     onTaskUpdate?.(currentTask)
   }
 
@@ -1054,15 +1060,7 @@ export const bridge: ImageApiClient = {
   },
 
   async listImageTasks() {
-    const response = await fetch('/api/image-tasks?limit=50', {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-    })
-    const body = await parseJsonResponse<{ data?: ImageGenerationTask[] }>(
-      response,
-      'Image task list failed'
-    )
-    return body.data || []
+    return []
   },
 
   async generateImages(payload: ImageGenerationPayload) {

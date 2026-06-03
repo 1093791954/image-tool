@@ -4,12 +4,14 @@ from __future__ import annotations
 import http.client
 import http.cookiejar
 import base64
+import hashlib
 import json
 import logging
 import os
 import posixpath
 import queue
 import re
+import secrets
 import socket
 import sqlite3
 import threading
@@ -349,7 +351,22 @@ def write_image_task(task_id: str, task: dict[str, Any]) -> None:
     )
 
 
-def public_image_task(task: dict[str, Any]) -> dict[str, Any]:
+def hash_task_access_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def task_access_token_from_headers(headers: Any) -> str:
+    return str(headers.get("X-Image-Task-Token") or "").strip()
+
+
+def image_task_is_authorized(task: dict[str, Any], token: str) -> bool:
+    expected = str(task.get("accessTokenHash") or "")
+    if not expected or not token:
+        return False
+    return secrets.compare_digest(expected, hash_task_access_token(token))
+
+
+def public_image_task(task: dict[str, Any], access_token: str | None = None) -> dict[str, Any]:
     payload = {
         "taskId": task["taskId"],
         "status": task["status"],
@@ -363,22 +380,13 @@ def public_image_task(task: dict[str, Any]) -> dict[str, Any]:
         "fallbackUsed": task.get("fallbackUsed", False),
         "fallbackReason": task.get("fallbackReason"),
     }
+    if access_token:
+        payload["accessToken"] = access_token
     return payload
 
 
 def list_public_image_tasks(limit: int = 30) -> list[dict[str, Any]]:
-    tasks_root = OPENAI_PROXY_CACHE_DIR / "tasks"
-    if not tasks_root.exists():
-        return []
-    tasks: list[dict[str, Any]] = []
-    for meta_path in tasks_root.glob("*/task.json"):
-        try:
-            task = json.loads(meta_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        tasks.append(public_image_task(task))
-    tasks.sort(key=lambda task: task.get("updatedAt") or task.get("createdAt") or 0, reverse=True)
-    return tasks[:limit]
+    return []
 
 
 def update_image_task(task_id: str, **updates: Any) -> dict[str, Any]:
@@ -1480,6 +1488,7 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
         try:
             payload = self.read_json_body(MAX_OPENAI_PROXY_BODY)
             task_id = f"img_{int(now_ts() * 1000)}_{uuid.uuid4().hex[:12]}"
+            access_token = secrets.token_urlsafe(24)
             created_at = now_ts() * 1000
             upstream = payload.get("upstream")
             if not isinstance(upstream, dict):
@@ -1514,6 +1523,7 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 "result": None,
                 "request": payload.get("request") if isinstance(payload.get("request"), dict) else {},
                 "upstream": upstream,
+                "accessTokenHash": hash_task_access_token(access_token),
             }
             if fallback_upstream:
                 task["fallbackUpstream"] = fallback_upstream
@@ -1542,7 +1552,7 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 daemon=True,
             )
             thread.start()
-            json_response(self, HTTPStatus.ACCEPTED, public_image_task(task))
+            json_response(self, HTTPStatus.ACCEPTED, public_image_task(task, access_token))
         except json.JSONDecodeError:
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": {"message": "请求体不是有效 JSON"}})
         except ValueError as exc:
@@ -1559,6 +1569,9 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
         task_id = parsed_path.path.removeprefix("/api/image-tasks/").strip("/")
         task = read_image_task(task_id)
         if task is None:
+            json_response(self, HTTPStatus.NOT_FOUND, {"error": {"message": "生图任务不存在或已过期"}})
+            return
+        if not image_task_is_authorized(task, task_access_token_from_headers(self.headers)):
             json_response(self, HTTPStatus.NOT_FOUND, {"error": {"message": "生图任务不存在或已过期"}})
             return
         json_response(self, HTTPStatus.OK, public_image_task(task))
