@@ -2470,7 +2470,7 @@ export function App() {
       return
     }
     if (!codexApiKey) {
-      setError('请先点击连接配置里的登录，获取 codex 满血高速 分组秘钥')
+      setError('请先点击连接配置里的登录，获取 gpt 1 分组秘钥')
       setStatus('缺少提示词优化秘钥')
       return
     }
