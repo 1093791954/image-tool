@@ -1351,7 +1351,7 @@ export function App() {
   const [customSizeHeight, setCustomSizeHeight] = useState('1024')
   const [quality, setQuality] = useState('auto')
   const [count, setCount] = useState(1)
-  const [responseFormat, setResponseFormat] = useState<'url' | 'b64_json'>('b64_json')
+  const [responseFormat, setResponseFormat] = useState<'url' | 'b64_json'>('url')
   const [inputFidelity, setInputFidelity] = useState<'low' | 'high'>('high')
   const [advancedModel, setAdvancedModel] = useState(DEFAULT_MODEL)
   const [advancedSize, setAdvancedSize] = useState('1024x1024')
@@ -1361,7 +1361,7 @@ export function App() {
   const [advancedQuality, setAdvancedQuality] = useState('auto')
   const [advancedCount, setAdvancedCount] = useState(1)
   const [advancedResponseFormat, setAdvancedResponseFormat] =
-    useState<'url' | 'b64_json'>('b64_json')
+    useState<'url' | 'b64_json'>('url')
   const [advancedInputFidelity, setAdvancedInputFidelity] = useState<'low' | 'high'>('high')
   const [advancedNegativePrompt, setAdvancedNegativePrompt] = useState('')
   const [advancedBackground, setAdvancedBackground] = useState<AdvancedBackground>('auto')

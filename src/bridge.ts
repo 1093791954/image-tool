@@ -1086,7 +1086,9 @@ export const bridge: ImageApiClient = {
         prompt: payload.prompt,
         size: apiSize,
         n: String(payload.count),
-        response_format: payload.responseFormat,
+      }
+      if (payload.responseFormat === 'b64_json') {
+        fields.response_format = payload.responseFormat
       }
       if (payload.quality !== 'auto') {
         fields.quality = payload.quality
@@ -1179,7 +1181,9 @@ export const bridge: ImageApiClient = {
                 size: apiSize,
                 ...(payload.quality !== 'auto' ? { quality: payload.quality } : {}),
                 n: 1,
-                response_format: payload.responseFormat,
+                ...(payload.responseFormat === 'b64_json'
+                  ? { response_format: payload.responseFormat }
+                  : {}),
               },
             },
           }),

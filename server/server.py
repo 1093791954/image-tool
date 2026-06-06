@@ -667,8 +667,9 @@ def synthesize_image_task_fallback(task: dict[str, Any]) -> tuple[dict[str, Any]
         "prompt": prompt,
         "size": normalized_image_api_size(model, size),
         "n": 1,
-        "response_format": response_format,
     }
+    if response_format == "b64_json":
+        body["response_format"] = response_format
     if quality != "auto":
         body["quality"] = quality
     fallback_upstream = {
