@@ -859,8 +859,12 @@ def run_image_task(task_id: str) -> None:
                         if isinstance(result.get("error"), dict)
                         else result.get("message")
                     ) or f"上游返回 HTTP {exc.code}"
-                    last_error_message = f"HTTP {exc.code}: {message}"
-                    if is_transient_upstream_status(exc.code) and attempt < max_attempts:
+                    last_error_message = charge_ambiguous_image_error(exc.code, str(message))
+                    if (
+                        not is_charge_ambiguous_upstream_status(exc.code)
+                        and is_transient_upstream_status(exc.code)
+                        and attempt < max_attempts
+                    ):
                         write_log(
                             "WARN",
                             "image_task_retry",
@@ -1142,6 +1146,19 @@ def is_transient_upstream_status(status: int) -> bool:
         525,
         526,
     }
+
+
+def is_charge_ambiguous_upstream_status(status: int) -> bool:
+    return status == 524
+
+
+def charge_ambiguous_image_error(status: int, message: str) -> str:
+    if is_charge_ambiguous_upstream_status(status):
+        return (
+            f"HTTP {status}: 上游同步生图超时，可能已经扣费但结果没有返回。"
+            "请先到中转站日志确认该次请求状态，避免立即重试造成重复扣费。"
+        )
+    return f"HTTP {status}: {message}"
 
 
 def split_model_limits(value: str | None) -> set[str]:
