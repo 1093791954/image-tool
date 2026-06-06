@@ -106,7 +106,7 @@ IMAGE_TOOLS_STATIC_DIR=dist HOST=127.0.0.1 PORT=19080 python server/server.py
 - `gpt-image-2`：用于生图。
 - `gpt-5.5`：用于提示词优化。
 
-`gpt 2` 分组的 `gpt-image-2` 默认使用 OpenAI 兼容图片接口的 URL 响应；如果手动切换为 `b64_json`，需要上游号池支持该响应格式。
+`gpt 2` 分组的 `gpt-image-2` 使用 OpenAI 兼容图片接口的默认 URL 响应；为兼容当前号池，工具不会向该模型发送 `response_format`。
 
 本地开发时，Vite 会把 `/api` 代理到 `http://127.0.0.1:19080`。线上部署时，需要在前端同源域名下提供兼容的 `/api/newapi/login-key` 代理接口。
 

@@ -343,6 +343,10 @@ function normalizedImageApiSize(model: string, size: string) {
   return height > width ? '1024x1536' : '1536x1024'
 }
 
+function shouldSendImageResponseFormat(model: string, responseFormat: 'url' | 'b64_json') {
+  return responseFormat === 'b64_json' && model.trim().toLowerCase() !== 'gpt-image-2'
+}
+
 async function parseImageResult(
   body: { data?: Array<{ url?: string; b64_json?: string; revised_prompt?: string }> }
 ) {
@@ -1087,7 +1091,7 @@ export const bridge: ImageApiClient = {
         size: apiSize,
         n: String(payload.count),
       }
-      if (payload.responseFormat === 'b64_json') {
+      if (shouldSendImageResponseFormat(payload.model, payload.responseFormat)) {
         fields.response_format = payload.responseFormat
       }
       if (payload.quality !== 'auto') {
@@ -1181,7 +1185,7 @@ export const bridge: ImageApiClient = {
                 size: apiSize,
                 ...(payload.quality !== 'auto' ? { quality: payload.quality } : {}),
                 n: 1,
-                ...(payload.responseFormat === 'b64_json'
+                ...(shouldSendImageResponseFormat(payload.model, payload.responseFormat)
                   ? { response_format: payload.responseFormat }
                   : {}),
               },

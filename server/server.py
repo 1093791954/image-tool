@@ -668,7 +668,7 @@ def synthesize_image_task_fallback(task: dict[str, Any]) -> tuple[dict[str, Any]
         "size": normalized_image_api_size(model, size),
         "n": 1,
     }
-    if response_format == "b64_json":
+    if response_format == "b64_json" and model.strip().lower() != "gpt-image-2":
         body["response_format"] = response_format
     if quality != "auto":
         body["quality"] = quality
