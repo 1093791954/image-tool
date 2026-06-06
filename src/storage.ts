@@ -19,14 +19,14 @@ const DEFAULT_SETTINGS: AppSettings = {
   persistApiKey: false,
   apiKey: '',
   codexApiKey: '',
-  imageRetryCount: 1,
+  imageRetryCount: 0,
   textModel: 'gpt-5.5',
   themeMode: 'dark',
 }
 
 function normalizeRetryCount(value: unknown) {
   const count = Math.floor(Number(value))
-  if (!Number.isFinite(count)) return DEFAULT_SETTINGS.imageRetryCount || 1
+  if (!Number.isFinite(count)) return DEFAULT_SETTINGS.imageRetryCount ?? 0
   return Math.max(0, Math.min(5, count))
 }
 
