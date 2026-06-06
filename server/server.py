@@ -4,6 +4,7 @@ from __future__ import annotations
 import http.client
 import http.cookiejar
 import base64
+from decimal import Decimal, ROUND_HALF_UP
 import hashlib
 import json
 import logging
@@ -40,6 +41,7 @@ def env_int(name: str, default: int) -> int:
 
 DEFAULT_BASE_URL = "https://hotapi.top"
 ALLOWED_NEW_API_HOST = "hotapi.top"
+ALLOWED_NEW_API_HOSTS = {"hotapi.top", "www.hotapi.top"}
 IMAGE_GROUP = "gpt 2"
 IMAGE_MODEL = "gpt-image-2"
 IMAGE_TOKEN_NAME = "GPT Image Tools - gpt-image-2"
@@ -58,6 +60,17 @@ TOKEN_LIST_PAGE_SIZE = 100
 TOKEN_LIST_MAX_PAGES = 50
 REQUEST_TIMEOUT = env_int("IMAGE_TOOLS_REQUEST_TIMEOUT", 25)
 OPENAI_PROXY_TIMEOUT = env_int("IMAGE_TOOLS_OPENAI_PROXY_TIMEOUT", 500)
+DIRECT_IMAGE_BASE_URL = os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_BASE_URL", "https://2api.asia").strip().rstrip("/")
+DIRECT_IMAGE_API_KEY = os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_API_KEY", "").strip()
+BILLING_BASE_URL = os.environ.get("IMAGE_TOOLS_BILLING_BASE_URL", DEFAULT_BASE_URL).strip().rstrip("/")
+BILLING_ADMIN_USERNAME = os.environ.get("IMAGE_TOOLS_BILLING_ADMIN_USERNAME", "").strip()
+BILLING_ADMIN_PASSWORD = os.environ.get("IMAGE_TOOLS_BILLING_ADMIN_PASSWORD", "")
+BILLING_QUOTA_PER_USD = Decimal(os.environ.get("IMAGE_TOOLS_BILLING_QUOTA_PER_USD", "500000"))
+IMAGE_BILLING_PRICES = {
+    "1K": Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_1K", "0.2680")),
+    "2K": Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_2K", "0.4020")),
+    "4K": Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_4K", "0.5360")),
+}
 LOG_MAX_ROWS = env_int("IMAGE_TOOLS_LOG_MAX_ROWS", 5000)
 DB_MAX_BYTES = env_int("IMAGE_TOOLS_DB_MAX_BYTES", 64 * 1024 * 1024)
 DEFAULT_LOCAL_PROXY = "http://127.0.0.1:7897"
@@ -231,6 +244,68 @@ def decrypt_task_api_key(value: str) -> str:
     stream = task_secret_keystream(key, nonce, len(cipher))
     plain = bytes(left ^ right for left, right in zip(cipher, stream))
     return plain.decode("utf-8")
+
+
+def image_direct_upstream_enabled() -> bool:
+    return bool(DIRECT_IMAGE_API_KEY)
+
+
+def billing_configured() -> bool:
+    return bool(BILLING_ADMIN_USERNAME and BILLING_ADMIN_PASSWORD)
+
+
+def stable_json_bytes(payload: dict[str, Any]) -> bytes:
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def make_billing_token(user_id: int, token_id: int, token_name: str, group: str, api_key: str) -> str:
+    payload = {
+        "v": 1,
+        "userId": user_id,
+        "tokenId": token_id,
+        "tokenName": token_name,
+        "group": group,
+        "apiKeyHash": hashlib.sha256(api_key.encode("utf-8")).hexdigest(),
+        "issuedAt": int(now_ts()),
+    }
+    payload_bytes = stable_json_bytes(payload)
+    signature = hashlib.blake2b(payload_bytes, key=load_task_secret_key(), digest_size=32).digest()
+    return ".".join(
+        [
+            base64.urlsafe_b64encode(payload_bytes).decode("ascii").rstrip("="),
+            base64.urlsafe_b64encode(signature).decode("ascii").rstrip("="),
+        ]
+    )
+
+
+def verify_billing_token(token: str, api_key: str) -> dict[str, Any]:
+    try:
+        encoded_payload, encoded_signature = token.split(".", 1)
+        payload_bytes = decode_urlsafe_base64(encoded_payload)
+        signature = decode_urlsafe_base64(encoded_signature)
+    except Exception as exc:
+        raise NewApiError("生图扣费凭证无效，请重新登录中转站") from exc
+
+    expected = hashlib.blake2b(payload_bytes, key=load_task_secret_key(), digest_size=32).digest()
+    if not secrets.compare_digest(expected, signature):
+        raise NewApiError("生图扣费凭证签名无效，请重新登录中转站")
+
+    try:
+        payload = json.loads(payload_bytes.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        raise NewApiError("生图扣费凭证无法解析，请重新登录中转站") from exc
+
+    if payload.get("v") != 1:
+        raise NewApiError("生图扣费凭证版本无效，请重新登录中转站")
+    key_hash = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+    if not secrets.compare_digest(str(payload.get("apiKeyHash") or ""), key_hash):
+        raise NewApiError("生图扣费凭证和当前 API Key 不匹配，请重新登录中转站")
+
+    user_id = payload.get("userId")
+    token_id = payload.get("tokenId")
+    if not isinstance(user_id, int) or user_id <= 0 or not isinstance(token_id, int) or token_id <= 0:
+        raise NewApiError("生图扣费凭证缺少用户信息，请重新登录中转站")
+    return payload
 
 
 def task_has_persisted_secret(task: dict[str, Any]) -> bool:
@@ -634,6 +709,97 @@ def normalized_image_api_size(model: str, size: str) -> str:
     return "1024x1536" if height > width else "1536x1024"
 
 
+def image_billing_tier(size: str) -> str:
+    normalized = (size or "").strip().upper()
+    if "4K" in normalized or "4096" in normalized or "3840" in normalized:
+        return "4K"
+    if "2K" in normalized or "2048" in normalized:
+        return "2K"
+    return "1K"
+
+
+def image_billing_quota(size: str, image_count: int = 1) -> tuple[str, int, str]:
+    tier = image_billing_tier(size)
+    price = IMAGE_BILLING_PRICES[tier]
+    count = max(1, int(image_count or 1))
+    quota = (price * BILLING_QUOTA_PER_USD * Decimal(count)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return tier, int(quota), str(price)
+
+
+def new_billing_admin_session() -> NewApiSession:
+    if not billing_configured():
+        raise NewApiError("后端未配置 HotAPI 管理员扣费账号，请设置环境变量")
+    session = NewApiSession(normalize_new_api_base_url(BILLING_BASE_URL))
+    session.login(BILLING_ADMIN_USERNAME, BILLING_ADMIN_PASSWORD)
+    return session
+
+
+def preflight_image_billing(task: dict[str, Any]) -> None:
+    billing = task.get("billing")
+    if not isinstance(billing, dict):
+        return
+    if billing.get("preflightChecked"):
+        return
+
+    user_id = int(billing.get("userId") or 0)
+    quota = int(billing.get("quota") or 0)
+    if user_id <= 0 or quota <= 0:
+        raise NewApiError("生图扣费信息不完整，请重新登录中转站")
+
+    session = new_billing_admin_session()
+    user = session.get_user(user_id)
+    available = int(user.get("quota") or 0)
+    if available < quota:
+        raise NewApiError(f"用户余额不足：需要 {quota} quota，当前 {available} quota")
+
+    billing["preflightChecked"] = True
+    update_image_task(task["taskId"], billing=billing)
+
+
+def settle_image_billing(task_id: str, task: dict[str, Any], result: dict[str, Any], elapsed_ms: int) -> None:
+    billing = task.get("billing")
+    if not isinstance(billing, dict) or billing.get("charged"):
+        return
+
+    data = result.get("data") if isinstance(result, dict) else None
+    image_count = len(data) if isinstance(data, list) and data else int(task.get("request", {}).get("count") or 1)
+    tier, quota, price = image_billing_quota(str(task.get("request", {}).get("size") or "1024x1024"), image_count)
+    user_id = int(billing.get("userId") or 0)
+    if user_id <= 0:
+        raise NewApiError("生图扣费用户信息无效，请重新登录中转站")
+
+    session = new_billing_admin_session()
+    session.adjust_user_quota(user_id, "subtract", quota)
+
+    billing.update(
+        {
+            "charged": True,
+            "chargedAt": now_ts() * 1000,
+            "quota": quota,
+            "tier": tier,
+            "priceUsd": price,
+            "imageCount": image_count,
+            "elapsedMs": elapsed_ms,
+        }
+    )
+    update_image_task(task_id, billing=billing)
+    write_log(
+        "INFO",
+        "image_task_billed",
+        f"{task_id} billed {quota} quota",
+        task_id=task_id,
+        details={
+            "userId": user_id,
+            "tokenId": billing.get("tokenId"),
+            "tokenName": billing.get("tokenName"),
+            "quota": quota,
+            "tier": tier,
+            "priceUsd": price,
+            "imageCount": image_count,
+        },
+    )
+
+
 def synthesize_image_task_fallback(task: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     upstream = task.get("upstream") or {}
     request_meta = task.get("request") or {}
@@ -797,6 +963,28 @@ def run_image_task(task_id: str) -> None:
                     "fallbackUsed": task.get("fallbackUsed", False),
                 },
             )
+            try:
+                preflight_image_billing(task)
+            except NewApiError as exc:
+                update_image_task(
+                    task_id,
+                    status="failed",
+                    completedAt=now_ts() * 1000,
+                    error=str(exc),
+                )
+                write_log(
+                    "WARN",
+                    "image_task_billing_preflight_failed",
+                    f"{task_id} -> {exc}",
+                    task_id=task_id,
+                    details={
+                        "path": upstream.get("path"),
+                        "model": request_meta.get("model"),
+                        "mode": request_meta.get("mode"),
+                    },
+                )
+                clear_image_task_secret(task_id)
+                return
             started_at = now_ts()
             last_error_message = ""
             fallback_activated = False
@@ -827,6 +1015,32 @@ def run_image_task(task_id: str) -> None:
                         upstream["path"],
                         target_url,
                     )
+                    elapsed_ms = round((now_ts() - started_at) * 1000)
+                    try:
+                        settle_image_billing(task_id, task, result, elapsed_ms)
+                    except NewApiError as exc:
+                        message = f"上游已成功返回，但扣费失败：{exc}"
+                        update_image_task(
+                            task_id,
+                            status="failed",
+                            completedAt=now_ts() * 1000,
+                            error=message,
+                            responseStatus=response_status,
+                        )
+                        write_log(
+                            "WARN",
+                            "image_task_billing_failed",
+                            f"{task_id} -> {message}",
+                            task_id=task_id,
+                            details={
+                                "path": upstream.get("path"),
+                                "model": request_meta.get("model"),
+                                "mode": request_meta.get("mode"),
+                                "responseStatus": response_status,
+                            },
+                        )
+                        clear_image_task_secret(task_id)
+                        return
                     update_image_task(
                         task_id,
                         status="completed",
@@ -840,9 +1054,10 @@ def run_image_task(task_id: str) -> None:
                         f"{task_id} -> HTTP {response_status}",
                         task_id=task_id,
                         details={
-                            "elapsedMs": round((now_ts() - started_at) * 1000),
+                            "elapsedMs": elapsed_ms,
                             "path": upstream["path"],
                             "fallbackUsed": task.get("fallbackUsed", False),
+                            "directImageUpstream": task.get("directImageUpstream", False),
                         },
                     )
                     clear_image_task_secret(task_id)
@@ -1070,7 +1285,7 @@ def json_response(handler: SimpleHTTPRequestHandler, status: int, payload: dict[
 def normalize_new_api_base_url(value: str) -> str:
     raw = (value or DEFAULT_BASE_URL).strip().rstrip("/")
     parsed = urllib.parse.urlparse(raw)
-    if parsed.scheme != "https" or parsed.netloc != ALLOWED_NEW_API_HOST:
+    if parsed.scheme != "https" or parsed.netloc not in ALLOWED_NEW_API_HOSTS:
         raise NewApiError("当前只允许登录 https://hotapi.top/")
     return f"{parsed.scheme}://{parsed.netloc}"
 
@@ -1348,11 +1563,35 @@ class NewApiSession:
 
         return {
             "apiKey": self.get_full_key(token_id, group),
+            "tokenId": token_id,
             "group": group,
             "model": model,
             "tokenName": token.get("name") or name,
             "created": created,
         }
+
+    def get_user(self, user_id: int) -> dict[str, Any]:
+        response = self.request("GET", f"/api/user/{user_id}")
+        if not response.get("success"):
+            raise NewApiError(str(response.get("message") or "获取用户信息失败"))
+        data = response.get("data")
+        if not isinstance(data, dict):
+            raise NewApiError("中转站没有返回用户信息")
+        return data
+
+    def adjust_user_quota(self, user_id: int, mode: str, value: int) -> None:
+        response = self.request(
+            "POST",
+            "/api/user/manage",
+            {
+                "id": user_id,
+                "action": "add_quota",
+                "mode": mode,
+                "value": value,
+            },
+        )
+        if not response.get("success"):
+            raise NewApiError(str(response.get("message") or "调整用户额度失败"))
 
 
 def obtain_managed_key(base_url: str, username: str, password: str) -> dict[str, Any]:
@@ -1368,12 +1607,22 @@ def obtain_managed_key(base_url: str, username: str, password: str) -> dict[str,
 
     return {
         "baseUrl": normalized_base_url,
+        "userId": session.user_id,
         "apiKey": image_key["apiKey"],
+        "imageTokenId": image_key["tokenId"],
+        "imageBillingToken": make_billing_token(
+            int(session.user_id or 0),
+            int(image_key["tokenId"]),
+            str(image_key["tokenName"]),
+            str(image_key["group"]),
+            str(image_key["apiKey"]),
+        ),
         "group": image_key["group"],
         "model": image_key["model"],
         "tokenName": image_key["tokenName"],
         "created": image_key["created"],
         "codexApiKey": codex_key["apiKey"],
+        "codexTokenId": codex_key["tokenId"],
         "codexGroup": codex_key["group"],
         "codexModel": codex_key["model"],
         "codexTokenName": codex_key["tokenName"],
@@ -1652,7 +1901,42 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 raise ValueError("图片任务只允许 /v1/images/generations 或 /v1/images/edits")
             if not str(upstream.get("apiKey") or "").strip():
                 raise ValueError("缺少 API Key")
-            api_key = str(upstream.pop("apiKey")).strip()
+            user_api_key = str(upstream.pop("apiKey")).strip()
+            api_key = user_api_key
+            billing: dict[str, Any] | None = None
+            direct_image_upstream = False
+            if image_direct_upstream_enabled():
+                if not billing_configured():
+                    raise ValueError("后端未配置 HotAPI 管理员扣费账号，无法启用直连生图")
+                billing_payload = payload.get("billing")
+                if not isinstance(billing_payload, dict):
+                    raise ValueError("缺少生图扣费凭证，请重新登录中转站")
+                try:
+                    billing_claims = verify_billing_token(
+                        str(billing_payload.get("token") or ""),
+                        user_api_key,
+                    )
+                except NewApiError as exc:
+                    raise ValueError(str(exc)) from exc
+                request_meta = payload.get("request") if isinstance(payload.get("request"), dict) else {}
+                tier, quota, price = image_billing_quota(
+                    str(request_meta.get("size") or "1024x1024"),
+                    int(request_meta.get("count") or 1),
+                )
+                billing = {
+                    "userId": billing_claims["userId"],
+                    "tokenId": billing_claims["tokenId"],
+                    "tokenName": billing_claims.get("tokenName") or billing_payload.get("tokenName"),
+                    "group": billing_claims.get("group"),
+                    "quota": quota,
+                    "tier": tier,
+                    "priceUsd": price,
+                    "charged": False,
+                    "preflightChecked": False,
+                }
+                api_key = DIRECT_IMAGE_API_KEY
+                upstream["baseUrl"] = DIRECT_IMAGE_BASE_URL
+                direct_image_upstream = True
             fallback_upstream = payload.get("fallbackUpstream")
             if isinstance(fallback_upstream, dict):
                 fallback_upstream.pop("apiKey", None)
@@ -1660,6 +1944,8 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                     raise ValueError("不支持的 fallbackUpstream.kind")
                 if fallback_upstream.get("path") not in {"/v1/images/generations", "/v1/images/edits"}:
                     raise ValueError("图片降级任务只允许 /v1/images/generations 或 /v1/images/edits")
+                if direct_image_upstream:
+                    fallback_upstream["baseUrl"] = DIRECT_IMAGE_BASE_URL
             else:
                 fallback_upstream = None
             fallback_request = (
@@ -1678,7 +1964,10 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 "upstream": upstream,
                 "apiKeyEncrypted": encrypt_task_api_key(api_key),
                 "accessTokenHash": hash_task_access_token(access_token),
+                "directImageUpstream": direct_image_upstream,
             }
+            if billing:
+                task["billing"] = billing
             if fallback_upstream:
                 task["fallbackUpstream"] = fallback_upstream
             if fallback_request:
@@ -1697,6 +1986,8 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                     "mode": task.get("request", {}).get("mode"),
                     "size": task.get("request", {}).get("size"),
                     "responseFormat": task.get("request", {}).get("responseFormat"),
+                    "directImageUpstream": direct_image_upstream,
+                    "billingQuota": billing.get("quota") if billing else None,
                 },
             )
             thread = threading.Thread(

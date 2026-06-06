@@ -7,6 +7,10 @@ export type AppSettings = {
   persistApiKey: boolean
   apiKey?: string
   codexApiKey?: string
+  imageBillingToken?: string
+  newApiUserId?: number
+  imageTokenId?: number
+  imageTokenName?: string
   imageRetryCount?: number
   textModel?: string
   themeMode?: ThemeMode
@@ -14,7 +18,13 @@ export type AppSettings = {
 
 export type BackupSettings = Omit<
   AppSettings,
-  'apiKey' | 'codexApiKey' | 'persistApiKey'
+  | 'apiKey'
+  | 'codexApiKey'
+  | 'imageBillingToken'
+  | 'newApiUserId'
+  | 'imageTokenId'
+  | 'imageTokenName'
+  | 'persistApiKey'
 > & {
   persistApiKey: false
 }
@@ -45,6 +55,10 @@ export type ImageGenerationPayload = {
   background?: 'auto' | 'opaque' | 'transparent'
   inputFidelity?: 'low' | 'high'
   retryCount?: number
+  billingToken?: string
+  billingUserId?: number
+  billingTokenId?: number
+  billingTokenName?: string
   referenceImages?: ReferenceImage[]
   onTaskUpdate?: (task: ImageGenerationTask) => void
 }
@@ -135,8 +149,12 @@ export type ManagedNewApiLoginPayload = {
 
 export type ManagedNewApiLoginResult = {
   baseUrl: string
+  userId: number
   apiKey: string
+  imageTokenId: number
+  imageBillingToken: string
   codexApiKey: string
+  codexTokenId: number
   group: string
   model: string
   tokenName: string

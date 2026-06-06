@@ -42,7 +42,7 @@ function openAiProxyUrl(baseUrl: string, path: string) {
 function normalizeNewApiBaseUrl(value: string) {
   const baseUrl = normalizeBaseUrl(value || NEW_API_BASE_URL)
   const parsed = new URL(baseUrl)
-  if (parsed.protocol !== 'https:' || parsed.host !== 'hotapi.top') {
+  if (parsed.protocol !== 'https:' || !['hotapi.top', 'www.hotapi.top'].includes(parsed.host)) {
     throw new Error('当前只允许登录 https://hotapi.top/')
   }
   return `${parsed.protocol}//${parsed.host}`
@@ -69,6 +69,21 @@ function imageTaskAuthHeaders(apiKey: string) {
   if (!key) throw new Error('API Key is required')
   return {
     Authorization: `Bearer ${key}`,
+  }
+}
+
+function imageTaskBilling(payload: {
+  billingToken?: string
+  billingUserId?: number
+  billingTokenId?: number
+  billingTokenName?: string
+}) {
+  if (!payload.billingToken) return undefined
+  return {
+    token: payload.billingToken,
+    userId: payload.billingUserId,
+    tokenId: payload.billingTokenId,
+    tokenName: payload.billingTokenName,
   }
 }
 
@@ -1131,6 +1146,7 @@ export const bridge: ImageApiClient = {
                 dataUrl: image.dataUrl,
               })),
             },
+            billing: imageTaskBilling(payload),
           }),
         })
         const createdTask = await parseImageTaskResponse(response, 'Image edit task failed')
@@ -1190,6 +1206,7 @@ export const bridge: ImageApiClient = {
                   : {}),
               },
             },
+            billing: imageTaskBilling(payload),
           }),
         })
         const createdTask = await parseImageTaskResponse(response, 'Image generation task failed')

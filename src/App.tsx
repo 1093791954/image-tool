@@ -1329,6 +1329,10 @@ export function App() {
   const [imageBaseUrl, setImageBaseUrl] = useState(DEFAULT_IMAGE_BASE_URL)
   const [apiKey, setApiKey] = useState('')
   const [codexApiKey, setCodexApiKey] = useState('')
+  const [imageBillingToken, setImageBillingToken] = useState('')
+  const [newApiUserId, setNewApiUserId] = useState<number | undefined>(undefined)
+  const [imageTokenId, setImageTokenId] = useState<number | undefined>(undefined)
+  const [imageTokenName, setImageTokenName] = useState('')
   const [imageRetryCount, setImageRetryCount] = useState(DEFAULT_IMAGE_RETRY_COUNT)
   const [persistApiKey, setPersistApiKey] = useState(false)
   const [hasLoadedSettings, setHasLoadedSettings] = useState(false)
@@ -1662,7 +1666,13 @@ export function App() {
         setPersistApiKey(Boolean(settings.persistApiKey))
         setThemeMode(settings.themeMode || 'system')
         setTextModel(settings.textModel || DEFAULT_TEXT_MODEL)
-        if (settings.persistApiKey && settings.apiKey) setApiKey(settings.apiKey)
+        if (settings.persistApiKey && settings.apiKey) {
+          setApiKey(settings.apiKey)
+          setImageBillingToken(settings.imageBillingToken || '')
+          setNewApiUserId(settings.newApiUserId)
+          setImageTokenId(settings.imageTokenId)
+          setImageTokenName(settings.imageTokenName || '')
+        }
         if (settings.persistApiKey && settings.codexApiKey) setCodexApiKey(settings.codexApiKey)
       })
       .finally(() => setHasLoadedSettings(true))
@@ -2079,6 +2089,10 @@ export function App() {
       persistApiKey,
       apiKey,
       codexApiKey,
+      imageBillingToken,
+      newApiUserId,
+      imageTokenId,
+      imageTokenName,
       imageRetryCount,
       textModel,
       themeMode,
@@ -2092,6 +2106,10 @@ export function App() {
     setImageBaseUrl(DEFAULT_IMAGE_BASE_URL)
     setApiKey('')
     setCodexApiKey('')
+    setImageBillingToken('')
+    setNewApiUserId(undefined)
+    setImageTokenId(undefined)
+    setImageTokenName('')
     setImageRetryCount(DEFAULT_IMAGE_RETRY_COUNT)
     setPersistApiKey(false)
     setModel(DEFAULT_MODEL)
@@ -2122,6 +2140,10 @@ export function App() {
       persistApiKey,
       apiKey,
       codexApiKey,
+      imageBillingToken,
+      newApiUserId,
+      imageTokenId,
+      imageTokenName,
       imageRetryCount,
       textModel,
       themeMode: nextThemeMode,
@@ -2153,6 +2175,10 @@ export function App() {
       setTextModel(settings.textModel || DEFAULT_TEXT_MODEL)
       setApiKey('')
       setCodexApiKey('')
+      setImageBillingToken('')
+      setNewApiUserId(undefined)
+      setImageTokenId(undefined)
+      setImageTokenName('')
       await refreshImages()
       setStatus(`已导入 ${importedCount} 张图片，API Key 未从备份恢复`)
     } catch (err) {
@@ -2329,6 +2355,10 @@ export function App() {
       setImageBaseUrl(result.baseUrl)
       setApiKey(result.apiKey)
       setCodexApiKey(result.codexApiKey)
+      setImageBillingToken(result.imageBillingToken)
+      setNewApiUserId(result.userId)
+      setImageTokenId(result.imageTokenId)
+      setImageTokenName(result.tokenName)
       setImageRetryCount(DEFAULT_IMAGE_RETRY_COUNT)
       setPersistApiKey(true)
       setModel(result.model || DEFAULT_MODEL)
@@ -2340,6 +2370,10 @@ export function App() {
         persistApiKey: true,
         apiKey: result.apiKey,
         codexApiKey: result.codexApiKey,
+        imageBillingToken: result.imageBillingToken,
+        newApiUserId: result.userId,
+        imageTokenId: result.imageTokenId,
+        imageTokenName: result.tokenName,
         imageRetryCount: DEFAULT_IMAGE_RETRY_COUNT,
         textModel: result.codexModel || DEFAULT_TEXT_MODEL,
         themeMode,
@@ -2659,6 +2693,10 @@ export function App() {
           responseFormat,
           inputFidelity,
           retryCount: imageRetryCount,
+          billingToken: imageBillingToken,
+          billingUserId: newApiUserId,
+          billingTokenId: imageTokenId,
+          billingTokenName: imageTokenName,
           referenceImages:
             effectiveGenerationMode === 'image' ? flowReferenceImages : undefined,
           onTaskUpdate: (task) => {
@@ -3038,6 +3076,10 @@ ${description}`
         responseFormat: includeAdvancedControls ? advancedResponseFormat : responseFormat,
         background: includeAdvancedControls ? advancedBackground : undefined,
         retryCount: imageRetryCount,
+        billingToken: imageBillingToken,
+        billingUserId: newApiUserId,
+        billingTokenId: imageTokenId,
+        billingTokenName: imageTokenName,
         onTaskUpdate: (task) => {
           currentTaskId = task.taskId
           setStatus(taskStatusLabel(task.status))
@@ -3192,6 +3234,10 @@ ${description}`
         responseFormat,
         inputFidelity,
         retryCount: imageRetryCount,
+        billingToken: imageBillingToken,
+        billingUserId: newApiUserId,
+        billingTokenId: imageTokenId,
+        billingTokenName: imageTokenName,
         referenceImages,
         onTaskUpdate: (task) => {
           currentTaskId = task.taskId
