@@ -101,10 +101,10 @@ IMAGE_TOOLS_STATIC_DIR=dist HOST=127.0.0.1 PORT=19080 python server/server.py
 
 ## 中转站登录代理
 
-“登录中转站”会通过同源 `POST /api/newapi/login-key` 代理登录 New API 站点，并自动查找或创建两个分组秘钥：
+“登录中转站”会通过同源 `POST /api/newapi/login-key` 代理登录 New API 站点，并自动查找或创建 `gpt 2` 分组秘钥：
 
-- `gpt-image-2 生图低价`：用于生图。
-- `gpt 1`：用于提示词优化。
+- `gpt-image-2`：用于生图。
+- `gpt-5.5`：用于提示词优化。
 
 本地开发时，Vite 会把 `/api` 代理到 `http://127.0.0.1:19080`。线上部署时，需要在前端同源域名下提供兼容的 `/api/newapi/login-key` 代理接口。
 

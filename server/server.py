@@ -40,10 +40,10 @@ def env_int(name: str, default: int) -> int:
 
 DEFAULT_BASE_URL = "https://hotapi.top"
 ALLOWED_NEW_API_HOST = "hotapi.top"
-IMAGE_GROUP = "gpt-image-2 生图低价"
+IMAGE_GROUP = "gpt 2"
 IMAGE_MODEL = "gpt-image-2"
 IMAGE_TOKEN_NAME = "GPT Image Tools - gpt-image-2"
-CODEX_GROUP = "gpt 1"
+CODEX_GROUP = "gpt 2"
 CODEX_MODEL = "gpt-5.5"
 CODEX_TOKEN_NAME = "GPT Image Tools - codex"
 MAX_JSON_BODY = 16 * 1024
