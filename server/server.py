@@ -948,7 +948,7 @@ def run_image_task(task_id: str) -> None:
             task = update_image_task(task_id, status="running", error=None)
             upstream = task["upstream"]
             request_meta = task.get("request", {})
-            retry_count = max(0, min(5, int(request_meta.get("retryCount") or 0)))
+            retry_count = image_task_retry_count(task, request_meta)
             max_attempts = retry_count + 1
             write_log(
                 "INFO",
@@ -1099,6 +1099,7 @@ def run_image_task(task_id: str) -> None:
                             status="running",
                             error=f"上游返回 HTTP {exc.code}，正在重试 {attempt}/{retry_count}",
                         )
+                        time.sleep(min(10, 2 * attempt))
                         continue
                     if activate_image_task_fallback(task_id, last_error_message, exc.code):
                         fallback_activated = True
@@ -1140,6 +1141,7 @@ def run_image_task(task_id: str) -> None:
                         last_error_message = f"上游连接中断：{exc}"
 
                 if attempt < max_attempts:
+                    time.sleep(min(10, 2 * attempt))
                     continue
 
                 if activate_image_task_fallback(task_id, last_error_message):
@@ -1374,6 +1376,13 @@ def charge_ambiguous_image_error(status: int, message: str) -> str:
             "请先到中转站日志确认该次请求状态，避免立即重试造成重复扣费。"
         )
     return f"HTTP {status}: {message}"
+
+
+def image_task_retry_count(task: dict[str, Any], request_meta: dict[str, Any]) -> int:
+    retry_count = max(0, min(5, int(request_meta.get("retryCount") or 0)))
+    if task.get("directImageUpstream") and str(request_meta.get("model") or "").strip().lower().startswith("gpt-image"):
+        retry_count = max(retry_count, 1)
+    return retry_count
 
 
 def split_model_limits(value: str | None) -> set[str]:
