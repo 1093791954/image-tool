@@ -1409,23 +1409,55 @@ def compatible_image_edit_prompt(prompt: str, reference_names: list[str] | None 
     if not has_cjk and not any(term in lowered or term in normalized for term in risky_terms):
         return normalized
 
-    intents: list[str] = []
-    if re.search(r"上半身|半身|肩|胸|拉远|扩展|upper body|half body", normalized, re.IGNORECASE):
-        intents.append("Create a natural upper body portrait based on the reference image.")
-    elif re.search(r"全身|full body", normalized, re.IGNORECASE):
-        intents.append("Create a natural full body portrait based on the reference image.")
-    elif re.search(r"头像|特写|close-up|headshot", normalized, re.IGNORECASE):
-        intents.append("Create a clean portrait based on the reference image.")
-    elif re.search(r"商品|产品|电商|product|commercial", normalized, re.IGNORECASE):
-        intents.append("Create a clean commercial product image based on the reference image.")
-    else:
-        intents.append("Create a natural image edit based on the reference image.")
+    wants_full_body = bool(re.search(r"全身|从头到脚|完整入镜|full body|head to toe", normalized, re.IGNORECASE))
+    wants_upper_body = bool(re.search(r"上半身|半身|肩|胸|拉远|扩展|upper body|half body", normalized, re.IGNORECASE))
+    wants_travel = bool(re.search(r"旅游|旅行|游客|景点|纪实|tourist|travel|documentary", normalized, re.IGNORECASE))
+    wants_bystanders = bool(re.search(r"游客|人群|旁边|陪衬|background companions|other tourists", normalized, re.IGNORECASE))
+    wants_product = bool(re.search(r"商品|产品|电商|product|commercial", normalized, re.IGNORECASE))
 
-    if reference_names:
-        intents.append("Use the attached reference image as the main visual guide.")
-    intents.append(
-        "Keep the same general appearance, styling, lighting direction, color mood, composition intent, and background feel."
-    )
+    if wants_product:
+        intents = [
+            "Create a clean commercial product image based on the reference image.",
+            "Use the attached reference image as the main visual guide.",
+            "Keep the same product appearance, material feel, color mood, lighting direction, and composition intent.",
+            "Make the result realistic, coherent, high quality, and suitable for a polished product visual.",
+        ]
+        return " ".join(intents)
+
+    if wants_full_body and wants_travel:
+        intents = [
+            "Create a realistic travel photography scene based on the reference image.",
+            "Show the main subject as a complete full-body person from head to toe, standing naturally in a real tourist location.",
+            "Keep the same general appearance, hairstyle, fashion styling, expression mood, lighting direction, color mood, and documentary photo feeling from the reference image.",
+            "The body proportions should look natural and coordinated, with clothing that visually matches the reference style.",
+        ]
+        if wants_bystanders:
+            intents.append(
+                "Add a few other tourists nearby as background companions; they should appear natural, reasonably spaced, and secondary, without blocking or competing with the main subject."
+            )
+        intents.append(
+            "Use soft daylight, authentic colors, detailed materials, a stable camera angle, and a clear realistic composition centered on the full-body main subject."
+        )
+        return " ".join(intents)
+
+    intents: list[str]
+    if wants_full_body:
+        intents = [
+            "Create a realistic full-body portrait based on the reference image.",
+            "Show the main subject from head to toe with natural body proportions, coherent clothing, and a stable realistic camera angle.",
+        ]
+    elif wants_upper_body:
+        intents = [
+            "Create a natural upper body portrait based on the reference image.",
+            "Keep the composition realistic and extend the visible body area in a coherent way.",
+        ]
+    elif re.search(r"头像|特写|close-up|headshot", normalized, re.IGNORECASE):
+        intents = ["Create a clean portrait based on the reference image."]
+    else:
+        intents = ["Create a natural image edit based on the reference image."]
+
+    intents.append("Use the attached reference image as the main visual guide.")
+    intents.append("Keep the same general appearance, styling, lighting direction, color mood, and background feel.")
     intents.append("Make the result clean, realistic, coherent, high quality, and visually consistent.")
     return " ".join(intents)
 

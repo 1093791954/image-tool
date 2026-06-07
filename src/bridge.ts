@@ -343,10 +343,11 @@ function blobFromDataUrl(dataUrl: string) {
 }
 
 const IMAGE_EDIT_REFERENCE_SIZE = 1024
+const IMAGE_EDIT_REFERENCE_JPEG_QUALITY = 0.9
 
 function imageEditReferenceName(image: ReferenceImage) {
-  const source = (image.name || image.title || 'reference.png').trim() || 'reference.png'
-  return source.replace(/\.[a-z0-9]+$/i, '') + '.png'
+  const source = (image.name || image.title || 'reference.jpg').trim() || 'reference.jpg'
+  return source.replace(/\.[a-z0-9]+$/i, '') + '.jpg'
 }
 
 function loadReferenceImage(dataUrl: string) {
@@ -386,15 +387,15 @@ async function normalizeImageEditReference(image: ReferenceImage, model: string)
   let dataUrl: string
   try {
     context.drawImage(loaded, offsetX, offsetY, drawWidth, drawHeight)
-    dataUrl = canvas.toDataURL('image/png')
+    dataUrl = canvas.toDataURL('image/jpeg', IMAGE_EDIT_REFERENCE_JPEG_QUALITY)
   } catch {
-    throw new Error(`参考图 ${image.title || image.name || image.id} 无法转换为 PNG，请换用 PNG 或 JPG 图片后重试`)
+    throw new Error(`参考图 ${image.title || image.name || image.id} 无法转换为 JPG，请换用 PNG 或 JPG 图片后重试`)
   }
 
   return {
     ...image,
     name: imageEditReferenceName(image),
-    type: 'image/png',
+    type: 'image/jpeg',
     dataUrl,
   }
 }
