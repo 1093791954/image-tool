@@ -542,6 +542,81 @@ def cache_openai_proxy_response(
         return None
 
 
+def cache_remote_image_url(url: str, task_id: str) -> str | None:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "image/*,*/*;q=0.8",
+            "User-Agent": "GPT-Image-Tools/1.0",
+        },
+    )
+    try:
+        with open_url(request, timeout=120) as response:
+            content_type = str(response.headers.get("Content-Type") or "image/png").split(";")[0]
+            if not content_type.startswith("image/"):
+                return None
+            body = response.read()
+    except Exception:
+        LOGGER.exception("failed to cache remote image url")
+        return None
+
+    try:
+        task_dir = image_task_dir(task_id)
+        task_dir.mkdir(parents=True, exist_ok=True)
+        extension = {
+            "image/jpeg": ".jpg",
+            "image/jpg": ".jpg",
+            "image/png": ".png",
+            "image/webp": ".webp",
+        }.get(content_type.lower(), ".img")
+        image_id = uuid.uuid4().hex
+        image_path = task_dir / f"result-{image_id}{extension}"
+        image_path.write_bytes(body)
+        meta_path = task_dir / f"result-{image_id}.json"
+        meta_path.write_text(
+            json.dumps(
+                {
+                    "contentType": content_type,
+                    "bytes": len(body),
+                    "sourceHost": parsed.netloc,
+                    "createdAt": now_ts(),
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        return f"/api/image-cache/{task_id}/{image_path.name}"
+    except Exception:
+        LOGGER.exception("failed to write cached remote image")
+        return None
+
+
+def localize_image_result_urls(result: dict[str, Any], task_id: str) -> dict[str, Any]:
+    data = result.get("data")
+    if not isinstance(data, list):
+        return result
+
+    changed = False
+    next_items: list[Any] = []
+    for item in data:
+        if not isinstance(item, dict) or not isinstance(item.get("url"), str):
+            next_items.append(item)
+            continue
+        local_url = cache_remote_image_url(item["url"], task_id)
+        if local_url:
+            next_item = {**item, "url": local_url}
+            next_items.append(next_item)
+            changed = True
+        else:
+            next_items.append(item)
+
+    return {**result, "data": next_items} if changed else result
+
+
 def image_task_dir(task_id: str) -> Path:
     return OPENAI_PROXY_CACHE_DIR / "tasks" / task_id
 
@@ -1077,6 +1152,7 @@ def run_image_task(task_id: str) -> None:
                         upstream["path"],
                         target_url,
                     )
+                    result = localize_image_result_urls(result, task_id)
                     elapsed_ms = round((now_ts() - started_at) * 1000)
                     try:
                         settle_image_billing(task_id, task, result, elapsed_ms)
@@ -2086,6 +2162,9 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
         if parsed_path.path.startswith("/api/image-tasks/"):
             self.handle_get_image_task(parsed_path)
             return
+        if parsed_path.path.startswith("/api/image-cache/"):
+            self.handle_image_cache(parsed_path)
+            return
         if parsed_path.path.startswith("/api/openai/"):
             self.handle_openai_proxy(parsed_path)
             return
@@ -2523,6 +2602,48 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", self.guess_type(str(path)))
         self.send_header("Cache-Control", "public, max-age=3600")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def handle_image_cache(self, parsed_path: urllib.parse.ParseResult) -> None:
+        prefix = "/api/image-cache/"
+        relative = parsed_path.path[len(prefix):]
+        parts = [urllib.parse.unquote(part) for part in relative.split("/") if part]
+        if len(parts) != 2:
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        task_id, filename = parts
+        if not re.fullmatch(r"[a-zA-Z0-9_-]{8,80}", task_id):
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        if not re.fullmatch(r"result-[a-f0-9]{32}\.(?:jpg|png|webp|img)", filename):
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        path = image_task_dir(task_id) / filename
+        try:
+            resolved = path.resolve()
+            task_dir = image_task_dir(task_id).resolve()
+            if not str(resolved).startswith(str(task_dir)) or not resolved.is_file():
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+            data = resolved.read_bytes()
+        except OSError:
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+
+        meta_path = resolved.with_suffix(".json")
+        content_type = self.guess_type(str(resolved))
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            if isinstance(meta.get("contentType"), str):
+                content_type = meta["contentType"]
+        except (OSError, json.JSONDecodeError):
+            pass
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Cache-Control", "private, max-age=86400")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
