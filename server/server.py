@@ -4,6 +4,7 @@ from __future__ import annotations
 import http.client
 import http.cookiejar
 import base64
+import io
 from decimal import Decimal, ROUND_HALF_UP
 import hashlib
 import json
@@ -620,6 +621,49 @@ def decode_data_url(data_url: str) -> tuple[str, bytes]:
     return content_type, base64.b64decode(payload)
 
 
+def jpeg_reference_name(filename: str) -> str:
+    source = (filename or "reference.jpg").strip() or "reference.jpg"
+    return re.sub(r"\.[a-z0-9]+$", "", source, flags=re.IGNORECASE) + ".jpg"
+
+
+def normalize_image_edit_reference_for_upstream(
+    filename: str,
+    content_type: str,
+    data: bytes,
+) -> tuple[str, str, bytes, bool]:
+    if content_type.lower() in {"image/jpeg", "image/jpg"} and data.startswith(b"\xff\xd8"):
+        return jpeg_reference_name(filename), "image/jpeg", data, False
+
+    try:
+        from PIL import Image, ImageOps
+    except Exception:
+        return filename, content_type, data, False
+
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            image = ImageOps.exif_transpose(image)
+            if image.mode in {"RGBA", "LA"} or (
+                image.mode == "P" and "transparency" in image.info
+            ):
+                canvas = Image.new("RGB", image.size, "white")
+                alpha = image.convert("RGBA").split()[-1]
+                canvas.paste(image.convert("RGB"), mask=alpha)
+                image = canvas
+            elif image.mode != "RGB":
+                image = image.convert("RGB")
+
+            max_side = 1024
+            if max(image.size) > max_side:
+                resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
+                image.thumbnail((max_side, max_side), resampling)
+
+            output = io.BytesIO()
+            image.save(output, format="JPEG", quality=90, optimize=True)
+            return jpeg_reference_name(filename), "image/jpeg", output.getvalue(), True
+    except Exception:
+        return filename, content_type, data, False
+
+
 def build_image_task_request(task: dict[str, Any]) -> urllib.request.Request:
     upstream = task["upstream"]
     target_url = openai_proxy_target_url(
@@ -676,7 +720,22 @@ def build_image_task_request(task: dict[str, Any]) -> urllib.request.Request:
         add_field(name, str(value))
     for image in upstream["images"]:
         content_type, data = decode_data_url(str(image["dataUrl"]))
-        add_file("image", str(image.get("name") or "reference.png"), content_type, data)
+        filename = str(image.get("name") or "reference.png")
+        if upstream.get("path") == "/v1/images/edits":
+            filename, content_type, data, converted = normalize_image_edit_reference_for_upstream(
+                filename,
+                content_type,
+                data,
+            )
+            if converted:
+                write_log(
+                    "INFO",
+                    "image_task_reference_normalized",
+                    f"{task.get('taskId')} converted reference image to JPEG for upstream",
+                    task_id=str(task.get("taskId") or ""),
+                    details={"filename": filename, "contentType": content_type},
+                )
+        add_file("image", filename, content_type, data)
     chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
     body = b"".join(chunks)
 
@@ -1418,18 +1477,16 @@ def translate_image_edit_prompt_with_model(
     base_url = normalize_openai_proxy_base_url(str(PROMPT_TRANSLATOR_BASE_URL or translator.get("baseUrl") or DEFAULT_BASE_URL))
     model = str(PROMPT_TRANSLATOR_MODEL or translator.get("model") or CODEX_MODEL).strip() or CODEX_MODEL
     system_prompt = (
-        "You rewrite image-edit prompts for an OpenAI-compatible image editing model. "
-        "Output English only. Preserve the user's visual intent, but rewrite hard constraints as soft visual guidance. "
-        "Avoid brittle or policy-sensitive wording such as strictly preserve, exact, identical, same person, facial identity, "
-        "must, never, do not change, do not alter, forbidden, prohibited, or impossible. "
-        "Prefer phrases like keep the general appearance, use as the main visual guide, visually match, maintain a similar style, "
-        "avoid adding unrelated elements, and use only short provided text if text is needed. "
-        "Mention the attached reference images by order when useful. "
-        "Return only the final prompt text, no markdown, no explanation."
+        "Translate image-edit prompts into English for an OpenAI-compatible image editing model. "
+        "Translate faithfully. Do not summarize, omit, reorder, reinterpret, or add new visual requirements. "
+        "Preserve every reference-image relationship, including image order, image 1/image 2 roles, and @reference names. "
+        "Keep replacement instructions as replacement instructions, scene references as scene references, and product references as product references. "
+        "Use natural English image-edit wording while keeping the user's meaning unchanged. "
+        "Output English only. Return only the translated prompt text, no markdown, no explanation."
     )
     user_prompt = (
         f"Reference image count: {reference_count}\n"
-        "Rewrite this prompt into a concise, reliable English image-edit prompt for /v1/images/edits:\n\n"
+        "Translate this prompt into English for /v1/images/edits without changing the meaning:\n\n"
         f"{prompt.strip()}"
     )
     body = json.dumps(
@@ -1463,7 +1520,30 @@ def translate_image_edit_prompt_with_model(
     translated = re.sub(r"^```(?:text)?|```$", "", translated.strip(), flags=re.IGNORECASE).strip()
     if not translated or re.search(r"[\u3400-\u9fff]", translated):
         return ""
-    return translated[:1800]
+    if reference_count >= 2 and re.search(r"图\s*1|图\s*2", prompt):
+        if not re.search(r"image\s*1", translated, re.IGNORECASE) or not re.search(
+            r"image\s*2",
+            translated,
+            re.IGNORECASE,
+        ):
+            return ""
+    return translated[:3200]
+
+
+def multi_reference_product_replacement_prompt(reference_names: list[str] | None = None) -> str:
+    first_name = reference_names[0] if reference_names else "image 1"
+    second_name = reference_names[1] if reference_names and len(reference_names) > 1 else "image 2"
+    return " ".join(
+        [
+            f"Use image 1 ({first_name}) as the only product subject reference.",
+            f"Use image 2 ({second_name}) as the scene, layout, composition, background, and camera-angle reference.",
+            "Replace only the product in image 2 with the product from image 1.",
+            "Preserve the product style, silhouette, color combination, material texture, and real details from image 1.",
+            "Keep the scene structure, background, props, lighting direction, spatial relationship, and overall atmosphere from image 2 unchanged.",
+            "Do not use image 1's white background or product-only composition as the final scene.",
+            "Make the product from image 1 look naturally integrated into the original scene from image 2, with clear edges, realistic materials, and a clean commercial product-photography finish.",
+        ]
+    )
 
 
 def compatible_image_edit_prompt(prompt: str, reference_names: list[str] | None = None) -> str:
@@ -1495,8 +1575,27 @@ def compatible_image_edit_prompt(prompt: str, reference_names: list[str] | None 
     wants_travel = bool(re.search(r"旅游|旅行|游客|景点|纪实|tourist|travel|documentary", normalized, re.IGNORECASE))
     wants_bystanders = bool(re.search(r"游客|人群|旁边|陪衬|background companions|other tourists", normalized, re.IGNORECASE))
     wants_product = bool(re.search(r"商品|产品|电商|product|commercial", normalized, re.IGNORECASE))
+    reference_count = len(reference_names or [])
+    wants_replacement = bool(re.search(r"替换|更换|换成|replace|swap", normalized, re.IGNORECASE))
+    references_first_two = bool(
+        re.search(r"图\s*1|image\s*1", normalized, re.IGNORECASE)
+        and re.search(r"图\s*2|image\s*2", normalized, re.IGNORECASE)
+    )
+
+    if wants_product and wants_replacement and reference_count >= 2 and references_first_two:
+        return multi_reference_product_replacement_prompt(reference_names)
 
     if wants_product:
+        if reference_count >= 2:
+            return " ".join(
+                [
+                    "Create a clean commercial product edit using the attached reference images in their prompt-defined roles.",
+                    "Keep the image order and reference-image roles from the user's prompt.",
+                    "If one reference is described as the product source, use it only for the product subject.",
+                    "If one reference is described as the scene, layout, background, or camera reference, keep that reference's composition and environment.",
+                    "Make the final product image realistic, coherent, high quality, and suitable for polished e-commerce use.",
+                ]
+            )
         intents = [
             "Create a clean commercial product image based on the reference image.",
             "Use the attached reference image as the main visual guide.",

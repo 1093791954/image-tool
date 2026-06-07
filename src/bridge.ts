@@ -342,7 +342,7 @@ function blobFromDataUrl(dataUrl: string) {
   return new Blob([bytes], { type })
 }
 
-const IMAGE_EDIT_REFERENCE_SIZE = 1024
+const IMAGE_EDIT_REFERENCE_MAX_SIDE = 1024
 const IMAGE_EDIT_REFERENCE_JPEG_QUALITY = 0.9
 
 function imageEditReferenceName(image: ReferenceImage) {
@@ -369,9 +369,12 @@ async function normalizeImageEditReference(image: ReferenceImage, model: string)
     throw new Error(`参考图 ${image.title || image.name || image.id} 无法读取尺寸`)
   }
 
+  const scale = Math.min(1, IMAGE_EDIT_REFERENCE_MAX_SIDE / Math.max(sourceWidth, sourceHeight))
+  const drawWidth = Math.max(1, Math.round(sourceWidth * scale))
+  const drawHeight = Math.max(1, Math.round(sourceHeight * scale))
   const canvas = document.createElement('canvas')
-  canvas.width = IMAGE_EDIT_REFERENCE_SIZE
-  canvas.height = IMAGE_EDIT_REFERENCE_SIZE
+  canvas.width = drawWidth
+  canvas.height = drawHeight
   const context = canvas.getContext('2d')
   if (!context) {
     throw new Error('浏览器无法处理参考图，请换用 PNG 或 JPG 图片后重试')
@@ -379,14 +382,9 @@ async function normalizeImageEditReference(image: ReferenceImage, model: string)
 
   context.fillStyle = '#fff'
   context.fillRect(0, 0, canvas.width, canvas.height)
-  const scale = Math.min(canvas.width / sourceWidth, canvas.height / sourceHeight)
-  const drawWidth = Math.max(1, Math.round(sourceWidth * scale))
-  const drawHeight = Math.max(1, Math.round(sourceHeight * scale))
-  const offsetX = Math.round((canvas.width - drawWidth) / 2)
-  const offsetY = Math.round((canvas.height - drawHeight) / 2)
   let dataUrl: string
   try {
-    context.drawImage(loaded, offsetX, offsetY, drawWidth, drawHeight)
+    context.drawImage(loaded, 0, 0, drawWidth, drawHeight)
     dataUrl = canvas.toDataURL('image/jpeg', IMAGE_EDIT_REFERENCE_JPEG_QUALITY)
   } catch {
     throw new Error(`参考图 ${image.title || image.name || image.id} 无法转换为 JPG，请换用 PNG 或 JPG 图片后重试`)
