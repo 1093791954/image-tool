@@ -342,6 +342,67 @@ function blobFromDataUrl(dataUrl: string) {
   return new Blob([bytes], { type })
 }
 
+const IMAGE_EDIT_REFERENCE_SIZE = 1024
+
+function imageEditReferenceName(image: ReferenceImage) {
+  const source = (image.name || image.title || 'reference.png').trim() || 'reference.png'
+  return source.replace(/\.[a-z0-9]+$/i, '') + '.png'
+}
+
+function loadReferenceImage(dataUrl: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('参考图无法读取，请换用 PNG 或 JPG 图片后重试'))
+    image.src = dataUrl
+  })
+}
+
+async function normalizeImageEditReference(image: ReferenceImage, model: string) {
+  if (!model.trim().toLowerCase().startsWith('gpt-image')) return image
+
+  const loaded = await loadReferenceImage(image.dataUrl)
+  const sourceWidth = loaded.naturalWidth || loaded.width
+  const sourceHeight = loaded.naturalHeight || loaded.height
+  if (!sourceWidth || !sourceHeight) {
+    throw new Error(`参考图 ${image.title || image.name || image.id} 无法读取尺寸`)
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = IMAGE_EDIT_REFERENCE_SIZE
+  canvas.height = IMAGE_EDIT_REFERENCE_SIZE
+  const context = canvas.getContext('2d')
+  if (!context) {
+    throw new Error('浏览器无法处理参考图，请换用 PNG 或 JPG 图片后重试')
+  }
+
+  context.fillStyle = '#fff'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  const scale = Math.min(canvas.width / sourceWidth, canvas.height / sourceHeight)
+  const drawWidth = Math.max(1, Math.round(sourceWidth * scale))
+  const drawHeight = Math.max(1, Math.round(sourceHeight * scale))
+  const offsetX = Math.round((canvas.width - drawWidth) / 2)
+  const offsetY = Math.round((canvas.height - drawHeight) / 2)
+  let dataUrl: string
+  try {
+    context.drawImage(loaded, offsetX, offsetY, drawWidth, drawHeight)
+    dataUrl = canvas.toDataURL('image/png')
+  } catch {
+    throw new Error(`参考图 ${image.title || image.name || image.id} 无法转换为 PNG，请换用 PNG 或 JPG 图片后重试`)
+  }
+
+  return {
+    ...image,
+    name: imageEditReferenceName(image),
+    type: 'image/png',
+    dataUrl,
+  }
+}
+
+async function normalizeImageEditReferences(references: ReferenceImage[], model: string) {
+  return Promise.all(references.map((image) => normalizeImageEditReference(image, model)))
+}
+
 function normalizedImageApiSize(model: string, size: string) {
   const normalizedModel = model.trim().toLowerCase()
   if (!normalizedModel.startsWith('gpt-image')) return size
@@ -1094,10 +1155,11 @@ export const bridge: ImageApiClient = {
     })
 
     if (payload.mode === 'image') {
-      const references = payload.referenceImages || []
-      if (references.length === 0) {
+      const rawReferences = payload.referenceImages || []
+      if (rawReferences.length === 0) {
         throw new Error('At least one reference image is required')
       }
+      const references = await normalizeImageEditReferences(rawReferences, payload.model)
 
       const apiSize = normalizedImageApiSize(payload.model, payload.size)
       const fields: Record<string, string> = {
