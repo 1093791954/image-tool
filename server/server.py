@@ -1385,6 +1385,51 @@ def image_task_retry_count(task: dict[str, Any], request_meta: dict[str, Any]) -
     return retry_count
 
 
+def compatible_image_edit_prompt(prompt: str, reference_names: list[str] | None = None) -> str:
+    normalized = re.sub(r"\s+", " ", prompt or "").strip()
+    lowered = normalized.lower()
+    has_cjk = bool(re.search(r"[\u3400-\u9fff]", normalized))
+    risky_terms = (
+        "identity",
+        "same person",
+        "facial features",
+        "exact",
+        "strict",
+        "preserve",
+        "do not change",
+        "must",
+        "身份",
+        "五官",
+        "严格",
+        "保留",
+        "不要改变",
+        "不能",
+        "必须",
+    )
+    if not has_cjk and not any(term in lowered or term in normalized for term in risky_terms):
+        return normalized
+
+    intents: list[str] = []
+    if re.search(r"上半身|半身|肩|胸|拉远|扩展|upper body|half body", normalized, re.IGNORECASE):
+        intents.append("Create a natural upper body portrait based on the reference image.")
+    elif re.search(r"全身|full body", normalized, re.IGNORECASE):
+        intents.append("Create a natural full body portrait based on the reference image.")
+    elif re.search(r"头像|特写|close-up|headshot", normalized, re.IGNORECASE):
+        intents.append("Create a clean portrait based on the reference image.")
+    elif re.search(r"商品|产品|电商|product|commercial", normalized, re.IGNORECASE):
+        intents.append("Create a clean commercial product image based on the reference image.")
+    else:
+        intents.append("Create a natural image edit based on the reference image.")
+
+    if reference_names:
+        intents.append("Use the attached reference image as the main visual guide.")
+    intents.append(
+        "Keep the same general appearance, styling, lighting direction, color mood, composition intent, and background feel."
+    )
+    intents.append("Make the result clean, realistic, coherent, high quality, and visually consistent.")
+    return " ".join(intents)
+
+
 def split_model_limits(value: str | None) -> set[str]:
     return {item.strip() for item in (value or "").split(",") if item.strip()}
 
@@ -1960,6 +2005,37 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
             fallback_request = (
                 payload.get("fallbackRequest") if isinstance(payload.get("fallbackRequest"), dict) else None
             )
+            request_payload = payload.get("request") if isinstance(payload.get("request"), dict) else {}
+            if (
+                direct_image_upstream
+                and upstream.get("path") == "/v1/images/edits"
+                and upstream.get("kind") == "multipart"
+                and isinstance(upstream.get("fields"), dict)
+            ):
+                original_prompt = str(upstream["fields"].get("prompt") or request_payload.get("prompt") or "")
+                compatible_prompt = compatible_image_edit_prompt(
+                    original_prompt,
+                    [str(name) for name in request_payload.get("referenceImageNames") or []],
+                )
+                if compatible_prompt and compatible_prompt != original_prompt:
+                    upstream["fields"]["prompt"] = compatible_prompt
+                    request_payload = {
+                        **request_payload,
+                        "upstreamPrompt": compatible_prompt,
+                    }
+                    write_log(
+                        "INFO",
+                        "image_task_prompt_compat",
+                        f"{task_id} converted image edit prompt for upstream compatibility",
+                        task_id=task_id,
+                        details={
+                            "model": request_payload.get("model"),
+                            "mode": request_payload.get("mode"),
+                            "originalLength": len(original_prompt),
+                            "compatibleLength": len(compatible_prompt),
+                            "referenceCount": len(upstream.get("images") or []),
+                        },
+                    )
 
             task = {
                 "taskId": task_id,
@@ -1969,7 +2045,7 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 "completedAt": None,
                 "error": None,
                 "result": None,
-                "request": payload.get("request") if isinstance(payload.get("request"), dict) else {},
+                "request": request_payload,
                 "upstream": upstream,
                 "apiKeyEncrypted": encrypt_task_api_key(api_key),
                 "accessTokenHash": hash_task_access_token(access_token),
