@@ -453,21 +453,32 @@ async function waitForImageTask(
   onTaskUpdate?: (task: ImageGenerationTask) => void
 ) {
   let currentTask = task
+  let pollingFailures = 0
   onTaskUpdate?.(currentTask)
   while (currentTask.status === 'queued' || currentTask.status === 'running') {
     await delay(currentTask.pollAfterMs || 1500)
-    const response = await fetch(`/api/image-tasks/${encodeURIComponent(currentTask.taskId)}`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        ...(currentTask.accessToken ? { 'X-Image-Task-Token': currentTask.accessToken } : {}),
-      },
-    })
-    currentTask = {
-      ...(await parseImageTaskResponse(response, 'Image task polling failed')),
-      accessToken: currentTask.accessToken,
+    try {
+      const response = await fetch(`/api/image-tasks/${encodeURIComponent(currentTask.taskId)}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          ...(currentTask.accessToken ? { 'X-Image-Task-Token': currentTask.accessToken } : {}),
+        },
+      })
+      currentTask = {
+        ...(await parseImageTaskResponse(response, 'Image task polling failed')),
+        accessToken: currentTask.accessToken,
+      }
+      pollingFailures = 0
+      onTaskUpdate?.(currentTask)
+    } catch (error) {
+      pollingFailures += 1
+      if (pollingFailures >= 8) {
+        throw new Error(
+          `图片任务仍在后台执行，但浏览器连续无法获取任务状态。请稍后刷新页面查看结果。${error instanceof Error ? ` 原因：${error.message}` : ''}`
+        )
+      }
     }
-    onTaskUpdate?.(currentTask)
   }
 
   if (currentTask.status !== 'completed') {
