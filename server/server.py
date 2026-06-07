@@ -62,6 +62,9 @@ REQUEST_TIMEOUT = env_int("IMAGE_TOOLS_REQUEST_TIMEOUT", 25)
 OPENAI_PROXY_TIMEOUT = env_int("IMAGE_TOOLS_OPENAI_PROXY_TIMEOUT", 500)
 DIRECT_IMAGE_BASE_URL = os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_BASE_URL", "https://2api.asia").strip().rstrip("/")
 DIRECT_IMAGE_API_KEY = os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_API_KEY", "").strip()
+PROMPT_TRANSLATOR_BASE_URL = os.environ.get("IMAGE_TOOLS_PROMPT_TRANSLATOR_BASE_URL", DIRECT_IMAGE_BASE_URL).strip().rstrip("/")
+PROMPT_TRANSLATOR_API_KEY = os.environ.get("IMAGE_TOOLS_PROMPT_TRANSLATOR_API_KEY", DIRECT_IMAGE_API_KEY).strip()
+PROMPT_TRANSLATOR_MODEL = os.environ.get("IMAGE_TOOLS_PROMPT_TRANSLATOR_MODEL", CODEX_MODEL).strip() or CODEX_MODEL
 BILLING_BASE_URL = os.environ.get("IMAGE_TOOLS_BILLING_BASE_URL", DEFAULT_BASE_URL).strip().rstrip("/")
 BILLING_ADMIN_USERNAME = os.environ.get("IMAGE_TOOLS_BILLING_ADMIN_USERNAME", "").strip()
 BILLING_ADMIN_PASSWORD = os.environ.get("IMAGE_TOOLS_BILLING_ADMIN_PASSWORD", "")
@@ -1385,6 +1388,84 @@ def image_task_retry_count(task: dict[str, Any], request_meta: dict[str, Any]) -
     return retry_count
 
 
+def extract_chat_text(body: dict[str, Any]) -> str:
+    choices = body.get("choices") if isinstance(body, dict) else None
+    if isinstance(choices, list) and choices:
+        first = choices[0] if isinstance(choices[0], dict) else {}
+        message = first.get("message") if isinstance(first.get("message"), dict) else {}
+        content = message.get("content")
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, dict) and isinstance(item.get("text"), str):
+                    parts.append(item["text"])
+            return "\n".join(parts).strip()
+    output_text = body.get("output_text") if isinstance(body, dict) else None
+    return output_text.strip() if isinstance(output_text, str) else ""
+
+
+def translate_image_edit_prompt_with_model(
+    translator: dict[str, Any] | None,
+    prompt: str,
+    reference_count: int,
+) -> str:
+    translator = translator or {}
+    api_key = str(PROMPT_TRANSLATOR_API_KEY or translator.get("apiKey") or "").strip()
+    if not api_key:
+        return ""
+    base_url = normalize_openai_proxy_base_url(str(PROMPT_TRANSLATOR_BASE_URL or translator.get("baseUrl") or DEFAULT_BASE_URL))
+    model = str(PROMPT_TRANSLATOR_MODEL or translator.get("model") or CODEX_MODEL).strip() or CODEX_MODEL
+    system_prompt = (
+        "You rewrite image-edit prompts for an OpenAI-compatible image editing model. "
+        "Output English only. Preserve the user's visual intent, but rewrite hard constraints as soft visual guidance. "
+        "Avoid brittle or policy-sensitive wording such as strictly preserve, exact, identical, same person, facial identity, "
+        "must, never, do not change, do not alter, forbidden, prohibited, or impossible. "
+        "Prefer phrases like keep the general appearance, use as the main visual guide, visually match, maintain a similar style, "
+        "avoid adding unrelated elements, and use only short provided text if text is needed. "
+        "Mention the attached reference images by order when useful. "
+        "Return only the final prompt text, no markdown, no explanation."
+    )
+    user_prompt = (
+        f"Reference image count: {reference_count}\n"
+        "Rewrite this prompt into a concise, reliable English image-edit prompt for /v1/images/edits:\n\n"
+        f"{prompt.strip()}"
+    )
+    body = json.dumps(
+        {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.2,
+        }
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        f"{base_url}/v1/chat/completions",
+        data=body,
+        method="POST",
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "GPT-Image-Tools/1.0",
+        },
+    )
+    with open_url(request, timeout=REQUEST_TIMEOUT) as response:
+        response_body = response.read()
+    try:
+        result = json.loads(response_body.decode("utf-8", errors="replace"))
+    except json.JSONDecodeError:
+        return ""
+    translated = extract_chat_text(result)
+    translated = re.sub(r"^```(?:text)?|```$", "", translated.strip(), flags=re.IGNORECASE).strip()
+    if not translated or re.search(r"[\u3400-\u9fff]", translated):
+        return ""
+    return translated[:1800]
+
+
 def compatible_image_edit_prompt(prompt: str, reference_names: list[str] | None = None) -> str:
     normalized = re.sub(r"\s+", " ", prompt or "").strip()
     lowered = normalized.lower()
@@ -2038,6 +2119,7 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 payload.get("fallbackRequest") if isinstance(payload.get("fallbackRequest"), dict) else None
             )
             request_payload = payload.get("request") if isinstance(payload.get("request"), dict) else {}
+            prompt_translator = payload.get("promptTranslator") if isinstance(payload.get("promptTranslator"), dict) else None
             if (
                 direct_image_upstream
                 and upstream.get("path") == "/v1/images/edits"
@@ -2049,11 +2131,38 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                     original_prompt,
                     [str(name) for name in request_payload.get("referenceImageNames") or []],
                 )
+                prompt_source = "local"
+                try:
+                    translated_prompt = translate_image_edit_prompt_with_model(
+                        prompt_translator,
+                        original_prompt,
+                        len(upstream.get("images") or []),
+                    )
+                    if translated_prompt:
+                        compatible_prompt = translated_prompt
+                        prompt_source = "model"
+                except Exception as exc:
+                    translator_model = (
+                        str(prompt_translator.get("model"))
+                        if isinstance(prompt_translator, dict) and prompt_translator.get("model")
+                        else PROMPT_TRANSLATOR_MODEL
+                    )
+                    write_log(
+                        "WARN",
+                        "image_task_prompt_translate_failed",
+                        f"{task_id} prompt translation failed, using local compatibility prompt",
+                        task_id=task_id,
+                        details={
+                            "model": translator_model,
+                            "error": str(exc)[:240],
+                        },
+                    )
                 if compatible_prompt and compatible_prompt != original_prompt:
                     upstream["fields"]["prompt"] = compatible_prompt
                     request_payload = {
                         **request_payload,
                         "upstreamPrompt": compatible_prompt,
+                        "upstreamPromptSource": prompt_source,
                     }
                     write_log(
                         "INFO",
@@ -2066,6 +2175,7 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                             "originalLength": len(original_prompt),
                             "compatibleLength": len(compatible_prompt),
                             "referenceCount": len(upstream.get("images") or []),
+                            "source": prompt_source,
                         },
                     )
 
