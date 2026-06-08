@@ -71,9 +71,9 @@ BILLING_ADMIN_USERNAME = os.environ.get("IMAGE_TOOLS_BILLING_ADMIN_USERNAME", ""
 BILLING_ADMIN_PASSWORD = os.environ.get("IMAGE_TOOLS_BILLING_ADMIN_PASSWORD", "")
 BILLING_QUOTA_PER_USD = Decimal(os.environ.get("IMAGE_TOOLS_BILLING_QUOTA_PER_USD", "500000"))
 IMAGE_BILLING_PRICES = {
-    "1K": Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_1K", "0.0800")),
-    "2K": Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_2K", "0.0800")),
-    "4K": Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_4K", "0.0800")),
+    "1K": Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_1K", "0.1200")),
+    "2K": Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_2K", "0.1200")),
+    "4K": Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_4K", "0.1200")),
 }
 LOG_MAX_ROWS = env_int("IMAGE_TOOLS_LOG_MAX_ROWS", 5000)
 DB_MAX_BYTES = env_int("IMAGE_TOOLS_DB_MAX_BYTES", 64 * 1024 * 1024)
