@@ -830,7 +830,7 @@ def normalized_image_api_size(model: str, size: str) -> str:
         return size
     if size == "auto":
         return size
-    supported_sizes = {"1024x1024", "1024x1536", "1536x1024"}
+    supported_sizes = {"1024x1024", "1536x864", "864x1536"}
     if size in supported_sizes:
         return size
     match = re.fullmatch(r"(\d{2,5})x(\d{2,5})", size or "")
@@ -840,7 +840,7 @@ def normalized_image_api_size(model: str, size: str) -> str:
     height = int(match.group(2))
     if abs(width - height) / max(width, height) < 0.08:
         return "1024x1024"
-    return "1024x1536" if height > width else "1536x1024"
+    return "864x1536" if height > width else "1536x864"
 
 
 def image_billing_quota(_size: str, image_count: int = 1) -> tuple[str, int, str]:

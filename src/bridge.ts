@@ -420,7 +420,7 @@ function normalizedImageApiSize(model: string, size: string) {
   const normalizedModel = model.trim().toLowerCase()
   if (!normalizedModel.startsWith('gpt-image')) return size
   if (size === 'auto') return size
-  const supportedSizes = new Set(['1024x1024', '1024x1536', '1536x1024'])
+  const supportedSizes = new Set(['1024x1024', '1536x864', '864x1536'])
   if (supportedSizes.has(size)) return size
 
   const match = size.match(/^(\d{2,5})x(\d{2,5})$/)
@@ -429,7 +429,7 @@ function normalizedImageApiSize(model: string, size: string) {
   const height = Number(match[2])
   if (!Number.isFinite(width) || !Number.isFinite(height)) return size
   if (Math.abs(width - height) / Math.max(width, height) < 0.08) return '1024x1024'
-  return height > width ? '1024x1536' : '1536x1024'
+  return height > width ? '864x1536' : '1536x864'
 }
 
 function shouldSendImageResponseFormat(model: string, responseFormat: 'url' | 'b64_json') {

@@ -118,16 +118,8 @@ function normalizeImageRetryCount(value: unknown) {
 const CUSTOM_SIZE_VALUE = 'custom'
 const sizeOptions = [
   { ratio: '1:1', value: '1024x1024', label: '方图' },
-  { ratio: '3:4', value: '1024x1365', label: '竖版海报' },
-  { ratio: '4:3', value: '1365x1024', label: '横版构图' },
   { ratio: '16:9', value: '1536x864', label: '宽屏封面' },
   { ratio: '9:16', value: '864x1536', label: '手机竖屏' },
-  { ratio: '2:3', value: '1024x1536', label: '竖版生成' },
-  { ratio: '3:2', value: '1536x1024', label: '横版生成' },
-  { ratio: '4:5', value: '1024x1280', label: '社媒竖图' },
-  { ratio: '5:4', value: '1280x1024', label: '产品横图' },
-  { ratio: '4:7', value: '1024x1792', label: '长竖图' },
-  { ratio: '7:4', value: '1792x1024', label: '超宽图' },
 ]
 const sizes = sizeOptions.map((item) => item.value)
 const qualities = ['auto', 'standard', 'hd', 'low', 'medium', 'high']
