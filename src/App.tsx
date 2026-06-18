@@ -118,6 +118,8 @@ function normalizeImageRetryCount(value: unknown) {
 const CUSTOM_SIZE_VALUE = 'custom'
 const sizeOptions = [
   { ratio: '1:1', value: '1024x1024', label: '方图' },
+  { ratio: '3:4', value: '1024x1360', label: '竖版海报' },
+  { ratio: '4:3', value: '1360x1024', label: '横版构图' },
   { ratio: '16:9', value: '1536x864', label: '宽屏封面' },
   { ratio: '9:16', value: '864x1536', label: '手机竖屏' },
 ]
