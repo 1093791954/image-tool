@@ -23,6 +23,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   newApiUserId: undefined,
   imageTokenId: undefined,
   imageTokenName: '',
+  videoApiKey: '',
+  videoTokenId: undefined,
+  videoTokenName: '',
+  videoModel: 'doubao-seedance-2.0',
   imageRetryCount: 0,
   textModel: 'gpt-5.5',
   themeMode: 'dark',
@@ -108,6 +112,10 @@ function normalizeSettings(settings: Partial<AppSettings> | undefined): AppSetti
     newApiUserId: settings?.persistApiKey ? settings.newApiUserId : undefined,
     imageTokenId: settings?.persistApiKey ? settings.imageTokenId : undefined,
     imageTokenName: settings?.persistApiKey ? settings.imageTokenName || '' : '',
+    videoApiKey: settings?.persistApiKey ? settings.videoApiKey || '' : '',
+    videoTokenId: settings?.persistApiKey ? settings.videoTokenId : undefined,
+    videoTokenName: settings?.persistApiKey ? settings.videoTokenName || '' : '',
+    videoModel: settings?.videoModel || DEFAULT_SETTINGS.videoModel,
     imageRetryCount: normalizeRetryCount(settings?.imageRetryCount),
     textModel: settings?.textModel || DEFAULT_SETTINGS.textModel,
     themeMode: settings?.themeMode || 'dark',
@@ -122,6 +130,7 @@ function backupSettingsFrom(settings: AppSettings): BackupSettings {
     persistApiKey: false,
     imageRetryCount: settings.imageRetryCount ?? DEFAULT_SETTINGS.imageRetryCount,
     textModel: settings.textModel || DEFAULT_SETTINGS.textModel,
+    videoModel: settings.videoModel || DEFAULT_SETTINGS.videoModel,
     themeMode: settings.themeMode || 'system',
   }
 }
@@ -241,10 +250,12 @@ export async function importBackup(backup: unknown): Promise<number> {
         candidate.settings.imageRetryCount ?? current.imageRetryCount
       ),
       textModel: candidate.settings.textModel || current.textModel,
+      videoModel: candidate.settings.videoModel || current.videoModel,
       themeMode: candidate.settings.themeMode || current.themeMode,
       persistApiKey: false,
       apiKey: '',
       codexApiKey: '',
+      videoApiKey: '',
     })
   }
 

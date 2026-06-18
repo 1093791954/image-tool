@@ -14,6 +14,8 @@ import type {
   StyleCategory,
   StyleCategoryResult,
   StyleLibraryResult,
+  VideoGenerationPayload,
+  VideoGenerationTask,
 } from './types'
 import {
   buildCommerceDetailPromptSystemInstruction,
@@ -85,6 +87,18 @@ function imageTaskBilling(payload: {
     tokenId: payload.billingTokenId,
     tokenName: payload.billingTokenName,
   }
+}
+
+function imageTaskPromptTranslator(payload: {
+  promptTranslatorBaseUrl?: string
+  promptTranslatorApiKey?: string
+  promptTranslatorModel?: string
+}) {
+  const baseUrl = payload.promptTranslatorBaseUrl?.trim()
+  const apiKey = payload.promptTranslatorApiKey?.trim()
+  const model = payload.promptTranslatorModel?.trim()
+  if (!baseUrl || !apiKey || !model) return undefined
+  return { baseUrl, apiKey, model }
 }
 
 function responseSnippet(text: string) {
@@ -446,6 +460,83 @@ async function parseImageResult(
 
 async function parseImageTaskResponse(response: Response, prefix: string) {
   return parseJsonResponse<ImageGenerationTask>(response, prefix)
+}
+
+function videoTaskErrorMessage(task: VideoGenerationTask) {
+  if (!task.error) return ''
+  if (typeof task.error === 'string') return task.error
+  return task.error.message || JSON.stringify(task.error)
+}
+
+async function parseVideoTaskResponse(response: Response, prefix: string) {
+  const task = await parseJsonResponse<Partial<VideoGenerationTask> & { taskId?: string }>(
+    response,
+    prefix
+  )
+  const id = task.id || task.taskId
+  if (!id) throw new Error(`${prefix}: 上游没有返回视频任务 ID`)
+  const status = task.status
+  if (!status) throw new Error(`${prefix}: 上游没有返回视频任务状态`)
+  return {
+    ...task,
+    id,
+    status,
+  } as VideoGenerationTask
+}
+
+async function waitForVideoTask(
+  payload: VideoGenerationPayload,
+  task: VideoGenerationTask
+) {
+  let currentTask = task
+  let pollingFailures = 0
+  payload.onTaskUpdate?.(currentTask)
+
+  while (currentTask.status === 'queued' || currentTask.status === 'running') {
+    await delay(10000)
+    try {
+      const response = await fetch(
+        openAiProxyUrl(payload.baseUrl, `/v1/video/generations/${encodeURIComponent(currentTask.id)}`),
+        {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${payload.apiKey.trim()}`,
+          },
+        }
+      )
+      currentTask = await parseVideoTaskResponse(response, 'Video task polling failed')
+      pollingFailures = 0
+      payload.onTaskUpdate?.(currentTask)
+    } catch (error) {
+      pollingFailures += 1
+      if (pollingFailures >= 8) {
+        throw new Error(
+          `视频任务仍在后台执行，但浏览器连续无法获取任务状态。请稍后重试。${error instanceof Error ? ` 原因：${error.message}` : ''}`
+        )
+      }
+    }
+  }
+
+  if (currentTask.status !== 'succeeded') {
+    throw new Error(videoTaskErrorMessage(currentTask) || '视频生成失败')
+  }
+
+  const src = currentTask.content?.video_url
+  if (!src) throw new Error('视频任务成功但没有返回 video_url')
+
+  return {
+    video: {
+      id: currentTask.id,
+      src,
+      prompt: payload.prompt,
+      model: payload.model,
+      duration: payload.duration,
+      resolution: payload.resolution,
+      ratio: payload.ratio,
+      createdAt: Date.now(),
+    },
+  }
 }
 
 async function waitForImageTask(
@@ -1219,6 +1310,7 @@ export const bridge: ImageApiClient = {
               })),
             },
             billing: imageTaskBilling(payload),
+            promptTranslator: imageTaskPromptTranslator(payload),
           }),
         })
         const createdTask = await parseImageTaskResponse(response, 'Image edit task failed')
@@ -1279,6 +1371,7 @@ export const bridge: ImageApiClient = {
               },
             },
             billing: imageTaskBilling(payload),
+            promptTranslator: imageTaskPromptTranslator(payload),
           }),
         })
         const createdTask = await parseImageTaskResponse(response, 'Image generation task failed')
@@ -1316,5 +1409,24 @@ export const bridge: ImageApiClient = {
       })
       throw error
     }
+  },
+
+  async generateVideo(payload: VideoGenerationPayload) {
+    const response = await fetch(openAiProxyUrl(payload.baseUrl, '/v1/video/generations'), {
+      method: 'POST',
+      headers: headers(payload.apiKey),
+      body: JSON.stringify({
+        model: payload.model,
+        prompt: payload.prompt,
+        duration: payload.duration,
+        size: payload.resolution,
+        ratio: payload.ratio,
+        metadata: {
+          resolution: payload.resolution,
+        },
+      }),
+    })
+    const task = await parseVideoTaskResponse(response, 'Video generation task failed')
+    return waitForVideoTask(payload, task)
   },
 }

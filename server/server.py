@@ -49,6 +49,9 @@ IMAGE_TOKEN_NAME = "GPT Image Tools - gpt-image-2"
 CODEX_GROUP = "gpt 2"
 CODEX_MODEL = "gpt-5.5"
 CODEX_TOKEN_NAME = "GPT Image Tools - codex"
+VIDEO_GROUP = "视频生成"
+VIDEO_MODEL = "doubao-seedance-2.0"
+VIDEO_TOKEN_NAME = "GPT Image Tools - doubao-seedance-2.0"
 MAX_JSON_BODY = 16 * 1024
 MAX_OPENAI_PROXY_BODY = env_int("IMAGE_TOOLS_OPENAI_PROXY_MAX_BODY", 64 * 1024 * 1024)
 OPENAI_PROXY_CACHE_MAX_BYTES = env_int(
@@ -61,20 +64,14 @@ TOKEN_LIST_PAGE_SIZE = 100
 TOKEN_LIST_MAX_PAGES = 50
 REQUEST_TIMEOUT = env_int("IMAGE_TOOLS_REQUEST_TIMEOUT", 25)
 OPENAI_PROXY_TIMEOUT = env_int("IMAGE_TOOLS_OPENAI_PROXY_TIMEOUT", 500)
-DIRECT_IMAGE_BASE_URL = os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_BASE_URL", "https://2api.asia").strip().rstrip("/")
+DIRECT_IMAGE_BASE_URL = os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_BASE_URL", "https://api.krill-ai.com").strip().rstrip("/")
 DIRECT_IMAGE_API_KEY = os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_API_KEY", "").strip()
-PROMPT_TRANSLATOR_BASE_URL = os.environ.get("IMAGE_TOOLS_PROMPT_TRANSLATOR_BASE_URL", DIRECT_IMAGE_BASE_URL).strip().rstrip("/")
-PROMPT_TRANSLATOR_API_KEY = os.environ.get("IMAGE_TOOLS_PROMPT_TRANSLATOR_API_KEY", DIRECT_IMAGE_API_KEY).strip()
-PROMPT_TRANSLATOR_MODEL = os.environ.get("IMAGE_TOOLS_PROMPT_TRANSLATOR_MODEL", CODEX_MODEL).strip() or CODEX_MODEL
+PROMPT_TRANSLATOR_BASE_URL = os.environ.get("IMAGE_TOOLS_PROMPT_TRANSLATOR_BASE_URL", DEFAULT_BASE_URL).strip().rstrip("/")
 BILLING_BASE_URL = os.environ.get("IMAGE_TOOLS_BILLING_BASE_URL", DEFAULT_BASE_URL).strip().rstrip("/")
 BILLING_ADMIN_USERNAME = os.environ.get("IMAGE_TOOLS_BILLING_ADMIN_USERNAME", "").strip()
 BILLING_ADMIN_PASSWORD = os.environ.get("IMAGE_TOOLS_BILLING_ADMIN_PASSWORD", "")
 BILLING_QUOTA_PER_USD = Decimal(os.environ.get("IMAGE_TOOLS_BILLING_QUOTA_PER_USD", "500000"))
-IMAGE_BILLING_PRICES = {
-    "1K": Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_1K", "0.1200")),
-    "2K": Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_2K", "0.1200")),
-    "4K": Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_4K", "0.1200")),
-}
+IMAGE_BILLING_PRICE_USD = Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_USD", "0.0600"))
 LOG_MAX_ROWS = env_int("IMAGE_TOOLS_LOG_MAX_ROWS", 5000)
 DB_MAX_BYTES = env_int("IMAGE_TOOLS_DB_MAX_BYTES", 64 * 1024 * 1024)
 DEFAULT_LOCAL_PROXY = "http://127.0.0.1:7897"
@@ -846,18 +843,9 @@ def normalized_image_api_size(model: str, size: str) -> str:
     return "1024x1536" if height > width else "1536x1024"
 
 
-def image_billing_tier(size: str) -> str:
-    normalized = (size or "").strip().upper()
-    if "4K" in normalized or "4096" in normalized or "3840" in normalized:
-        return "4K"
-    if "2K" in normalized or "2048" in normalized:
-        return "2K"
-    return "1K"
-
-
-def image_billing_quota(size: str, image_count: int = 1) -> tuple[str, int, str]:
-    tier = image_billing_tier(size)
-    price = IMAGE_BILLING_PRICES[tier]
+def image_billing_quota(_size: str, image_count: int = 1) -> tuple[str, int, str]:
+    tier = "STANDARD"
+    price = IMAGE_BILLING_PRICE_USD
     count = max(1, int(image_count or 1))
     quota = (price * BILLING_QUOTA_PER_USD * Decimal(count)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return tier, int(quota), str(price)
@@ -1547,11 +1535,11 @@ def translate_image_edit_prompt_with_model(
     reference_count: int,
 ) -> str:
     translator = translator or {}
-    api_key = str(PROMPT_TRANSLATOR_API_KEY or translator.get("apiKey") or "").strip()
+    api_key = str(translator.get("apiKey") or "").strip()
     if not api_key:
         return ""
-    base_url = normalize_openai_proxy_base_url(str(PROMPT_TRANSLATOR_BASE_URL or translator.get("baseUrl") or DEFAULT_BASE_URL))
-    model = str(PROMPT_TRANSLATOR_MODEL or translator.get("model") or CODEX_MODEL).strip() or CODEX_MODEL
+    base_url = normalize_openai_proxy_base_url(str(translator.get("baseUrl") or PROMPT_TRANSLATOR_BASE_URL or DEFAULT_BASE_URL))
+    model = str(translator.get("model") or CODEX_MODEL).strip() or CODEX_MODEL
     system_prompt = (
         "Translate image-edit prompts into English for an OpenAI-compatible image editing model. "
         "Translate faithfully. Do not summarize, omit, reorder, reinterpret, or add new visual requirements. "
@@ -1946,6 +1934,7 @@ def obtain_managed_key(base_url: str, username: str, password: str) -> dict[str,
 
     image_key = session.obtain_token_key(IMAGE_TOKEN_NAME, IMAGE_GROUP, IMAGE_MODEL)
     codex_key = session.obtain_token_key(CODEX_TOKEN_NAME, CODEX_GROUP, CODEX_MODEL)
+    video_key = session.obtain_token_key(VIDEO_TOKEN_NAME, VIDEO_GROUP, VIDEO_MODEL)
 
     return {
         "baseUrl": normalized_base_url,
@@ -1969,6 +1958,12 @@ def obtain_managed_key(base_url: str, username: str, password: str) -> dict[str,
         "codexModel": codex_key["model"],
         "codexTokenName": codex_key["tokenName"],
         "codexCreated": codex_key["created"],
+        "videoApiKey": video_key["apiKey"],
+        "videoTokenId": video_key["tokenId"],
+        "videoGroup": video_key["group"],
+        "videoModel": video_key["model"],
+        "videoTokenName": video_key["tokenName"],
+        "videoCreated": video_key["created"],
     }
 
 
@@ -2323,7 +2318,7 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                     translator_model = (
                         str(prompt_translator.get("model"))
                         if isinstance(prompt_translator, dict) and prompt_translator.get("model")
-                        else PROMPT_TRANSLATOR_MODEL
+                        else CODEX_MODEL
                     )
                     write_log(
                         "WARN",

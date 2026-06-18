@@ -26,12 +26,14 @@ import {
   Loader2,
   Palette,
   Play,
+  Video,
   Trash2,
   Upload,
   WandSparkles,
   X,
 } from 'lucide-react'
 import type {
+  GeneratedVideo,
   LocalImageRecord,
   PromptOptimizationPreset,
   ReferenceImage,
@@ -110,6 +112,25 @@ export type GenerateNodeData = {
   onDownload: (image: LocalImageRecord) => void
 } & BaseNodeData
 
+export type VideoNodeData = {
+  model: string
+  setModel: Dispatch<SetStateAction<string>>
+  aspectRatio: string
+  aspectRatios: string[]
+  setAspectRatio: Dispatch<SetStateAction<string>>
+  duration: number
+  durations: number[]
+  setDuration: Dispatch<SetStateAction<number>>
+  resolution: '480p' | '720p'
+  resolutions: readonly ('480p' | '720p')[]
+  setResolution: Dispatch<SetStateAction<'480p' | '720p'>>
+  isGenerating: boolean
+  canGenerate: boolean
+  onGenerate: () => void
+  video: GeneratedVideo | null
+  onOpen: (video: GeneratedVideo) => void
+} & BaseNodeData
+
 export type OutputNodeData = {
   image: LocalImageRecord | null
   isGenerating: boolean
@@ -126,6 +147,7 @@ type AssetFlowNode = Node<AssetNodeData, 'asset'>
 type PromptFlowNode = Node<PromptNodeData, 'prompt'>
 type StyleFlowNode = Node<StyleNodeData, 'style'>
 type GenerateFlowNode = Node<GenerateNodeData, 'generate'>
+type VideoFlowNode = Node<VideoNodeData, 'video'>
 type OutputFlowNode = Node<OutputNodeData, 'output'>
 type BlueprintFlowEdge = Edge<BlueprintEdgeData, 'blueprint'>
 
@@ -199,7 +221,7 @@ function NodeShell({
   children,
 }: {
   id: string
-  accent: 'blue' | 'violet' | 'pink' | 'green'
+  accent: 'blue' | 'violet' | 'pink' | 'green' | 'cyan'
   title: string
   subtitle: string
   titleAction?: ReactNode
@@ -856,6 +878,105 @@ export function GenerateNode({ id, data }: NodeProps<GenerateFlowNode>) {
   )
 }
 
+export function VideoNode({ id, data }: NodeProps<VideoFlowNode>) {
+  return (
+    <NodeShell
+      id={id}
+      accent='cyan'
+      title='视频生成'
+      subtitle='Video'
+      onDelete={data.onDeleteNode}
+    >
+      <div className='node-port-grid generate-port-grid'>
+        <div className='node-port-row node-port-row-target'>
+          <Handle type='target' position={Position.Left} id='prompt' />
+          <span>提示词输入</span>
+        </div>
+      </div>
+      <div className='generation-preview video-generation-preview'>
+        {data.video ? (
+          <video src={data.video.src} controls playsInline preload='metadata' />
+        ) : data.isGenerating ? (
+          <Loader2 className='spin' size={44} />
+        ) : (
+          <>
+            <Video size={42} />
+            <span>NO VIDEO</span>
+          </>
+        )}
+      </div>
+      <div className='node-param-grid nodrag'>
+        <label className='node-param-wide-field'>
+          <span>模型</span>
+          <input
+            value={data.model}
+            onChange={(event) => data.setModel(event.target.value)}
+            placeholder='video-01'
+            spellCheck={false}
+          />
+        </label>
+        <label>
+          <span>比例</span>
+          <select
+            value={data.aspectRatio}
+            onChange={(event) => data.setAspectRatio(event.target.value)}
+          >
+            {data.aspectRatios.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>时长</span>
+          <select
+            value={data.duration}
+            onChange={(event) => data.setDuration(Number(event.target.value))}
+          >
+            {data.durations.map((item) => (
+              <option key={item} value={item}>
+                {item}s
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>清晰度</span>
+          <select
+            value={data.resolution}
+            onChange={(event) => data.setResolution(event.target.value as '480p' | '720p')}
+          >
+            {data.resolutions.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className='node-action-bar nodrag'>
+        <div>
+          <strong>{data.isGenerating ? '等待生成结果' : '等待视频接口'}</strong>
+          <span>{data.isGenerating ? '正在请求上游生成' : '提示词节点已可连接，接口接入后即可执行'}</span>
+        </div>
+        <button type='button' onClick={data.onGenerate} disabled={!data.canGenerate}>
+          {data.isGenerating ? <Loader2 className='spin' size={16} /> : <Play size={16} />}
+          {data.isGenerating ? '等待结果' : '生成视频'}
+        </button>
+      </div>
+      {data.video ? (
+        <div className='output-actions nodrag'>
+          <button type='button' onClick={() => data.onOpen(data.video!)}>
+            <Video size={15} />
+            打开视频
+          </button>
+        </div>
+      ) : null}
+    </NodeShell>
+  )
+}
+
 export function OutputNode({ id, data }: NodeProps<OutputFlowNode>) {
   return (
     <NodeShell
@@ -1099,6 +1220,7 @@ export const nodeTypes = {
   prompt: PromptNode,
   style: StyleNode,
   generate: GenerateNode,
+  video: VideoNode,
   output: OutputNode,
 }
 

@@ -17,6 +17,7 @@
   --violet: #a684ff;
   --pink: #ff4aa2;
   --green: #41d39b;
+  --cyan: #3fd7e5;
   --amber: #f0bb58;
   --danger: #ff6b63;
   --danger-bg: #2c1517;
@@ -52,6 +53,7 @@
   --violet: #7357ce;
   --pink: #d52c82;
   --green: #0f946b;
+  --cyan: #0d8fa1;
   --amber: #ad7624;
   --danger: #b23b35;
   --danger-bg: #fff0ef;
@@ -566,6 +568,11 @@ select:disabled {
 .edge-green .react-flow__edge-path {
   stroke: var(--green);
   filter: drop-shadow(0 0 8px var(--green));
+}
+
+.edge-cyan .react-flow__edge-path {
+  stroke: var(--cyan);
+  filter: drop-shadow(0 0 8px var(--cyan));
 }
 
 .react-flow__controls,
@@ -2173,6 +2180,10 @@ select:disabled {
   color: var(--violet);
 }
 
+.connection-config-title-video svg {
+  color: var(--cyan);
+}
+
 .connection-config-title small {
   margin-left: auto;
   color: var(--text-muted);
@@ -2287,6 +2298,7 @@ select:disabled {
 
 .field input,
 .field select,
+.node-param-grid input,
 .node-param-grid select,
 .prompt-optimization-select select,
 .node-textarea {
@@ -2305,6 +2317,7 @@ select:disabled {
 
 .field input,
 .field select,
+.node-param-grid input,
 .node-param-grid select,
 .prompt-optimization-select select {
   height: 38px;
@@ -2313,6 +2326,7 @@ select:disabled {
 
 .field input:focus,
 .field select:focus,
+.node-param-grid input:focus,
 .node-param-grid select:focus,
 .prompt-optimization-select select:focus,
 .node-textarea:focus,
@@ -2686,6 +2700,15 @@ select:disabled {
 
 .flow-node-green::before {
   background: var(--green);
+}
+
+.flow-node-cyan {
+  width: 520px;
+  border-color: var(--cyan);
+}
+
+.flow-node-cyan::before {
+  background: var(--cyan);
 }
 
 .asset-drop {
@@ -3124,6 +3147,14 @@ select:disabled {
   object-fit: contain;
 }
 
+.video-generation-preview video,
+.video-preview-frame video {
+  width: 100%;
+  height: 100%;
+  background: #05070b;
+  object-fit: contain;
+}
+
 .generation-preview {
   height: 190px;
   margin-bottom: 12px;
@@ -3152,6 +3183,14 @@ select:disabled {
 
 .flow-node-pink .node-param-size-field {
   grid-column: span 2;
+}
+
+.flow-node-cyan .node-param-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.node-param-wide-field {
+  grid-column: span 3;
 }
 
 .node-param-grid label {
@@ -3201,6 +3240,10 @@ select:disabled {
   color: #061014;
   background: linear-gradient(135deg, var(--pink), var(--amber));
   border-color: transparent;
+}
+
+.flow-node-cyan .node-action-bar button {
+  background: linear-gradient(135deg, var(--cyan), var(--green));
 }
 
 .output-frame {
@@ -3620,6 +3663,10 @@ select:disabled {
   box-shadow: 0 18px 54px rgb(0 0 0 / 32%);
 }
 
+.video-preview-dialog {
+  width: min(1040px, 100%);
+}
+
 .preview-header {
   display: flex;
   align-items: center;
@@ -3668,6 +3715,12 @@ select:disabled {
   height: 100%;
   object-fit: contain;
   object-position: center;
+}
+
+.video-preview-frame {
+  aspect-ratio: 16 / 9;
+  height: auto;
+  max-height: min(68vh, 720px);
 }
 
 .preview-caption {

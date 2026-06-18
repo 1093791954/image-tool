@@ -75,10 +75,12 @@ import {
   type BlueprintEdgeData,
   type GenerateNodeData,
   type PromptNodeData,
+  type VideoNodeData,
 } from './workflowNodes'
 import type {
   ImageGenerationTask,
   ImageGenerationTaskStatus,
+  GeneratedVideo,
   LocalImageRecord,
   ModelOption,
   PromptOptimizationPreset,
@@ -93,6 +95,7 @@ const DEFAULT_TEXT_BASE_URL = DEFAULT_BASE_URL
 const DEFAULT_IMAGE_BASE_URL = DEFAULT_BASE_URL
 const DEFAULT_MODEL = 'gpt-image-2'
 const DEFAULT_TEXT_MODEL = 'gpt-5.5'
+const DEFAULT_VIDEO_MODEL = 'doubao-seedance-2.0'
 const DEFAULT_IMAGE_RETRY_COUNT = 1
 const DEFAULT_PROMPT_OPTIMIZATION_PRESET: PromptOptimizationPreset = 'ecommerce'
 const CONSOLE_URL = 'https://hotapi.top/'
@@ -130,6 +133,9 @@ const sizes = sizeOptions.map((item) => item.value)
 const qualities = ['auto', 'standard', 'hd', 'low', 'medium', 'high']
 const counts = [1, 2, 3, 4]
 const inputFidelities = ['low', 'high'] as const
+const videoAspectRatios = ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9']
+const videoDurations = [5, 8, 10]
+const videoResolutions = ['720p', '480p'] as const
 const backgroundOptions: Array<{ value: AdvancedBackground; label: string }> = [
   { value: 'auto', label: 'auto' },
   { value: 'opaque', label: 'opaque' },
@@ -244,7 +250,7 @@ type WorkflowNode = Node<
   WorkflowNodeType
 >
 
-type WorkflowNodeType = 'asset' | 'prompt' | 'style' | 'generate'
+type WorkflowNodeType = 'asset' | 'prompt' | 'style' | 'generate' | 'video'
 type WorkflowEdge = Edge<Partial<BlueprintEdgeData>, 'blueprint'>
 
 type PaneMenu = {
@@ -1333,6 +1339,9 @@ export function App() {
   const [newApiUserId, setNewApiUserId] = useState<number | undefined>(undefined)
   const [imageTokenId, setImageTokenId] = useState<number | undefined>(undefined)
   const [imageTokenName, setImageTokenName] = useState('')
+  const [videoApiKey, setVideoApiKey] = useState('')
+  const [videoTokenId, setVideoTokenId] = useState<number | undefined>(undefined)
+  const [videoTokenName, setVideoTokenName] = useState('')
   const [imageRetryCount, setImageRetryCount] = useState(DEFAULT_IMAGE_RETRY_COUNT)
   const [persistApiKey, setPersistApiKey] = useState(false)
   const [hasLoadedSettings, setHasLoadedSettings] = useState(false)
@@ -1349,6 +1358,10 @@ export function App() {
   const [isLoadingStyles, setIsLoadingStyles] = useState(false)
   const [model, setModel] = useState(DEFAULT_MODEL)
   const [textModel, setTextModel] = useState(DEFAULT_TEXT_MODEL)
+  const [videoModel, setVideoModel] = useState(DEFAULT_VIDEO_MODEL)
+  const [videoAspectRatio, setVideoAspectRatio] = useState('16:9')
+  const [videoDuration, setVideoDuration] = useState(5)
+  const [videoResolution, setVideoResolution] = useState<'480p' | '720p'>('720p')
   const [size, setSize] = useState('1024x1024')
   const [sizeMode, setSizeMode] = useState<'preset' | 'custom'>('preset')
   const [customSizeWidth, setCustomSizeWidth] = useState('1024')
@@ -1407,6 +1420,9 @@ export function App() {
     () => new Set()
   )
   const [images, setImages] = useState<LocalImageRecord[]>([])
+  const [generatedVideos, setGeneratedVideos] = useState<Record<string, GeneratedVideo>>({})
+  const [generatingVideoNodeIds, setGeneratingVideoNodeIds] = useState<Set<string>>(new Set())
+  const [previewVideo, setPreviewVideo] = useState<GeneratedVideo | null>(null)
   const [previewImage, setPreviewImage] = useState<LocalImageRecord | null>(null)
   const [galleryReferencePickerNodeId, setGalleryReferencePickerNodeId] = useState('')
   const [selectingGalleryReferenceImageId, setSelectingGalleryReferenceImageId] = useState('')
@@ -1478,6 +1494,14 @@ export function App() {
     [advancedSelectedStyleId, styleOptions]
   )
   const advancedStyleKeywords = advancedSelectedStyle?.keywords?.slice(0, 6) || []
+  const promptTranslatorPayload = useMemo(
+    () => ({
+      promptTranslatorBaseUrl: textBaseUrl,
+      promptTranslatorApiKey: codexApiKey,
+      promptTranslatorModel: DEFAULT_TEXT_MODEL,
+    }),
+    [codexApiKey, textBaseUrl]
+  )
   const isConfigured = Boolean(imageBaseUrl.trim() && apiKey.trim() && model.trim())
   const updateActiveCanvas = useCallback(
     (updater: (canvas: WorkflowCanvas) => WorkflowCanvas) => {
@@ -1666,12 +1690,16 @@ export function App() {
         setPersistApiKey(Boolean(settings.persistApiKey))
         setThemeMode(settings.themeMode || 'system')
         setTextModel(settings.textModel || DEFAULT_TEXT_MODEL)
+        setVideoModel(settings.videoModel || DEFAULT_VIDEO_MODEL)
         if (settings.persistApiKey && settings.apiKey) {
           setApiKey(settings.apiKey)
           setImageBillingToken(settings.imageBillingToken || '')
           setNewApiUserId(settings.newApiUserId)
           setImageTokenId(settings.imageTokenId)
           setImageTokenName(settings.imageTokenName || '')
+          setVideoApiKey(settings.videoApiKey || '')
+          setVideoTokenId(settings.videoTokenId)
+          setVideoTokenName(settings.videoTokenName || '')
         }
         if (settings.persistApiKey && settings.codexApiKey) setCodexApiKey(settings.codexApiKey)
       })
@@ -1859,6 +1887,17 @@ export function App() {
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [previewImage])
+
+  useEffect(() => {
+    if (!previewVideo) return
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setPreviewVideo(null)
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [previewVideo])
 
   useEffect(() => {
     if (!flowInstance) return
@@ -2093,6 +2132,10 @@ export function App() {
       newApiUserId,
       imageTokenId,
       imageTokenName,
+      videoApiKey,
+      videoTokenId,
+      videoTokenName,
+      videoModel,
       imageRetryCount,
       textModel,
       themeMode,
@@ -2110,10 +2153,14 @@ export function App() {
     setNewApiUserId(undefined)
     setImageTokenId(undefined)
     setImageTokenName('')
+    setVideoApiKey('')
+    setVideoTokenId(undefined)
+    setVideoTokenName('')
     setImageRetryCount(DEFAULT_IMAGE_RETRY_COUNT)
     setPersistApiKey(false)
     setModel(DEFAULT_MODEL)
     setTextModel(DEFAULT_TEXT_MODEL)
+    setVideoModel(DEFAULT_VIDEO_MODEL)
     setModels([])
     setLoginPassword('')
     setIsLoginDialogOpen(false)
@@ -2124,8 +2171,10 @@ export function App() {
       persistApiKey: false,
       apiKey: '',
       codexApiKey: '',
+      videoApiKey: '',
       imageRetryCount: DEFAULT_IMAGE_RETRY_COUNT,
       textModel: DEFAULT_TEXT_MODEL,
+      videoModel: DEFAULT_VIDEO_MODEL,
       themeMode,
     })
     setStatus('连接配置已重设，API Key 已清除')
@@ -2144,6 +2193,10 @@ export function App() {
       newApiUserId,
       imageTokenId,
       imageTokenName,
+      videoApiKey,
+      videoTokenId,
+      videoTokenName,
+      videoModel,
       imageRetryCount,
       textModel,
       themeMode: nextThemeMode,
@@ -2173,12 +2226,16 @@ export function App() {
       setPersistApiKey(Boolean(settings.persistApiKey))
       setThemeMode(settings.themeMode || 'system')
       setTextModel(settings.textModel || DEFAULT_TEXT_MODEL)
+      setVideoModel(settings.videoModel || DEFAULT_VIDEO_MODEL)
       setApiKey('')
       setCodexApiKey('')
       setImageBillingToken('')
       setNewApiUserId(undefined)
       setImageTokenId(undefined)
       setImageTokenName('')
+      setVideoApiKey('')
+      setVideoTokenId(undefined)
+      setVideoTokenName('')
       await refreshImages()
       setStatus(`已导入 ${importedCount} 张图片，API Key 未从备份恢复`)
     } catch (err) {
@@ -2359,10 +2416,14 @@ export function App() {
       setNewApiUserId(result.userId)
       setImageTokenId(result.imageTokenId)
       setImageTokenName(result.tokenName)
+      setVideoApiKey(result.videoApiKey)
+      setVideoTokenId(result.videoTokenId)
+      setVideoTokenName(result.videoTokenName)
       setImageRetryCount(DEFAULT_IMAGE_RETRY_COUNT)
       setPersistApiKey(true)
       setModel(result.model || DEFAULT_MODEL)
       setTextModel(result.codexModel || DEFAULT_TEXT_MODEL)
+      setVideoModel(result.videoModel || DEFAULT_VIDEO_MODEL)
       await saveSettings({
         baseUrl: result.baseUrl,
         textBaseUrl: result.baseUrl,
@@ -2374,6 +2435,10 @@ export function App() {
         newApiUserId: result.userId,
         imageTokenId: result.imageTokenId,
         imageTokenName: result.tokenName,
+        videoApiKey: result.videoApiKey,
+        videoTokenId: result.videoTokenId,
+        videoTokenName: result.videoTokenName,
+        videoModel: result.videoModel || DEFAULT_VIDEO_MODEL,
         imageRetryCount: DEFAULT_IMAGE_RETRY_COUNT,
         textModel: result.codexModel || DEFAULT_TEXT_MODEL,
         themeMode,
@@ -2381,7 +2446,7 @@ export function App() {
       setLoginPassword('')
       setIsLoginDialogOpen(false)
       setStatus(
-        `${result.created ? '已创建' : '已启用'} ${result.group}，${result.codexCreated ? '已创建' : '已启用'} ${result.codexGroup}`
+        `${result.created ? '已创建' : '已启用'} ${result.group}，${result.codexCreated ? '已创建' : '已启用'} ${result.codexGroup}，${result.videoCreated ? '已创建' : '已启用'} ${result.videoGroup}`
       )
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -2425,7 +2490,7 @@ export function App() {
       const optimizedPrompt = await bridge.optimizePrompt({
         baseUrl: textBaseUrl,
         apiKey: codexApiKey,
-        model: textModel.trim() || DEFAULT_TEXT_MODEL,
+        model: DEFAULT_TEXT_MODEL,
         prompt: protectedPrompt.prompt,
         mode: generationMode,
         optimizationPreset: promptOptimizationPreset,
@@ -2473,7 +2538,7 @@ export function App() {
       const optimizedPrompt = await bridge.optimizePrompt({
         baseUrl: textBaseUrl,
         apiKey: codexApiKey,
-        model: textModel.trim() || DEFAULT_TEXT_MODEL,
+        model: DEFAULT_TEXT_MODEL,
         prompt: currentPrompt,
         mode: 'text',
         optimizationPreset:
@@ -2518,7 +2583,7 @@ export function App() {
       const optimizedNegativePrompt = await bridge.optimizeNegativePrompt({
         baseUrl: textBaseUrl,
         apiKey: codexApiKey,
-        model: textModel.trim() || DEFAULT_TEXT_MODEL,
+        model: DEFAULT_TEXT_MODEL,
         prompt: currentPrompt,
         currentNegativePrompt: advancedNegativePrompt,
       })
@@ -2697,6 +2762,7 @@ export function App() {
           billingUserId: newApiUserId,
           billingTokenId: imageTokenId,
           billingTokenName: imageTokenName,
+          ...promptTranslatorPayload,
           referenceImages:
             effectiveGenerationMode === 'image' ? flowReferenceImages : undefined,
           onTaskUpdate: (task) => {
@@ -2994,7 +3060,7 @@ export function App() {
       const description = await bridge.describeSketch({
         baseUrl: textBaseUrl,
         apiKey: codexApiKey,
-        model: textModel.trim() || DEFAULT_TEXT_MODEL,
+        model: DEFAULT_TEXT_MODEL,
         prompt,
         sketchDataUrl,
         sketchWeight: advancedSketchWeight,
@@ -3080,6 +3146,7 @@ ${description}`
         billingUserId: newApiUserId,
         billingTokenId: imageTokenId,
         billingTokenName: imageTokenName,
+        ...promptTranslatorPayload,
         onTaskUpdate: (task) => {
           currentTaskId = task.taskId
           setStatus(taskStatusLabel(task.status))
@@ -3196,7 +3263,7 @@ ${description}`
         const promptPayload = {
           baseUrl: textBaseUrl,
           apiKey: codexApiKey,
-          model: textModel.trim() || DEFAULT_TEXT_MODEL,
+          model: DEFAULT_TEXT_MODEL,
           description,
           categoryPath: effectiveCommerceCategoryPath,
           productImages: commerceProductImages,
@@ -3238,6 +3305,7 @@ ${description}`
         billingUserId: newApiUserId,
         billingTokenId: imageTokenId,
         billingTokenName: imageTokenName,
+        ...promptTranslatorPayload,
         referenceImages,
         onTaskUpdate: (task) => {
           currentTaskId = task.taskId
@@ -3402,6 +3470,75 @@ ${description}`
     [setEdges, setNodes]
   )
 
+  async function handleGenerateVideoNode(nodeId: string) {
+    const promptEdge = edges.find(
+      (edge) =>
+        edge.target === nodeId &&
+        edge.targetHandle === 'prompt' &&
+        nodes.find((item) => item.id === edge.source)?.type === 'prompt'
+    )
+    const promptNode =
+      (promptEdge ? nodes.find((item) => item.id === promptEdge.source) : null) ||
+      nodes.find((item) => item.type === 'prompt') ||
+      null
+    const prompt = getWorkflowNodePrompt(promptNode).trim()
+
+    if (!prompt) {
+      setStatus('请先连接文字描述节点并填写视频描述')
+      return
+    }
+
+    if (!videoApiKey.trim()) {
+      setCurrentView('console')
+      setStatus('请先在控制台点击登录，自动创建视频生成分组秘钥')
+      return
+    }
+
+    if (!videoModel.trim()) {
+      setStatus('请先填写视频模型名称')
+      return
+    }
+
+    setError('')
+    setStatus('正在提交视频生成任务...')
+    setGeneratingVideoNodeIds((current) => new Set(current).add(nodeId))
+
+    try {
+      const result = await bridge.generateVideo({
+        baseUrl: imageBaseUrl,
+        apiKey: videoApiKey,
+        model: videoModel.trim(),
+        prompt,
+        duration: videoDuration,
+        resolution: videoResolution,
+        ratio: videoAspectRatio,
+        onTaskUpdate: (task) => {
+          const progress =
+            typeof task.progress === 'number' ? ` ${Math.round(task.progress)}%` : ''
+          if (task.status === 'queued' || task.status === 'running') {
+            setStatus(`视频生成中${progress}`)
+          }
+        },
+      })
+      setGeneratedVideos((current) => ({
+        ...current,
+        [nodeId]: result.video,
+      }))
+      setPreviewVideo(result.video)
+      setStatus('视频生成完成')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setError(message)
+      setStatus('视频生成失败')
+    } finally {
+      setGeneratingVideoNodeIds((current) => {
+        const next = new Set(current)
+        next.delete(nodeId)
+        return next
+      })
+    }
+  }
+
   function nodeDataFor(node: WorkflowNode): WorkflowNode['data'] {
     const type = node.type as WorkflowNodeType
 
@@ -3524,6 +3661,41 @@ ${description}`
       }
     }
 
+    if (type === 'video') {
+      const promptEdge = edges.find(
+        (edge) =>
+          edge.target === node.id &&
+          edge.targetHandle === 'prompt' &&
+          nodes.find((item) => item.id === edge.source)?.type === 'prompt'
+      )
+      const promptNode =
+        (promptEdge ? nodes.find((item) => item.id === promptEdge.source) : null) ||
+        nodes.find((item) => item.type === 'prompt') ||
+        null
+      const canGenerateVideo = Boolean(videoModel.trim() && getWorkflowNodePrompt(promptNode).trim())
+      const isGeneratingVideo = generatingVideoNodeIds.has(node.id)
+
+      return {
+        onDeleteNode: deleteWorkflowNode,
+        model: videoModel,
+        setModel: setVideoModel,
+        aspectRatio: videoAspectRatio,
+        aspectRatios: videoAspectRatios,
+        setAspectRatio: setVideoAspectRatio,
+        duration: videoDuration,
+        durations: videoDurations,
+        setDuration: setVideoDuration,
+        resolution: videoResolution,
+        resolutions: videoResolutions,
+        setResolution: setVideoResolution,
+        isGenerating: isGeneratingVideo,
+        canGenerate: canGenerateVideo && !isGeneratingVideo,
+        onGenerate: () => void handleGenerateVideoNode(node.id),
+        video: generatedVideos[node.id] || null,
+        onOpen: setPreviewVideo,
+      } satisfies VideoNodeData
+    }
+
     return { onDeleteNode: deleteWorkflowNode }
   }
 
@@ -3559,6 +3731,12 @@ ${description}`
       count,
       responseFormat,
       inputFidelity,
+      videoModel,
+      videoAspectRatio,
+      videoDuration,
+      videoResolution,
+      generatedVideos,
+      generatingVideoNodeIds,
       images,
       activeCanvas,
       activeCanvasGenerating,
@@ -3577,13 +3755,15 @@ ${description}`
           ...edge.data,
           label:
             edge.data?.label ||
-            (edge.source.startsWith('asset')
-              ? '参考图 -> 文字描述'
-              : edge.source.startsWith('style')
-                ? '风格 -> 文字描述'
-              : edge.source.startsWith('generate')
-                ? '生成图 -> 文字描述'
-                : '提示词 -> 图片生成'),
+            (() => {
+              const sourceType = nodes.find((node) => node.id === edge.source)?.type
+              const targetType = nodes.find((node) => node.id === edge.target)?.type
+              if (sourceType === 'asset') return '参考图 -> 文字描述'
+              if (sourceType === 'style') return '风格 -> 文字描述'
+              if (sourceType === 'generate') return '生成图 -> 文字描述'
+              if (sourceType === 'prompt' && targetType === 'video') return '提示词 -> 视频生成'
+              return '提示词 -> 图片生成'
+            })(),
           onDelete: deleteWorkflowEdge,
         },
         animated:
@@ -3592,7 +3772,7 @@ ${description}`
           edge.source.includes('style') ||
           edge.source.includes('asset'),
       })),
-    [activeCanvasGenerating, deleteWorkflowEdge, edges]
+    [activeCanvasGenerating, deleteWorkflowEdge, edges, nodes]
   )
 
   const isValidConnection: IsValidConnection<WorkflowEdge> = useCallback(
@@ -3621,7 +3801,7 @@ ${description}`
 
       if (source.type === 'prompt') {
         return (
-          target.type === 'generate' &&
+          (target.type === 'generate' || target.type === 'video') &&
           connection.sourceHandle === 'prompt' &&
           connection.targetHandle === 'prompt'
         )
@@ -3649,6 +3829,7 @@ ${description}`
       }
 
       const sourceType = connection.source?.split('-')[0]
+      const targetType = nodes.find((node) => node.id === connection.target)?.type
       const label =
         sourceType === 'asset'
           ? '参考图 -> 文字描述'
@@ -3656,6 +3837,8 @@ ${description}`
             ? '风格 -> 文字描述'
             : sourceType === 'generate'
               ? '生成图 -> 文字描述'
+              : targetType === 'video'
+                ? '提示词 -> 视频生成'
               : '提示词 -> 图片生成'
       const className =
         sourceType === 'asset'
@@ -3663,7 +3846,9 @@ ${description}`
           : sourceType === 'style'
             ? 'edge-green'
             : sourceType === 'prompt'
-              ? 'edge-violet'
+              ? targetType === 'video'
+                ? 'edge-cyan'
+                : 'edge-violet'
               : 'edge-pink'
 
       setEdges((currentEdges) => {
@@ -3712,7 +3897,7 @@ ${description}`
           }
       const menuGap = 6
       const menuWidth = 190
-      const menuHeight = 210
+      const menuHeight = 250
       const viewportWidth = typeof window === 'undefined' ? 0 : window.innerWidth
       const viewportHeight = typeof window === 'undefined' ? 0 : window.innerHeight
       let menuX = event.clientX + menuGap
@@ -4342,6 +4527,9 @@ ${description}`
             </button>
             <button type='button' onClick={() => addWorkflowNode('generate')}>
               工作节点 · 图片生成
+            </button>
+            <button type='button' onClick={() => addWorkflowNode('video')}>
+              工作节点 · 视频生成
             </button>
           </div>
         ) : null}
@@ -5075,8 +5263,8 @@ ${description}`
                     <label className='field'>
                       <span>文本模型名称</span>
                       <input
-                        value={textModel}
-                        onChange={(event) => setTextModel(event.target.value)}
+                        value={DEFAULT_TEXT_MODEL}
+                        disabled
                         placeholder='gpt-5.5'
                         spellCheck={false}
                       />
@@ -5147,6 +5335,33 @@ ${description}`
                         min={0}
                         max={5}
                         step={1}
+                      />
+                    </label>
+                  </div>
+
+                  <div className='connection-config-block'>
+                    <div className='connection-config-title connection-config-title-video'>
+                      <Sparkles size={14} />
+                      <span>视频模型</span>
+                      <small>视频生成 分组</small>
+                    </div>
+                    <label className='field'>
+                      <span>视频模型名称</span>
+                      <input
+                        value={videoModel}
+                        onChange={(event) => setVideoModel(event.target.value)}
+                        placeholder={DEFAULT_VIDEO_MODEL}
+                        spellCheck={false}
+                      />
+                    </label>
+                    <label className='field'>
+                      <span>视频模型 API Key</span>
+                      <input
+                        value={videoApiKey}
+                        onChange={(event) => setVideoApiKey(event.target.value)}
+                        type='password'
+                        placeholder='sk-...'
+                        spellCheck={false}
                       />
                     </label>
                   </div>
@@ -5289,7 +5504,7 @@ ${description}`
             <div className='dialog-header'>
               <div>
                 <strong>登录中转站</strong>
-                <span>自动获取生图和提示词优化所需的两个分组秘钥</span>
+                <span>自动获取生图、提示词优化和视频生成所需的分组秘钥</span>
               </div>
               <button
                 type='button'
@@ -5328,7 +5543,7 @@ ${description}`
               />
             </label>
             <p>
-              账号密码只用于本次登录中转站；服务端不保存。成功后仅把生图和 Codex API Key 保存到当前浏览器。
+              账号密码只用于本次登录中转站；服务端不保存。成功后仅把生图、Codex 和视频 API Key 保存到当前浏览器。
             </p>
             <div className='dialog-actions'>
               <button
@@ -5452,6 +5667,43 @@ ${description}`
             </div>
             <div className='preview-caption'>
               <p>{previewImage.revisedPrompt || previewImage.prompt}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {previewVideo ? (
+        <div
+          className='modal-overlay preview-overlay'
+          role='dialog'
+          aria-modal='true'
+          aria-label='视频预览'
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setPreviewVideo(null)
+          }}
+        >
+          <div className='preview-dialog video-preview-dialog'>
+            <div className='preview-header'>
+              <div>
+                <strong>{previewVideo.model}</strong>
+                <span>
+                  {previewVideo.resolution} · {previewVideo.ratio} · {previewVideo.duration}s ·{' '}
+                  {new Date(previewVideo.createdAt).toLocaleString()}
+                </span>
+              </div>
+              <button
+                className='icon-button'
+                onClick={() => setPreviewVideo(null)}
+                aria-label='关闭视频预览'
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className='preview-frame video-preview-frame'>
+              <video src={previewVideo.src} controls playsInline autoPlay />
+            </div>
+            <div className='preview-caption'>
+              <p>{previewVideo.prompt}</p>
             </div>
           </div>
         </div>

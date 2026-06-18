@@ -97,14 +97,15 @@ IMAGE_TOOLS_STATIC_DIR=dist HOST=127.0.0.1 PORT=19080 python server/server.py
 
 - Base URL: `https://hotapi.top`
 - 推荐模型: `gpt-image-2`
-- 默认价格不会在工具内计费，实际扣费由 API 站点处理。
+- 启用直连生图扣费时，图片统一按 `IMAGE_TOOLS_IMAGE_PRICE_USD` 计费，默认每张 `$0.06`，不区分分辨率。
+- 直连生图默认上游：`https://api.krill-ai.com/`。
 
 ## 中转站登录代理
 
 “登录中转站”会通过同源 `POST /api/newapi/login-key` 代理登录 New API 站点，并自动查找或创建 `gpt 2` 分组秘钥：
 
 - `gpt-image-2`：用于生图。
-- `gpt-5.5`：用于提示词优化。
+- `gpt-5.5`：用于提示词优化，并使用登录者自己的账号秘钥。
 
 `gpt 2` 分组的 `gpt-image-2` 使用 OpenAI 兼容图片接口的默认 URL 响应；为兼容当前号池，工具不会向该模型发送 `response_format`。
 图片任务默认不自动重试；如果上游返回 524，表示同步生图超时且可能已经扣费，工具会停止重试以避免重复扣费。

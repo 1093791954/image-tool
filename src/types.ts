@@ -11,6 +11,10 @@ export type AppSettings = {
   newApiUserId?: number
   imageTokenId?: number
   imageTokenName?: string
+  videoApiKey?: string
+  videoTokenId?: number
+  videoTokenName?: string
+  videoModel?: string
   imageRetryCount?: number
   textModel?: string
   themeMode?: ThemeMode
@@ -24,6 +28,9 @@ export type BackupSettings = Omit<
   | 'newApiUserId'
   | 'imageTokenId'
   | 'imageTokenName'
+  | 'videoApiKey'
+  | 'videoTokenId'
+  | 'videoTokenName'
   | 'persistApiKey'
 > & {
   persistApiKey: false
@@ -45,6 +52,9 @@ export type PromptOptimizationPreset =
 export type ImageGenerationPayload = {
   baseUrl: string
   apiKey: string
+  promptTranslatorBaseUrl?: string
+  promptTranslatorApiKey?: string
+  promptTranslatorModel?: string
   mode?: 'text' | 'image'
   model: string
   prompt: string
@@ -111,6 +121,44 @@ export type ImageGenerationResult = {
   images: GeneratedImage[]
 }
 
+export type VideoGenerationPayload = {
+  baseUrl: string
+  apiKey: string
+  model: string
+  prompt: string
+  duration: number
+  resolution: '480p' | '720p'
+  ratio: string
+  onTaskUpdate?: (task: VideoGenerationTask) => void
+}
+
+export type VideoGenerationTaskStatus = 'queued' | 'running' | 'succeeded' | 'failed'
+
+export type VideoGenerationTask = {
+  id: string
+  status: VideoGenerationTaskStatus
+  progress?: number
+  content?: {
+    video_url?: string
+  }
+  error?: string | { message?: string } | null
+}
+
+export type GeneratedVideo = {
+  id: string
+  src: string
+  prompt: string
+  model: string
+  duration: number
+  resolution: string
+  ratio: string
+  createdAt: number
+}
+
+export type VideoGenerationResult = {
+  video: GeneratedVideo
+}
+
 export type ImageGenerationTaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'expired'
 
 export type ImageGenerationTask = {
@@ -163,6 +211,12 @@ export type ManagedNewApiLoginResult = {
   codexModel: string
   codexTokenName: string
   codexCreated: boolean
+  videoApiKey: string
+  videoTokenId: number
+  videoGroup: string
+  videoModel: string
+  videoTokenName: string
+  videoCreated: boolean
 }
 
 export type PromptOptimizationPayload = {
@@ -239,6 +293,9 @@ export type ImageApiClient = {
   generateImages: (
     payload: ImageGenerationPayload
   ) => Promise<ImageGenerationResult>
+  generateVideo: (
+    payload: VideoGenerationPayload
+  ) => Promise<VideoGenerationResult>
   getImageTask: (taskId: string) => Promise<ImageGenerationTask>
   listImageTasks: () => Promise<ImageGenerationTask[]>
   openExternal: (url: string) => Promise<void>
