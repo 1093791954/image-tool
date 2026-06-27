@@ -70,11 +70,23 @@ npm run build
 IMAGE_TOOLS_STATIC_DIR=dist HOST=127.0.0.1 PORT=19080 python server/server.py
 ```
 
+如需让生图请求使用服务器侧上游密钥，并在第一路不可用时自动切换到第二路，可配置：
+
+```bash
+IMAGE_TOOLS_DIRECT_IMAGE_BASE_URL_1=https://api.krill-ai.com
+IMAGE_TOOLS_DIRECT_IMAGE_API_KEY_1=...
+IMAGE_TOOLS_DIRECT_IMAGE_BASE_URL_2=https://example.com
+IMAGE_TOOLS_DIRECT_IMAGE_API_KEY_2=...
+IMAGE_TOOLS_BILLING_ADMIN_USERNAME=...
+IMAGE_TOOLS_BILLING_ADMIN_PASSWORD=...
+```
+
 然后用 Nginx、Caddy 或宝塔把公网域名反向代理到 `127.0.0.1:19080`。用户访问同一个域名时：
 
 - `/`、`/assets/*` 等路径返回前端静态文件。
 - `/api/newapi/login-key` 由后端代理登录中转站并返回两个 API Key。
-- 生图、获取模型和提示词优化请求使用拿到的 API Key，从用户浏览器直接请求配置的 Base URL。
+- 生图请求进入后端任务队列；直连生图启用时，后端使用服务器环境变量里的上游密钥生成，并按用户账号扣费。
+- 获取模型和提示词优化请求使用拿到的 API Key，经同源 OpenAI 代理访问配置的 Base URL。
 
 可用 `/api/health` 检查后端是否可达。
 

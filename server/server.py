@@ -64,8 +64,6 @@ TOKEN_LIST_PAGE_SIZE = 100
 TOKEN_LIST_MAX_PAGES = 50
 REQUEST_TIMEOUT = env_int("IMAGE_TOOLS_REQUEST_TIMEOUT", 25)
 OPENAI_PROXY_TIMEOUT = env_int("IMAGE_TOOLS_OPENAI_PROXY_TIMEOUT", 500)
-DIRECT_IMAGE_BASE_URL = os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_BASE_URL", "https://api.krill-ai.com").strip().rstrip("/")
-DIRECT_IMAGE_API_KEY = os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_API_KEY", "").strip()
 PROMPT_TRANSLATOR_BASE_URL = os.environ.get("IMAGE_TOOLS_PROMPT_TRANSLATOR_BASE_URL", DEFAULT_BASE_URL).strip().rstrip("/")
 BILLING_BASE_URL = os.environ.get("IMAGE_TOOLS_BILLING_BASE_URL", DEFAULT_BASE_URL).strip().rstrip("/")
 BILLING_ADMIN_USERNAME = os.environ.get("IMAGE_TOOLS_BILLING_ADMIN_USERNAME", "").strip()
@@ -100,6 +98,44 @@ TASK_SECRET_KEY_PATH = Path(
     os.environ.get("IMAGE_TOOLS_TASK_SECRET_KEY_PATH", str(DATA_DIR / "task-secret.key"))
 ).resolve()
 TASK_SECRET_VERSION = "v1"
+
+
+def load_direct_image_upstreams() -> list[dict[str, str]]:
+    configs: list[tuple[str, str]] = [
+        (
+            os.environ.get(
+                "IMAGE_TOOLS_DIRECT_IMAGE_BASE_URL_1",
+                os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_BASE_URL", "https://api.krill-ai.com"),
+            ),
+            os.environ.get(
+                "IMAGE_TOOLS_DIRECT_IMAGE_API_KEY_1",
+                os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_API_KEY", ""),
+            ),
+        ),
+        (
+            os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_BASE_URL_2", ""),
+            os.environ.get("IMAGE_TOOLS_DIRECT_IMAGE_API_KEY_2", ""),
+        ),
+    ]
+    upstreams: list[dict[str, str]] = []
+    for index, (base_url, api_key) in enumerate(configs, start=1):
+        normalized_key = (api_key or "").strip()
+        if not normalized_key:
+            continue
+        normalized_base_url = (base_url or "").strip().rstrip("/") or "https://api.krill-ai.com"
+        upstreams.append(
+            {
+                "name": f"direct-{index}",
+                "baseUrl": normalized_base_url,
+                "apiKey": normalized_key,
+            }
+        )
+    return upstreams
+
+
+DIRECT_IMAGE_UPSTREAMS = load_direct_image_upstreams()
+DIRECT_IMAGE_BASE_URL = DIRECT_IMAGE_UPSTREAMS[0]["baseUrl"] if DIRECT_IMAGE_UPSTREAMS else "https://api.krill-ai.com"
+DIRECT_IMAGE_API_KEY = DIRECT_IMAGE_UPSTREAMS[0]["apiKey"] if DIRECT_IMAGE_UPSTREAMS else ""
 
 
 class NewApiError(Exception):
@@ -248,7 +284,7 @@ def decrypt_task_api_key(value: str) -> str:
 
 
 def image_direct_upstream_enabled() -> bool:
-    return bool(DIRECT_IMAGE_API_KEY)
+    return bool(DIRECT_IMAGE_UPSTREAMS)
 
 
 def billing_configured() -> bool:
@@ -310,7 +346,15 @@ def verify_billing_token(token: str, api_key: str) -> dict[str, Any]:
 
 
 def task_has_persisted_secret(task: dict[str, Any]) -> bool:
-    return bool(str(task.get("apiKeyEncrypted") or ""))
+    if str(task.get("apiKeyEncrypted") or ""):
+        return True
+    upstreams = task.get("directImageUpstreams")
+    if isinstance(upstreams, list):
+        return any(
+            isinstance(item, dict) and str(item.get("apiKeyEncrypted") or "")
+            for item in upstreams
+        )
+    return False
 
 
 def resolve_task_api_key(task: dict[str, Any]) -> str | None:
@@ -327,15 +371,68 @@ def resolve_task_api_key(task: dict[str, Any]) -> str | None:
     return api_key
 
 
+def task_direct_image_upstreams(task: dict[str, Any]) -> list[dict[str, str]]:
+    upstreams = task.get("directImageUpstreams")
+    if not isinstance(upstreams, list):
+        return []
+
+    normalized: list[dict[str, str]] = []
+    for index, item in enumerate(upstreams, start=1):
+        if not isinstance(item, dict):
+            continue
+        base_url = str(item.get("baseUrl") or "").strip().rstrip("/")
+        encrypted = str(item.get("apiKeyEncrypted") or "")
+        if not base_url or not encrypted:
+            continue
+        normalized.append(
+            {
+                "name": str(item.get("name") or f"direct-{index}"),
+                "baseUrl": base_url,
+                "apiKeyEncrypted": encrypted,
+            }
+        )
+    return normalized
+
+
+def current_task_direct_image_upstream(task: dict[str, Any]) -> dict[str, Any] | None:
+    if not task.get("directImageUpstream"):
+        return None
+    upstreams = task_direct_image_upstreams(task)
+    if not upstreams:
+        return None
+    try:
+        index = int(task.get("directImageUpstreamIndex") or 0)
+    except (TypeError, ValueError):
+        index = 0
+    if index < 0 or index >= len(upstreams):
+        index = 0
+    selected = upstreams[index]
+    return {
+        "index": index,
+        "name": selected["name"],
+        "baseUrl": selected["baseUrl"],
+        "apiKey": decrypt_task_api_key(selected["apiKeyEncrypted"]),
+    }
+
+
 def clear_image_task_secret(task_id: str) -> None:
     TASK_SECRETS.pop(task_id, None)
     with TASKS_LOCK:
         task = read_image_task(task_id)
         if task is None:
             return
-        if "apiKeyEncrypted" not in task:
+        changed = False
+        if "apiKeyEncrypted" in task:
+            task.pop("apiKeyEncrypted", None)
+            changed = True
+        upstreams = task.get("directImageUpstreams")
+        if isinstance(upstreams, list):
+            for item in upstreams:
+                if isinstance(item, dict) and "apiKeyEncrypted" in item:
+                    item.pop("apiKeyEncrypted", None)
+                    changed = True
+        if not changed:
             return
-        task.pop("apiKeyEncrypted", None)
         task["updatedAt"] = now_ts() * 1000
         write_image_task(task_id, task)
 
@@ -355,6 +452,12 @@ def scrub_task_secrets_from_disk() -> None:
             if isinstance(value, dict) and "apiKey" in value:
                 value.pop("apiKey", None)
                 changed = True
+        upstreams = task.get("directImageUpstreams")
+        if isinstance(upstreams, list):
+            for item in upstreams:
+                if isinstance(item, dict) and "apiKeyEncrypted" in item:
+                    item.pop("apiKeyEncrypted", None)
+                    changed = True
         if not changed:
             continue
         try:
@@ -738,12 +841,14 @@ def normalize_image_edit_reference_for_upstream(
 
 def build_image_task_request(task: dict[str, Any]) -> urllib.request.Request:
     upstream = task["upstream"]
+    direct_upstream = current_task_direct_image_upstream(task)
+    base_url = direct_upstream["baseUrl"] if direct_upstream else upstream["baseUrl"]
     target_url = openai_proxy_target_url(
-        upstream["baseUrl"],
+        base_url,
         f"/api/openai{upstream['path']}",
         "",
     )
-    api_key = resolve_task_api_key(task) or upstream.get("apiKey")
+    api_key = direct_upstream["apiKey"] if direct_upstream else resolve_task_api_key(task) or upstream.get("apiKey")
     if not api_key:
         raise RuntimeError("任务缺少可用 API Key，请重新生成")
     if upstream["kind"] == "json":
@@ -1028,6 +1133,78 @@ def execute_openai_image_response(
     return payload
 
 
+def activate_direct_image_upstream_fallback(
+    task_id: str,
+    reason: str,
+    response_status: int | None = None,
+) -> bool:
+    with TASKS_LOCK:
+        task = read_image_task(task_id)
+        if task is None or not task.get("directImageUpstream"):
+            return False
+        upstreams = task_direct_image_upstreams(task)
+        if len(upstreams) < 2:
+            return False
+        try:
+            current_index = int(task.get("directImageUpstreamIndex") or 0)
+        except (TypeError, ValueError):
+            current_index = 0
+        if current_index < 0 or current_index >= len(upstreams):
+            current_index = 0
+        next_index = current_index + 1
+        if next_index >= len(upstreams):
+            return False
+
+        upstream = task.get("upstream")
+        if isinstance(upstream, dict):
+            upstream["baseUrl"] = upstreams[next_index]["baseUrl"]
+        fallback_upstream = task.get("fallbackUpstream")
+        if isinstance(fallback_upstream, dict):
+            fallback_upstream["baseUrl"] = upstreams[next_index]["baseUrl"]
+
+        failures = task.get("directImageUpstreamFailures")
+        if not isinstance(failures, list):
+            failures = []
+        failures.append(
+            {
+                "index": current_index,
+                "name": upstreams[current_index].get("name"),
+                "baseUrl": upstreams[current_index].get("baseUrl"),
+                "reason": reason[:500],
+                "status": response_status,
+                "failedAt": now_ts() * 1000,
+            }
+        )
+
+        task["directImageUpstreamIndex"] = next_index
+        task["directImageUpstreamFailures"] = failures
+        task["status"] = "running"
+        task["error"] = f"生图上游 {current_index + 1} 不可用，已切换到上游 {next_index + 1}"
+        task["updatedAt"] = now_ts() * 1000
+        write_image_task(task_id, task)
+
+    write_log(
+        "WARN",
+        "image_task_direct_upstream_fallback",
+        f"{task_id} switched direct image upstream: {reason}",
+        task_id=task_id,
+        details={
+            "fromIndex": current_index,
+            "toIndex": next_index,
+            "status": response_status,
+            "reason": reason[:500],
+        },
+    )
+    return True
+
+
+def image_task_final_error(task: dict[str, Any], message: str) -> str:
+    upstreams = task_direct_image_upstreams(task)
+    if not task.get("directImageUpstream") or len(upstreams) < 2:
+        return message
+    return f"所有生图上游均不可用；最后错误：{message}"
+
+
 def activate_image_task_fallback(
     task_id: str,
     reason: str,
@@ -1091,6 +1268,8 @@ def run_image_task(task_id: str) -> None:
                     "mode": request_meta.get("mode"),
                     "maxAttempts": max_attempts,
                     "fallbackUsed": task.get("fallbackUsed", False),
+                    "directImageUpstream": task.get("directImageUpstream", False),
+                    "directImageUpstreamIndex": task.get("directImageUpstreamIndex"),
                 },
             )
             try:
@@ -1189,6 +1368,7 @@ def run_image_task(task_id: str) -> None:
                             "path": upstream["path"],
                             "fallbackUsed": task.get("fallbackUsed", False),
                             "directImageUpstream": task.get("directImageUpstream", False),
+                            "directImageUpstreamIndex": task.get("directImageUpstreamIndex"),
                         },
                     )
                     clear_image_task_secret(task_id)
@@ -1232,21 +1412,25 @@ def run_image_task(task_id: str) -> None:
                         )
                         time.sleep(min(10, 2 * attempt))
                         continue
+                    if activate_direct_image_upstream_fallback(task_id, last_error_message, exc.code):
+                        fallback_activated = True
+                        break
                     if activate_image_task_fallback(task_id, last_error_message, exc.code):
                         fallback_activated = True
                         break
+                    final_error_message = image_task_final_error(task, last_error_message)
                     update_image_task(
                         task_id,
                         status="failed",
                         completedAt=now_ts() * 1000,
-                        error=last_error_message,
+                        error=final_error_message,
                         result=result,
                         responseStatus=exc.code,
                     )
                     write_log(
                         "WARN",
                         "image_task_failed",
-                        f"{task_id} -> {last_error_message}",
+                        f"{task_id} -> {final_error_message}",
                         task_id=task_id,
                         details={
                             "path": upstream.get("path"),
@@ -1275,20 +1459,24 @@ def run_image_task(task_id: str) -> None:
                     time.sleep(min(10, 2 * attempt))
                     continue
 
+                if activate_direct_image_upstream_fallback(task_id, last_error_message):
+                    fallback_activated = True
+                    break
                 if activate_image_task_fallback(task_id, last_error_message):
                     fallback_activated = True
                     break
 
+                final_error_message = image_task_final_error(task, last_error_message)
                 update_image_task(
                     task_id,
                     status="failed",
                     completedAt=now_ts() * 1000,
-                    error=last_error_message,
+                    error=final_error_message,
                 )
                 write_log(
                     "WARN",
                     "image_task_failed",
-                    f"{task_id} -> {last_error_message}",
+                    f"{task_id} -> {final_error_message}",
                     task_id=task_id,
                     details={
                         "path": upstream.get("path"),
@@ -2250,6 +2438,7 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
             api_key = user_api_key
             billing: dict[str, Any] | None = None
             direct_image_upstream = False
+            direct_image_upstreams: list[dict[str, str]] = []
             if image_direct_upstream_enabled():
                 if not billing_configured():
                     raise ValueError("后端未配置 HotAPI 管理员扣费账号，无法启用直连生图")
@@ -2279,8 +2468,16 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                     "charged": False,
                     "preflightChecked": False,
                 }
-                api_key = DIRECT_IMAGE_API_KEY
-                upstream["baseUrl"] = DIRECT_IMAGE_BASE_URL
+                direct_image_upstreams = [
+                    {
+                        "name": item["name"],
+                        "baseUrl": item["baseUrl"],
+                        "apiKeyEncrypted": encrypt_task_api_key(item["apiKey"]),
+                    }
+                    for item in DIRECT_IMAGE_UPSTREAMS
+                ]
+                api_key = DIRECT_IMAGE_UPSTREAMS[0]["apiKey"]
+                upstream["baseUrl"] = DIRECT_IMAGE_UPSTREAMS[0]["baseUrl"]
                 direct_image_upstream = True
             fallback_upstream = payload.get("fallbackUpstream")
             if isinstance(fallback_upstream, dict):
@@ -2370,7 +2567,10 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                 "apiKeyEncrypted": encrypt_task_api_key(api_key),
                 "accessTokenHash": hash_task_access_token(access_token),
                 "directImageUpstream": direct_image_upstream,
+                "directImageUpstreamIndex": 0 if direct_image_upstream else None,
             }
+            if direct_image_upstreams:
+                task["directImageUpstreams"] = direct_image_upstreams
             if billing:
                 task["billing"] = billing
             if fallback_upstream:
