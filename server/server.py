@@ -1445,6 +1445,7 @@ def run_image_task(task_id: str) -> None:
                 except (
                     TimeoutError,
                     socket.timeout,
+                    http.client.IncompleteRead,
                     http.client.RemoteDisconnected,
                     http.client.BadStatusLine,
                     ConnectionError,
@@ -1452,6 +1453,8 @@ def run_image_task(task_id: str) -> None:
                 ) as exc:
                     if isinstance(exc, (TimeoutError, socket.timeout)):
                         last_error_message = f"上游读取超时：超过 {OPENAI_PROXY_TIMEOUT} 秒没有返回响应"
+                    elif isinstance(exc, http.client.IncompleteRead):
+                        last_error_message = f"上游响应不完整：{exc}"
                     else:
                         last_error_message = f"上游连接中断：{exc}"
 
