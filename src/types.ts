@@ -201,6 +201,7 @@ export type ManagedNewApiLoginResult = {
   userId: number
   codexApiKey: string
   codexTokenId: number
+  imageBillingToken: string
   codexGroup: string
   codexModel: string
   codexTokenName: string

@@ -2364,21 +2364,24 @@ export function App() {
       })
 
       setTextBaseUrl(result.baseUrl)
+      setImageBaseUrl(result.baseUrl)
+      setApiKey(result.codexApiKey)
       setCodexApiKey(result.codexApiKey)
+      setImageBillingToken(result.imageBillingToken)
       setNewApiUserId(result.userId)
       setPersistApiKey(true)
       setTextModel(result.codexModel || DEFAULT_TEXT_MODEL)
       await saveSettings({
-        baseUrl: imageBaseUrl,
+        baseUrl: result.baseUrl,
         textBaseUrl: result.baseUrl,
-        imageBaseUrl,
+        imageBaseUrl: result.baseUrl,
         persistApiKey: true,
-        apiKey,
+        apiKey: result.codexApiKey,
         codexApiKey: result.codexApiKey,
-        imageBillingToken,
+        imageBillingToken: result.imageBillingToken,
         newApiUserId: result.userId,
-        imageTokenId,
-        imageTokenName,
+        imageTokenId: result.codexTokenId,
+        imageTokenName: result.codexTokenName,
         videoApiKey,
         videoTokenId,
         videoTokenName,
