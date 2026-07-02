@@ -1637,7 +1637,10 @@ def normalize_openai_proxy_base_url(value: str) -> str:
         raise ValueError("上游 Base URL 必须是 http 或 https 地址")
     if parsed.username or parsed.password or parsed.fragment:
         raise ValueError("上游 Base URL 不能包含账号、密码或片段")
-    return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "", ""))
+    path = parsed.path.rstrip("/")
+    if path == "/v1":
+        path = ""
+    return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
 
 
 def openai_proxy_target_url(base_url: str, proxy_path: str, query: str) -> str:
