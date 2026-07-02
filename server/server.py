@@ -1998,10 +1998,11 @@ class NewApiSession:
                 continue
             if token.get("status") not in (None, 1):
                 continue
-            if token.get("model_limits_enabled"):
-                models = split_model_limits(token.get("model_limits"))
-                if model not in models:
-                    continue
+            if not token.get("model_limits_enabled"):
+                continue
+            models = split_model_limits(token.get("model_limits"))
+            if model not in models:
+                continue
             return token
         return None
 
