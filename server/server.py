@@ -64,8 +64,15 @@ PROMPT_TRANSLATOR_BASE_URL = os.environ.get("IMAGE_TOOLS_PROMPT_TRANSLATOR_BASE_
 BILLING_BASE_URL = os.environ.get("IMAGE_TOOLS_BILLING_BASE_URL", DEFAULT_BASE_URL).strip().rstrip("/")
 BILLING_ADMIN_USERNAME = os.environ.get("IMAGE_TOOLS_BILLING_ADMIN_USERNAME", "").strip()
 BILLING_ADMIN_PASSWORD = os.environ.get("IMAGE_TOOLS_BILLING_ADMIN_PASSWORD", "")
-BILLING_QUOTA_PER_USD = Decimal(os.environ.get("IMAGE_TOOLS_BILLING_QUOTA_PER_USD", "500000"))
-IMAGE_BILLING_PRICE_USD = Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_USD", "0.0600"))
+BILLING_QUOTA_PER_UNIT = Decimal(
+    os.environ.get(
+        "IMAGE_TOOLS_BILLING_QUOTA_PER_UNIT",
+        os.environ.get("IMAGE_TOOLS_BILLING_QUOTA_PER_USD", "500000"),
+    )
+)
+IMAGE_BILLING_PRICE_1K = Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_1K", "0.0600"))
+IMAGE_BILLING_PRICE_2K = Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_2K", "0.1000"))
+IMAGE_BILLING_PRICE_4K = Decimal(os.environ.get("IMAGE_TOOLS_IMAGE_PRICE_4K", "0.3000"))
 LOG_MAX_ROWS = env_int("IMAGE_TOOLS_LOG_MAX_ROWS", 5000)
 DB_MAX_BYTES = env_int("IMAGE_TOOLS_DB_MAX_BYTES", 64 * 1024 * 1024)
 DEFAULT_LOCAL_PROXY = "http://127.0.0.1:7897"
@@ -944,11 +951,26 @@ def normalized_image_api_size(model: str, size: str) -> str:
     return size
 
 
-def image_billing_quota(_size: str, image_count: int = 1) -> tuple[str, int, str]:
-    tier = "STANDARD"
-    price = IMAGE_BILLING_PRICE_USD
+def image_billing_tier(size: str) -> tuple[str, Decimal]:
+    normalized = (size or "").strip().lower()
+    match = re.fullmatch(r"(\d{2,5})x(\d{2,5})", normalized)
+    if not match:
+        return "1K", IMAGE_BILLING_PRICE_1K
+
+    width = int(match.group(1))
+    height = int(match.group(2))
+    max_side = max(width, height)
+    if max_side <= 1536:
+        return "1K", IMAGE_BILLING_PRICE_1K
+    if max_side <= 2048:
+        return "2K", IMAGE_BILLING_PRICE_2K
+    return "4K", IMAGE_BILLING_PRICE_4K
+
+
+def image_billing_quota(size: str, image_count: int = 1) -> tuple[str, int, str]:
+    tier, price = image_billing_tier(size)
     count = max(1, int(image_count or 1))
-    quota = (price * BILLING_QUOTA_PER_USD * Decimal(count)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    quota = (price * BILLING_QUOTA_PER_UNIT * Decimal(count)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return tier, int(quota), str(price)
 
 
@@ -1003,7 +1025,7 @@ def settle_image_billing(task_id: str, task: dict[str, Any], result: dict[str, A
             "chargedAt": now_ts() * 1000,
             "quota": quota,
             "tier": tier,
-            "priceUsd": price,
+            "priceCny": price,
             "imageCount": image_count,
             "elapsedMs": elapsed_ms,
         }
@@ -1020,7 +1042,7 @@ def settle_image_billing(task_id: str, task: dict[str, Any], result: dict[str, A
             "tokenName": billing.get("tokenName"),
             "quota": quota,
             "tier": tier,
-            "priceUsd": price,
+            "priceCny": price,
             "imageCount": image_count,
         },
     )
@@ -2438,7 +2460,7 @@ class ImageToolsHandler(SimpleHTTPRequestHandler):
                     "group": billing_claims.get("group"),
                     "quota": quota,
                     "tier": tier,
-                    "priceUsd": price,
+                    "priceCny": price,
                     "charged": False,
                     "preflightChecked": False,
                 }
