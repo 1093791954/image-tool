@@ -199,25 +199,12 @@ export type ManagedNewApiLoginPayload = {
 export type ManagedNewApiLoginResult = {
   baseUrl: string
   userId: number
-  apiKey: string
-  imageTokenId: number
-  imageBillingToken: string
   codexApiKey: string
   codexTokenId: number
-  group: string
-  model: string
-  tokenName: string
-  created: boolean
   codexGroup: string
   codexModel: string
   codexTokenName: string
   codexCreated: boolean
-  videoApiKey: string
-  videoTokenId: number
-  videoGroup: string
-  videoModel: string
-  videoTokenName: string
-  videoCreated: boolean
 }
 
 export type PromptOptimizationPayload = {

@@ -43,15 +43,11 @@ def env_int(name: str, default: int) -> int:
 DEFAULT_BASE_URL = "https://hotapi.top"
 ALLOWED_NEW_API_HOST = "hotapi.top"
 ALLOWED_NEW_API_HOSTS = {"hotapi.top", "www.hotapi.top"}
-IMAGE_GROUP = "gpt 2"
 IMAGE_MODEL = "gpt-image-2"
-IMAGE_TOKEN_NAME = "GPT Image Tools - gpt-image-2"
-CODEX_GROUP = "gpt 2"
+CODEX_GROUP = "gpt 1"
 CODEX_MODEL = "gpt-5.5"
 CODEX_TOKEN_NAME = "GPT Image Tools - codex"
-VIDEO_GROUP = "视频生成"
 VIDEO_MODEL = "doubao-seedance-2.0"
-VIDEO_TOKEN_NAME = "GPT Image Tools - doubao-seedance-2.0"
 MAX_JSON_BODY = 16 * 1024
 MAX_OPENAI_PROXY_BODY = env_int("IMAGE_TOOLS_OPENAI_PROXY_MAX_BODY", 64 * 1024 * 1024)
 OPENAI_PROXY_CACHE_MAX_BYTES = env_int(
@@ -2123,38 +2119,17 @@ def obtain_managed_key(base_url: str, username: str, password: str) -> dict[str,
     session = NewApiSession(normalized_base_url)
     session.login(username.strip(), password)
 
-    image_key = session.obtain_token_key(IMAGE_TOKEN_NAME, IMAGE_GROUP, IMAGE_MODEL)
     codex_key = session.obtain_token_key(CODEX_TOKEN_NAME, CODEX_GROUP, CODEX_MODEL)
-    video_key = session.obtain_token_key(VIDEO_TOKEN_NAME, VIDEO_GROUP, VIDEO_MODEL)
 
     return {
         "baseUrl": normalized_base_url,
         "userId": session.user_id,
-        "apiKey": image_key["apiKey"],
-        "imageTokenId": image_key["tokenId"],
-        "imageBillingToken": make_billing_token(
-            int(session.user_id or 0),
-            int(image_key["tokenId"]),
-            str(image_key["tokenName"]),
-            str(image_key["group"]),
-            str(image_key["apiKey"]),
-        ),
-        "group": image_key["group"],
-        "model": image_key["model"],
-        "tokenName": image_key["tokenName"],
-        "created": image_key["created"],
         "codexApiKey": codex_key["apiKey"],
         "codexTokenId": codex_key["tokenId"],
         "codexGroup": codex_key["group"],
         "codexModel": codex_key["model"],
         "codexTokenName": codex_key["tokenName"],
         "codexCreated": codex_key["created"],
-        "videoApiKey": video_key["apiKey"],
-        "videoTokenId": video_key["tokenId"],
-        "videoGroup": video_key["group"],
-        "videoModel": video_key["model"],
-        "videoTokenName": video_key["tokenName"],
-        "videoCreated": video_key["created"],
     }
 
 

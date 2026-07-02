@@ -2364,43 +2364,33 @@ export function App() {
       })
 
       setTextBaseUrl(result.baseUrl)
-      setImageBaseUrl(result.baseUrl)
-      setApiKey(result.apiKey)
       setCodexApiKey(result.codexApiKey)
-      setImageBillingToken(result.imageBillingToken)
       setNewApiUserId(result.userId)
-      setImageTokenId(result.imageTokenId)
-      setImageTokenName(result.tokenName)
-      setVideoApiKey(result.videoApiKey)
-      setVideoTokenId(result.videoTokenId)
-      setVideoTokenName(result.videoTokenName)
-      setImageRetryCount(DEFAULT_IMAGE_RETRY_COUNT)
       setPersistApiKey(true)
-      setModel(DEFAULT_MODEL)
       setTextModel(result.codexModel || DEFAULT_TEXT_MODEL)
       await saveSettings({
-        baseUrl: result.baseUrl,
+        baseUrl: imageBaseUrl,
         textBaseUrl: result.baseUrl,
-        imageBaseUrl: result.baseUrl,
+        imageBaseUrl,
         persistApiKey: true,
-        apiKey: result.apiKey,
+        apiKey,
         codexApiKey: result.codexApiKey,
-        imageBillingToken: result.imageBillingToken,
+        imageBillingToken,
         newApiUserId: result.userId,
-        imageTokenId: result.imageTokenId,
-        imageTokenName: result.tokenName,
-        videoApiKey: result.videoApiKey,
-        videoTokenId: result.videoTokenId,
-        videoTokenName: result.videoTokenName,
+        imageTokenId,
+        imageTokenName,
+        videoApiKey,
+        videoTokenId,
+        videoTokenName,
         videoModel: DEFAULT_VIDEO_MODEL,
-        imageRetryCount: DEFAULT_IMAGE_RETRY_COUNT,
+        imageRetryCount,
         textModel: result.codexModel || DEFAULT_TEXT_MODEL,
         themeMode,
       })
       setLoginPassword('')
       setIsLoginDialogOpen(false)
       setStatus(
-        `${result.created ? '已创建' : '已启用'} ${result.group}，${result.codexCreated ? '已创建' : '已启用'} ${result.codexGroup}，${result.videoCreated ? '已创建' : '已启用'} ${result.videoGroup}`
+        `${result.codexCreated ? '已创建' : '已启用'} ${result.codexGroup} / ${result.codexModel}`
       )
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -5177,36 +5167,8 @@ ${description}`
                     <div className='connection-config-title'>
                       <Sparkles size={14} />
                       <span>文本模型</span>
-                      <small>用于优化提示词</small>
+                      <small>gpt 1 / gpt-5.5</small>
                     </div>
-                    <label className='field'>
-                      <span>文本模型 Base URL</span>
-                      <input
-                        value={textBaseUrl}
-                        onChange={(event) => setTextBaseUrl(event.target.value)}
-                        placeholder='https://hotapi.top'
-                        spellCheck={false}
-                      />
-                    </label>
-                    <label className='field'>
-                      <span>文本模型名称</span>
-                      <input
-                        value={DEFAULT_TEXT_MODEL}
-                        disabled
-                        placeholder='gpt-5.5'
-                        spellCheck={false}
-                      />
-                    </label>
-                    <label className='field'>
-                      <span>文本模型 API Key</span>
-                      <input
-                        value={codexApiKey}
-                        onChange={(event) => setCodexApiKey(event.target.value)}
-                        type='password'
-                        placeholder='sk-...'
-                        spellCheck={false}
-                      />
-                    </label>
                   </div>
 
                   <div className='button-grid'>
@@ -5328,7 +5290,7 @@ ${description}`
             <div className='dialog-header'>
               <div>
                 <strong>登录中转站</strong>
-                <span>自动获取生图、提示词优化和视频生成所需的分组秘钥</span>
+                <span>自动获取 gpt 1 分组的 gpt-5.5 秘钥</span>
               </div>
               <button
                 type='button'
@@ -5367,7 +5329,7 @@ ${description}`
               />
             </label>
             <p>
-              账号密码只用于本次登录中转站；服务端不保存。成功后仅把生图、Codex 和视频 API Key 保存到当前浏览器。
+              账号密码只用于本次登录中转站；服务端不保存。成功后仅把文本模型 API Key 保存到当前浏览器。
             </p>
             <div className='dialog-actions'>
               <button
