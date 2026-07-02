@@ -40,7 +40,6 @@ import {
   Monitor,
   Moon,
   Plus,
-  RefreshCw,
   Save,
   ShoppingBag,
   SlidersHorizontal,
@@ -82,7 +81,6 @@ import type {
   ImageGenerationTaskStatus,
   GeneratedVideo,
   LocalImageRecord,
-  ModelOption,
   PromptOptimizationPreset,
   ReferenceImage,
   StyleCategory,
@@ -107,7 +105,7 @@ const COMMERCE_PRODUCT_SHEET_SIZE = 1600
 const ADVANCED_SKETCH_WIDTH = 960
 const ADVANCED_SKETCH_HEIGHT = 540
 const CONFIGURATION_NOTICE_MESSAGE =
-  '请先在控制台补全生图 API Key 和模型，配置完成后再继续使用其他页面。'
+  '请先在控制台登录中转站，自动获取生成所需秘钥后再继续使用其他页面。'
 
 function normalizeImageRetryCount(value: unknown) {
   const count = Math.floor(Number(value))
@@ -194,6 +192,21 @@ function workflowSizeOptionLabel(value: string) {
   const preset = sizeOptions.find((option) => option.value === value)
   const ratio = preset?.ratio || ratioLabelForSize(value)
   return ratio ? `${ratio} · ${value}` : value
+}
+
+function validateCustomGenerationSize(customWidth: string, customHeight: string) {
+  const width = Number(customWidth)
+  const height = Number(customHeight)
+  if (!Number.isInteger(width) || !Number.isInteger(height)) {
+    return { value: '', error: '请输入整数宽高' }
+  }
+  if (width < 64 || height < 64 || width > 4096 || height > 4096) {
+    return { value: '', error: '宽高需在 64 到 4096 之间' }
+  }
+  if (width % 16 !== 0 || height % 16 !== 0) {
+    return { value: '', error: '宽高必须是 16 的倍数' }
+  }
+  return { value: `${width}x${height}`, error: '' }
 }
 
 function buildCommerceMainPrompt(description: string, categoryPath = '') {
@@ -971,17 +984,6 @@ function loadActiveCanvasId() {
   }
 }
 
-function imageModelScore(model: ModelOption) {
-  const id = model.id.toLowerCase()
-  if (id === DEFAULT_MODEL) return 0
-  if (id.includes('gpt-image')) return 1
-  if (id.includes('dall-e')) return 2
-  if (id.includes('imagen')) return 3
-  if (id.includes('flux')) return 4
-  if (id.includes('image')) return 5
-  return 20
-}
-
 function extractReferenceMentions(prompt: string, knownTitles: string[] = []) {
   const orderedTitles = [...new Set(knownTitles.map((title) => normalizeReferenceTitle(title)).filter(Boolean))].sort(
     (a, b) => b.length - a.length
@@ -1345,14 +1347,12 @@ export function App() {
   const [isNewApiLoggingIn, setIsNewApiLoggingIn] = useState(false)
   const [themeMode, setThemeMode] = useState<ThemeMode>('dark')
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark')
-  const [models, setModels] = useState<ModelOption[]>([])
   const [styles, setStyles] = useState<StyleOption[]>([])
   const [styleSummaries, setStyleSummaries] = useState<StyleOption[]>([])
   const [styleCategories, setStyleCategories] = useState<StyleCategory[]>([])
   const [isLoadingStyles, setIsLoadingStyles] = useState(false)
   const [model, setModel] = useState(DEFAULT_MODEL)
   const [textModel, setTextModel] = useState(DEFAULT_TEXT_MODEL)
-  const [videoModel, setVideoModel] = useState(DEFAULT_VIDEO_MODEL)
   const [videoAspectRatio, setVideoAspectRatio] = useState('16:9')
   const [videoDuration, setVideoDuration] = useState(5)
   const [videoResolution, setVideoResolution] = useState<'480p' | '720p'>('720p')
@@ -1364,7 +1364,6 @@ export function App() {
   const [count, setCount] = useState(1)
   const [responseFormat, setResponseFormat] = useState<'url' | 'b64_json'>('url')
   const [inputFidelity, setInputFidelity] = useState<'low' | 'high'>('high')
-  const [advancedModel, setAdvancedModel] = useState(DEFAULT_MODEL)
   const [advancedSize, setAdvancedSize] = useState('1024x1024')
   const [advancedSizeMode, setAdvancedSizeMode] = useState<'preset' | 'custom'>('preset')
   const [advancedCustomSizeWidth, setAdvancedCustomSizeWidth] = useState('1024')
@@ -1404,7 +1403,6 @@ export function App() {
   const [activeCanvasId, setActiveCanvasId] = useState(loadActiveCanvasId)
   const [renamingCanvasId, setRenamingCanvasId] = useState<string | null>(null)
   const [renamingCanvasName, setRenamingCanvasName] = useState('')
-  const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [isQuickGenerating, setIsQuickGenerating] = useState(false)
   const [isAdvancedGenerating, setIsAdvancedGenerating] = useState(false)
   const [isCommerceGenerating, setIsCommerceGenerating] = useState(false)
@@ -1496,7 +1494,7 @@ export function App() {
     }),
     [codexApiKey, textBaseUrl]
   )
-  const isConfigured = Boolean(imageBaseUrl.trim() && apiKey.trim() && model.trim())
+  const isConfigured = Boolean(imageBaseUrl.trim() && apiKey.trim())
   const updateActiveCanvas = useCallback(
     (updater: (canvas: WorkflowCanvas) => WorkflowCanvas) => {
       setCanvases((currentCanvases) =>
@@ -1666,15 +1664,6 @@ export function App() {
     [setEdges]
   )
 
-  const sortedModels = useMemo(
-    () =>
-      [...models].sort((a, b) => {
-        const diff = imageModelScore(a) - imageModelScore(b)
-        return diff || a.id.localeCompare(b.id)
-      }),
-    [models]
-  )
-
   useEffect(() => {
     void getSettings()
       .then((settings) => {
@@ -1684,7 +1673,6 @@ export function App() {
         setPersistApiKey(Boolean(settings.persistApiKey))
         setThemeMode(settings.themeMode || 'system')
         setTextModel(settings.textModel || DEFAULT_TEXT_MODEL)
-        setVideoModel(settings.videoModel || DEFAULT_VIDEO_MODEL)
         if (settings.persistApiKey && settings.apiKey) {
           setApiKey(settings.apiKey)
           setImageBillingToken(settings.imageBillingToken || '')
@@ -2129,7 +2117,7 @@ export function App() {
       videoApiKey,
       videoTokenId,
       videoTokenName,
-      videoModel,
+      videoModel: DEFAULT_VIDEO_MODEL,
       imageRetryCount,
       textModel,
       themeMode,
@@ -2154,8 +2142,6 @@ export function App() {
     setPersistApiKey(false)
     setModel(DEFAULT_MODEL)
     setTextModel(DEFAULT_TEXT_MODEL)
-    setVideoModel(DEFAULT_VIDEO_MODEL)
-    setModels([])
     setLoginPassword('')
     setIsLoginDialogOpen(false)
     await saveSettings({
@@ -2190,7 +2176,7 @@ export function App() {
       videoApiKey,
       videoTokenId,
       videoTokenName,
-      videoModel,
+      videoModel: DEFAULT_VIDEO_MODEL,
       imageRetryCount,
       textModel,
       themeMode: nextThemeMode,
@@ -2220,7 +2206,6 @@ export function App() {
       setPersistApiKey(Boolean(settings.persistApiKey))
       setThemeMode(settings.themeMode || 'system')
       setTextModel(settings.textModel || DEFAULT_TEXT_MODEL)
-      setVideoModel(settings.videoModel || DEFAULT_VIDEO_MODEL)
       setApiKey('')
       setCodexApiKey('')
       setImageBillingToken('')
@@ -2361,30 +2346,6 @@ export function App() {
     )
   }
 
-  async function handleFetchModels() {
-    setError('')
-    setStatus('正在获取模型...')
-    setIsLoadingModels(true)
-
-    try {
-      const nextModels = await bridge.listModels({ baseUrl: imageBaseUrl, apiKey })
-      setModels(nextModels)
-
-      const preferred =
-        nextModels.find((item) => item.id === DEFAULT_MODEL) ||
-        [...nextModels].sort((a, b) => imageModelScore(a) - imageModelScore(b))[0]
-
-      if (preferred) setModel(preferred.id)
-      setStatus(`已获取 ${nextModels.length} 个模型`)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      setError(message)
-      setStatus('获取模型失败')
-    } finally {
-      setIsLoadingModels(false)
-    }
-  }
-
   async function handleNewApiLogin() {
     if (!loginUsername.trim() || !loginPassword) {
       setError('请输入中转站账号和密码')
@@ -2415,9 +2376,8 @@ export function App() {
       setVideoTokenName(result.videoTokenName)
       setImageRetryCount(DEFAULT_IMAGE_RETRY_COUNT)
       setPersistApiKey(true)
-      setModel(result.model || DEFAULT_MODEL)
+      setModel(DEFAULT_MODEL)
       setTextModel(result.codexModel || DEFAULT_TEXT_MODEL)
-      setVideoModel(result.videoModel || DEFAULT_VIDEO_MODEL)
       await saveSettings({
         baseUrl: result.baseUrl,
         textBaseUrl: result.baseUrl,
@@ -2432,7 +2392,7 @@ export function App() {
         videoApiKey: result.videoApiKey,
         videoTokenId: result.videoTokenId,
         videoTokenName: result.videoTokenName,
-        videoModel: result.videoModel || DEFAULT_VIDEO_MODEL,
+        videoModel: DEFAULT_VIDEO_MODEL,
         imageRetryCount: DEFAULT_IMAGE_RETRY_COUNT,
         textModel: result.codexModel || DEFAULT_TEXT_MODEL,
         themeMode,
@@ -2602,7 +2562,10 @@ export function App() {
     }
     const generationSize = selectedGenerationSize()
     if (!generationSize) {
-      setError('请输入 64 到 4096 之间的自定义宽高')
+      setError(
+        generationSizeValidationErrorFor(sizeMode, customSizeWidth, customSizeHeight) ||
+          '请输入有效的自定义宽高'
+      )
       return
     }
     setError('')
@@ -2822,12 +2785,16 @@ export function App() {
     customHeight: string
   ) {
     if (mode === 'preset') return presetSize
+    return validateCustomGenerationSize(customWidth, customHeight).value
+  }
 
-    const width = Number(customWidth)
-    const height = Number(customHeight)
-    if (!Number.isInteger(width) || !Number.isInteger(height)) return ''
-    if (width < 64 || height < 64 || width > 4096 || height > 4096) return ''
-    return `${width}x${height}`
+  function generationSizeValidationErrorFor(
+    mode: 'preset' | 'custom',
+    customWidth: string,
+    customHeight: string
+  ) {
+    if (mode === 'preset') return ''
+    return validateCustomGenerationSize(customWidth, customHeight).error
   }
 
   function selectedGenerationSize() {
@@ -3092,7 +3059,16 @@ ${description}`
       ? selectedAdvancedGenerationSize()
       : selectedGenerationSize()
     if (!generationSize) {
-      setError('请输入 64 到 4096 之间的自定义宽高')
+      setError(
+        (includeAdvancedControls
+          ? generationSizeValidationErrorFor(
+              advancedSizeMode,
+              advancedCustomSizeWidth,
+              advancedCustomSizeHeight
+            )
+          : generationSizeValidationErrorFor(sizeMode, customSizeWidth, customSizeHeight)) ||
+          '请输入有效的自定义宽高'
+      )
       return
     }
     if (!prompt) {
@@ -3128,7 +3104,7 @@ ${description}`
         baseUrl: imageBaseUrl,
         apiKey,
         mode: 'text',
-        model: includeAdvancedControls ? advancedModel : model,
+        model: DEFAULT_MODEL,
         prompt: finalPrompt,
         size: generationSize,
         quality: includeAdvancedControls ? advancedQuality : quality,
@@ -3148,7 +3124,7 @@ ${description}`
       })
       const records = buildLocalImageRecords(result.images, {
         prompt: finalPrompt,
-        model: includeAdvancedControls ? advancedModel : model,
+        model: DEFAULT_MODEL,
         size: generationSize,
         quality: includeAdvancedControls ? advancedQuality : quality,
         mode: 'text',
@@ -3225,7 +3201,10 @@ ${description}`
     }
     const generationSize = selectedGenerationSize()
     if (!generationSize) {
-      setError('请输入 64 到 4096 之间的自定义宽高')
+      setError(
+        generationSizeValidationErrorFor(sizeMode, customSizeWidth, customSizeHeight) ||
+          '请输入有效的自定义宽高'
+      )
       return
     }
     if (commerceProductImages.length === 0) {
@@ -3488,11 +3467,6 @@ ${description}`
       return
     }
 
-    if (!videoModel.trim()) {
-      setStatus('请先填写视频模型名称')
-      return
-    }
-
     setError('')
     setStatus('正在提交视频生成任务...')
     setGeneratingVideoNodeIds((current) => new Set(current).add(nodeId))
@@ -3501,7 +3475,7 @@ ${description}`
       const result = await bridge.generateVideo({
         baseUrl: imageBaseUrl,
         apiKey: videoApiKey,
-        model: videoModel.trim(),
+        model: DEFAULT_VIDEO_MODEL,
         prompt,
         duration: videoDuration,
         resolution: videoResolution,
@@ -3610,6 +3584,11 @@ ${description}`
         !activeCanvasGenerating &&
         Boolean(apiKey && imageBaseUrl && model && getWorkflowNodePrompt(promptNode).trim())
       const activeSize = selectedGenerationSize() || size
+      const sizeValidationError = generationSizeValidationErrorFor(
+        sizeMode,
+        customSizeWidth,
+        customSizeHeight
+      )
       const workflowSizes = sizes.includes(activeSize) ? sizes : [activeSize, ...sizes]
       const workflowSizeOptions = workflowSizes.map((item) => ({
         value: item,
@@ -3618,15 +3597,19 @@ ${description}`
 
       return {
         onDeleteNode: deleteWorkflowNode,
-        model,
-        sortedModels,
-        setModel,
         size: activeSize,
+        sizeMode,
         sizeOptions: workflowSizeOptions,
         setSize: (nextSize: string) => {
           setSizeMode('preset')
           setSize(nextSize)
         },
+        setSizeMode,
+        customSizeWidth,
+        customSizeHeight,
+        setCustomSizeWidth,
+        setCustomSizeHeight,
+        sizeValidationError,
         quality,
         qualities,
         setQuality,
@@ -3640,7 +3623,7 @@ ${description}`
         setInputFidelity,
         generationMode,
         isGenerating: activeCanvasGenerating,
-        canGenerate: canGenerateNode,
+        canGenerate: canGenerateNode && !sizeValidationError,
         onGenerate: () => void handleGenerate(node.id),
         image: images.find((image) => image.id === getWorkflowNodeLatestImageId(node)) || null,
         outputTitle: getWorkflowNodeOutputTitle(node),
@@ -3666,13 +3649,11 @@ ${description}`
         (promptEdge ? nodes.find((item) => item.id === promptEdge.source) : null) ||
         nodes.find((item) => item.type === 'prompt') ||
         null
-      const canGenerateVideo = Boolean(videoModel.trim() && getWorkflowNodePrompt(promptNode).trim())
+      const canGenerateVideo = Boolean(getWorkflowNodePrompt(promptNode).trim())
       const isGeneratingVideo = generatingVideoNodeIds.has(node.id)
 
       return {
         onDeleteNode: deleteWorkflowNode,
-        model: videoModel,
-        setModel: setVideoModel,
         aspectRatio: videoAspectRatio,
         aspectRatios: videoAspectRatios,
         setAspectRatio: setVideoAspectRatio,
@@ -3716,7 +3697,6 @@ ${description}`
       isLoadingStyles,
       setStyleNodeSelection,
       model,
-      sortedModels,
       size,
       sizeMode,
       customSizeWidth,
@@ -3725,7 +3705,6 @@ ${description}`
       count,
       responseFormat,
       inputFidelity,
-      videoModel,
       videoAspectRatio,
       videoDuration,
       videoResolution,
@@ -3954,7 +3933,7 @@ ${description}`
     },
     advanced: {
       title: '高级生成',
-      description: '完整控制生图模型、尺寸、质量、数量和返回参数。',
+      description: '完整控制尺寸、质量、数量和返回参数。',
     },
     commerce: {
       title: '电商主题',
@@ -3962,7 +3941,7 @@ ${description}`
     },
     console: {
       title: '控制台',
-      description: '管理连接、模型和本地数据导入导出。',
+      description: '管理连接和本地数据导入导出。',
     },
     gallery: {
       title: '图库',
@@ -4250,7 +4229,7 @@ ${description}`
               </span>
               <span>
                 <strong>GPT Image Tools</strong>
-                <small>{isConfigured ? `已配置 ${model}` : '先完成控制台配置'}</small>
+                <small>{isConfigured ? '连接已配置' : '先完成控制台配置'}</small>
               </span>
             </button>
             <nav id='app-sidebar-nav' className='portal-nav app-sidebar-nav' aria-label='主导航'>
@@ -4581,7 +4560,7 @@ ${description}`
               </span>
               <span>
                 <strong>GPT Image Tools</strong>
-                <small>{isConfigured ? `已配置 ${model}` : '先完成控制台配置'}</small>
+                <small>{isConfigured ? '连接已配置' : '先完成控制台配置'}</small>
               </span>
             </button>
             <nav id='app-sidebar-nav' className='portal-nav app-sidebar-nav' aria-label='主导航'>
@@ -4692,20 +4671,6 @@ ${description}`
                     />
                   </label>
                   <div className='simple-param-grid'>
-                    <label className='field'>
-                      <span>模型</span>
-                      <select value={model} onChange={(event) => setModel(event.target.value)}>
-                        {sortedModels.length === 0 ? (
-                          <option value={model}>{model}</option>
-                        ) : (
-                          sortedModels.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.id}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                    </label>
                     {renderSizeField()}
                     <label className='field'>
                       <span>质量</span>
@@ -4919,23 +4884,6 @@ ${description}`
                   </div>
                 </section>
                 <div className='advanced-param-grid'>
-                  <label className='field'>
-                    <span>模型</span>
-                    <select
-                      value={advancedModel}
-                      onChange={(event) => setAdvancedModel(event.target.value)}
-                    >
-                      {sortedModels.length === 0 ? (
-                        <option value={advancedModel}>{advancedModel}</option>
-                      ) : (
-                        sortedModels.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.id}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </label>
                   {renderSizeField({
                     size: advancedSize,
                     sizeMode: advancedSizeMode,
@@ -5135,20 +5083,6 @@ ${description}`
                   />
                 </label>
                 <div className='simple-param-grid commerce-param-grid'>
-                  <label className='field'>
-                    <span>模型</span>
-                    <select value={model} onChange={(event) => setModel(event.target.value)}>
-                      {sortedModels.length === 0 ? (
-                        <option value={model}>{model}</option>
-                      ) : (
-                        sortedModels.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.id}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </label>
                   {renderSizeField()}
                   <label className='field'>
                     <span>质量</span>
@@ -5275,98 +5209,6 @@ ${description}`
                     </label>
                   </div>
 
-                  <div className='connection-config-block'>
-                    <div className='connection-config-title'>
-                      <Sparkles size={14} />
-                      <span>生图模型</span>
-                    </div>
-                    <label className='field'>
-                      <span>生图模型 Base URL</span>
-                      <input
-                        value={imageBaseUrl}
-                        onChange={(event) => setImageBaseUrl(event.target.value)}
-                        placeholder='https://hotapi.top'
-                        spellCheck={false}
-                      />
-                    </label>
-                    <label className='field'>
-                      <span>生图模型名称</span>
-                      <select value={model} onChange={(event) => setModel(event.target.value)}>
-                        {sortedModels.length === 0 ? (
-                          <option value={model}>{model}</option>
-                        ) : (
-                          <>
-                            {sortedModels.some((item) => item.id === model) ? null : (
-                              <option value={model}>{model}</option>
-                            )}
-                            {sortedModels.map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.id}
-                              </option>
-                            ))}
-                          </>
-                        )}
-                      </select>
-                    </label>
-                    <label className='field'>
-                      <span>生图模型 API Key</span>
-                      <input
-                        value={apiKey}
-                        onChange={(event) => setApiKey(event.target.value)}
-                        type='password'
-                        placeholder='sk-...'
-                        spellCheck={false}
-                      />
-                    </label>
-                    <label className='field'>
-                      <span>上游失败重试次数</span>
-                      <input
-                        value={imageRetryCount}
-                        onChange={(event) =>
-                          setImageRetryCount(normalizeImageRetryCount(event.target.value))
-                        }
-                        type='number'
-                        min={0}
-                        max={5}
-                        step={1}
-                      />
-                    </label>
-                  </div>
-
-                  <div className='connection-config-block'>
-                    <div className='connection-config-title connection-config-title-video'>
-                      <Sparkles size={14} />
-                      <span>视频模型</span>
-                      <small>视频生成 分组</small>
-                    </div>
-                    <label className='field'>
-                      <span>视频模型名称</span>
-                      <input
-                        value={videoModel}
-                        onChange={(event) => setVideoModel(event.target.value)}
-                        placeholder={DEFAULT_VIDEO_MODEL}
-                        spellCheck={false}
-                      />
-                    </label>
-                    <label className='field'>
-                      <span>视频模型 API Key</span>
-                      <input
-                        value={videoApiKey}
-                        onChange={(event) => setVideoApiKey(event.target.value)}
-                        type='password'
-                        placeholder='sk-...'
-                        spellCheck={false}
-                      />
-                    </label>
-                  </div>
-                  <label className='checkbox-row'>
-                    <input
-                      type='checkbox'
-                      checked={persistApiKey}
-                      onChange={(event) => setPersistApiKey(event.target.checked)}
-                    />
-                    <span>将 API Key 保存到当前浏览器</span>
-                  </label>
                   <div className='button-grid'>
                     <button
                       className='secondary login-button'
@@ -5390,18 +5232,6 @@ ${description}`
                     <button className='secondary' onClick={handleSaveSettings}>
                       <Save size={16} />
                       保存设置
-                    </button>
-                    <button
-                      className='secondary'
-                      onClick={handleFetchModels}
-                      disabled={isLoadingModels || !imageBaseUrl || !apiKey}
-                    >
-                      {isLoadingModels ? (
-                        <Loader2 className='spin' size={16} />
-                      ) : (
-                        <RefreshCw size={16} />
-                      )}
-                      获取模型
                     </button>
                   </div>
                 </section>

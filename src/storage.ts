@@ -130,7 +130,6 @@ function backupSettingsFrom(settings: AppSettings): BackupSettings {
     persistApiKey: false,
     imageRetryCount: settings.imageRetryCount ?? DEFAULT_SETTINGS.imageRetryCount,
     textModel: settings.textModel || DEFAULT_SETTINGS.textModel,
-    videoModel: settings.videoModel || DEFAULT_SETTINGS.videoModel,
     themeMode: settings.themeMode || 'system',
   }
 }
@@ -250,7 +249,6 @@ export async function importBackup(backup: unknown): Promise<number> {
         candidate.settings.imageRetryCount ?? current.imageRetryCount
       ),
       textModel: candidate.settings.textModel || current.textModel,
-      videoModel: candidate.settings.videoModel || current.videoModel,
       themeMode: candidate.settings.themeMode || current.themeMode,
       persistApiKey: false,
       apiKey: '',

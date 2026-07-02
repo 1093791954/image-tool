@@ -428,11 +428,10 @@ function normalizedImageApiSize(model: string, size: string) {
   const width = Number(match[1])
   const height = Number(match[2])
   if (!Number.isFinite(width) || !Number.isFinite(height)) return size
-  if (Math.abs(width - height) / Math.max(width, height) < 0.08) return '1024x1024'
-  const ratio = width / height
-  if (ratio >= 0.68 && ratio <= 0.82) return '1024x1360'
-  if (ratio >= 1.22 && ratio <= 1.47) return '1360x1024'
-  return height > width ? '864x1536' : '1536x864'
+  if (width >= 64 && height >= 64 && width <= 4096 && height <= 4096 && width % 16 === 0 && height % 16 === 0) {
+    return size
+  }
+  return size
 }
 
 function shouldSendImageResponseFormat(model: string, responseFormat: 'url' | 'b64_json') {

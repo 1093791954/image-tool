@@ -83,12 +83,16 @@ export type StyleNodeData = {
 } & BaseNodeData
 
 export type GenerateNodeData = {
-  model: string
-  sortedModels: Array<{ id: string }>
-  setModel: Dispatch<SetStateAction<string>>
   size: string
+  sizeMode: 'preset' | 'custom'
   sizeOptions: Array<{ value: string; label: string }>
   setSize: (value: string) => void
+  setSizeMode: Dispatch<SetStateAction<'preset' | 'custom'>>
+  customSizeWidth: string
+  customSizeHeight: string
+  setCustomSizeWidth: Dispatch<SetStateAction<string>>
+  setCustomSizeHeight: Dispatch<SetStateAction<string>>
+  sizeValidationError: string
   quality: string
   qualities: string[]
   setQuality: Dispatch<SetStateAction<string>>
@@ -113,8 +117,6 @@ export type GenerateNodeData = {
 } & BaseNodeData
 
 export type VideoNodeData = {
-  model: string
-  setModel: Dispatch<SetStateAction<string>>
   aspectRatio: string
   aspectRatios: string[]
   setAspectRatio: Dispatch<SetStateAction<string>>
@@ -156,6 +158,17 @@ type MentionState = {
   start: number
   end: number
 } | null
+
+const CUSTOM_SIZE_VALUE = 'custom'
+
+function parseNodeSizeValue(value: string) {
+  const match = value.match(/^(\d{2,5})x(\d{2,5})$/)
+  if (!match) return null
+  return {
+    width: match[1],
+    height: match[2],
+  }
+}
 
 function normalizeMentionTitle(value: string) {
   return value.trim().replace(/^@+/, '')
@@ -776,30 +789,68 @@ export function GenerateNode({ id, data }: NodeProps<GenerateFlowNode>) {
         )}
       </div>
       <div className='node-param-grid nodrag'>
-        <label>
-          <span>模型</span>
-          <select value={data.model} onChange={(event) => data.setModel(event.target.value)}>
-            {data.sortedModels.length === 0 ? (
-              <option value={data.model}>{data.model}</option>
-            ) : (
-              data.sortedModels.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.id}
-                </option>
-              ))
-            )}
-          </select>
-        </label>
         <label className='node-param-size-field'>
           <span>尺寸</span>
-          <select value={data.size} onChange={(event) => data.setSize(event.target.value)}>
+          <select
+            value={data.sizeMode === 'custom' ? CUSTOM_SIZE_VALUE : data.size}
+            onChange={(event) => {
+              const nextSize = event.target.value
+              if (nextSize === CUSTOM_SIZE_VALUE) {
+                const parsedSize = parseNodeSizeValue(data.size)
+                if (parsedSize) {
+                  data.setCustomSizeWidth(parsedSize.width)
+                  data.setCustomSizeHeight(parsedSize.height)
+                }
+                data.setSizeMode('custom')
+                return
+              }
+              data.setSizeMode('preset')
+              data.setSize(nextSize)
+            }}
+          >
             {data.sizeOptions.map((item) => (
               <option key={item.value} value={item.value}>
                 {item.label}
               </option>
             ))}
+            <option value={CUSTOM_SIZE_VALUE}>自定义尺寸</option>
           </select>
         </label>
+        {data.sizeMode === 'custom' ? (
+          <div className='node-param-custom-size-field'>
+            <label>
+              <span>宽</span>
+              <input
+                type='number'
+                min='64'
+                max='4096'
+                step='16'
+                value={data.customSizeWidth}
+                onChange={(event) => data.setCustomSizeWidth(event.target.value)}
+                aria-invalid={Boolean(data.sizeValidationError)}
+                aria-label='自定义宽度'
+              />
+            </label>
+            <label>
+              <span>高</span>
+              <input
+                type='number'
+                min='64'
+                max='4096'
+                step='16'
+                value={data.customSizeHeight}
+                onChange={(event) => data.setCustomSizeHeight(event.target.value)}
+                aria-invalid={Boolean(data.sizeValidationError)}
+                aria-label='自定义高度'
+              />
+            </label>
+            {data.sizeValidationError ? (
+              <p className='node-param-error' role='alert'>
+                {data.sizeValidationError}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         <label>
           <span>质量</span>
           <select
@@ -906,15 +957,6 @@ export function VideoNode({ id, data }: NodeProps<VideoFlowNode>) {
         )}
       </div>
       <div className='node-param-grid nodrag'>
-        <label className='node-param-wide-field'>
-          <span>模型</span>
-          <input
-            value={data.model}
-            onChange={(event) => data.setModel(event.target.value)}
-            placeholder='video-01'
-            spellCheck={false}
-          />
-        </label>
         <label>
           <span>比例</span>
           <select

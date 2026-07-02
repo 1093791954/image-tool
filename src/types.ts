@@ -31,6 +31,7 @@ export type BackupSettings = Omit<
   | 'videoApiKey'
   | 'videoTokenId'
   | 'videoTokenName'
+  | 'videoModel'
   | 'persistApiKey'
 > & {
   persistApiKey: false

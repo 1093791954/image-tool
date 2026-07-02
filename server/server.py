@@ -943,14 +943,9 @@ def normalized_image_api_size(model: str, size: str) -> str:
         return size
     width = int(match.group(1))
     height = int(match.group(2))
-    if abs(width - height) / max(width, height) < 0.08:
-        return "1024x1024"
-    ratio = width / height
-    if 0.68 <= ratio <= 0.82:
-        return "1024x1360"
-    if 1.22 <= ratio <= 1.47:
-        return "1360x1024"
-    return "864x1536" if height > width else "1536x864"
+    if 64 <= width <= 4096 and 64 <= height <= 4096 and width % 16 == 0 and height % 16 == 0:
+        return size
+    return size
 
 
 def image_billing_quota(_size: str, image_count: int = 1) -> tuple[str, int, str]:

@@ -3185,6 +3185,21 @@ select:disabled {
   grid-column: span 2;
 }
 
+.node-param-custom-size-field {
+  grid-column: span 3;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.node-param-custom-size-field .node-param-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 650;
+}
+
 .flow-node-cyan .node-param-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -4141,6 +4156,11 @@ select:disabled {
 
   .flow-node-pink .node-param-size-field {
     grid-column: auto;
+  }
+
+  .node-param-custom-size-field {
+    grid-column: auto;
+    grid-template-columns: 1fr;
   }
 
   .gallery-page .gallery-strip {
